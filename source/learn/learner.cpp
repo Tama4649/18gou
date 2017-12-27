@@ -32,8 +32,6 @@
 #define LEARN_UPDATE "AdaGrad"
 #elif defined(SGD_UPDATE)
 #define LEARN_UPDATE "SGD"
-#elif defined(ADA_PROP_UPDATE)
-#define LEARN_UPDATE "AdaProp"
 #endif
 
 #if defined(LOSS_FUNCTION_IS_WINNING_PERCENTAGE)
@@ -196,7 +194,7 @@ struct SfenWriter
 		auto output_status = [&]()
 		{
 			// 現在時刻も出力
-			cout << endl << sfen_write_count << " sfens , at " << now_string() << endl;
+			sync_cout << endl << sfen_write_count << " sfens , at " << now_string() << sync_endl;
 
 			// flush()はこのタイミングで十分。
 			fs.flush();
@@ -237,7 +235,7 @@ struct SfenWriter
 						// ファイルにつける連番
 						int n = (int)(sfen_write_count / save_every);
 						// ファイル名を変更して再度openする。上書き考慮してios::appをつけておく。(運用によっては、ないほうがいいかも..)
-						string filename = filename_ + std::to_string(n);
+						string filename = filename_ + "_" + std::to_string(n);
 						fs.open(filename, ios::out | ios::binary | ios::app);
 						cout << endl << "output sfen file = " << filename << endl;
 					}
@@ -864,6 +862,9 @@ void gen_sfen(Position&, istringstream& is)
 	// ファイル名は file_1.bin , file_2.binのように連番がつく。
 	u64 save_every = UINT64_MAX;
 
+	// ファイル名の末尾にランダムな数値を付与する。
+	bool random_file_name = false;
+
 	while (true)
 	{
 		token = "";
@@ -907,6 +908,8 @@ void gen_sfen(Position&, istringstream& is)
 			is >> use_eval_hash;
 		else if (token == "save_every")
 			is >> save_every;
+		else if (token == "random_file_name")
+			is >> random_file_name;
 		else
 			cout << "Error! : Illegal token " << token << endl;
 	}
@@ -923,7 +926,23 @@ void gen_sfen(Position&, istringstream& is)
 	if (random_multi_pv_depth == INT_MIN)
 		random_multi_pv_depth = search_depth;
 
-	std::cout << "gen_sfen : " << endl
+	if (random_file_name)
+	{
+		// output_file_nameにこの時点でランダムな数値を付与してしまう。
+		PRNG r;
+		// 念のため乱数振り直しておく。
+		for(int i=0;i<10;++i)
+			r.rand(1);
+		auto to_hex = [](u64 u){
+			std::stringstream ss;
+			ss << std::hex << u;
+			return ss.str();
+		};
+		// 64bitの数値で偶然かぶると嫌なので念のため64bitの数値２つくっつけておく。
+		output_file_name = output_file_name + "_" + to_hex(r.rand<u64>()) + to_hex(r.rand<u64>());
+	}
+
+	std::cout << "gensfen : " << endl
 		<< "  search_depth = " << search_depth << " to " << search_depth2 << endl
 		<< "  loop_max = " << loop_max << endl
 		<< "  eval_limit = " << eval_limit << endl
@@ -940,7 +959,8 @@ void gen_sfen(Position&, istringstream& is)
 		<< "  write_maxply           = " << write_maxply << endl
 		<< "  output_file_name       = " << output_file_name << endl
 		<< "  use_eval_hash          = " << use_eval_hash << endl
-		<< "  save_every             = " << save_every << endl;
+		<< "  save_every             = " << save_every << endl
+		<< "  random_file_name       = " << random_file_name << endl;
 
 	// Options["Threads"]の数だけスレッドを作って実行。
 	{
@@ -966,7 +986,7 @@ void gen_sfen(Position&, istringstream& is)
 		// 表示させるべきなのでここをブロックで囲む。
 	}
 
-	std::cout << "gen_sfen finished." << endl;
+	std::cout << "gensfen finished." << endl;
 
 #if defined(USE_GLOBAL_OPTIONS)
 	// GlobalOptionsの復元。
@@ -1469,6 +1489,9 @@ struct LearnerThink: public MultiThink
 	// 割引率
 	double discount_rate;
 
+	// 序盤を学習対象から外すオプション
+	int reduction_gameply;
+
 	// kk/kkp/kpp/kpppを学習させないオプション
 	std::array<bool,4> freeze;
 
@@ -1765,6 +1788,10 @@ void LearnerThink::thread_worker(size_t thread_id)
 		if (eval_limit < abs(ps.score))
 			goto RetryRead;
 
+		// 序盤局面に関する読み飛ばし
+		if (ps.gamePly < prng.rand(reduction_gameply))
+			goto RetryRead;
+
 #if 0
 		auto sfen = pos.sfen_unpack(ps.data);
 		pos.set(sfen);
@@ -1961,7 +1988,7 @@ void shuffle_write(const string& output_file_name , PRNG& prng , vector<fstream>
 	};
 
 
-	std::cout << "write : " << output_file_name << endl;
+	cout << endl <<  "write : " << output_file_name << endl;
 
 	fstream fs(output_file_name, ios::out | ios::binary);
 
@@ -2059,6 +2086,7 @@ void shuffle_files(const vector<string>& filenames , const string& output_file_n
 	for (auto filename : filenames)
 	{
 		fstream fs(filename, ios::in | ios::binary);
+		cout << endl << "open file = " << filename;
 		while (fs.read((char*)&buf[buf_write_marker], sizeof(PackedSfenValue)))
 			if (++buf_write_marker == buffer_size)
 				write_buffer(buffer_size);
@@ -2071,6 +2099,15 @@ void shuffle_files(const vector<string>& filenames , const string& output_file_n
 	// シャッフルされたファイルがwrite_file_count個だけ書き出された。
 	// 2pass目として、これをすべて同時にオープンし、ランダムに1つずつ選択して1局面ずつ読み込めば
 	// これにてシャッフルされたことになる。
+
+	// シャツフルする元ファイル+tmpファイル+書き出すファイルで元ファイルの3倍のストレージ容量が必要になる。
+	// 100億局面400GBなのでシャッフルするために1TBのSSDでは足りない。
+	// tmpに書き出しが終わったこのタイミングで元ファイルを消す(あるいは手で削除してしまう)なら、
+	// 元ファイルの2倍程度のストレージ容量で済む。
+	// だから、元ファイルを消すためのオプションを用意すべきかも知れない。
+
+	// ファイルの同時openをしている。これがFOPEN_MAXなどを超える可能性は高い。
+	// その場合、buffer_sizeを調整して、ファイルの数を減らすよりない。
 
 	vector<fstream> afs;
 	for (u64 i = 0; i < write_file_count; ++i)
@@ -2161,6 +2198,97 @@ void shuffle_files_on_memory(const vector<string>& filenames,const string output
 	std::cout << "..shuffle_on_memory done." << std::endl;
 }
 
+void convert_bin(const vector<string>& filenames , const string& output_file_name)
+{
+	std::fstream fs;
+	auto th = Threads.main();
+	auto &tpos = th->rootPos;
+	// plain形式の雑巾をやねうら王用のpackedsfenvalueに変換する
+	fs.open(output_file_name, ios::app | ios::binary);
+
+	for (auto filename : filenames) {
+		std::cout << "convert " << filename << " ... ";
+		std::string line;
+		ifstream ifs;
+		ifs.open(filename);
+		PackedSfenValue p;
+		p.gamePly = 1; // apery形式では含まれない。一応初期化するべし
+		while (std::getline(ifs, line)) {
+			std::stringstream ss(line);
+			std::string token;
+			std::string value;
+			ss >> token;
+			if (token == "sfen") {
+				StateInfo si;
+				tpos.set(line.substr(5), &si, Threads.main());
+				tpos.sfen_pack(p.sfen);
+			}
+			else if (token == "move") {
+				ss >> value;
+				p.move = move_from_usi(value);
+			}
+			else if (token == "score") {
+				ss >> p.score;
+			}
+			else if (token == "ply") {
+				int temp;
+				ss >> temp;
+				p.gamePly = u16(temp); // 此処のキャストいらない？
+			}
+			else if (token == "result") {
+				int temp;
+				ss >> temp;
+				p.game_result = s8(temp); // 此処のキャストいらない？
+			}
+			else if (token == "e") {
+				fs.write((char*)&p, sizeof(PackedSfenValue));
+				// debug
+				/*
+				std::cout<<tpos<<std::endl;
+				std::cout<<to_usi_string(Move(p.move))<<","<<p.score<<","<<int(p.gamePly)<<","<<int(p.game_result)<<std::endl;
+				*/
+			}
+		}
+		std::cout << "done" << std::endl;
+		ifs.close();
+	}
+	std::cout << "all done" << std::endl;
+	fs.close();
+}
+  
+void convert_plain(const vector<string>& filenames , const string& output_file_name)
+{
+	Position tpos;
+	std::ofstream ofs;
+	ofs.open(output_file_name, ios::app);
+	for (auto filename : filenames) {
+		std::cout << "convert " << filename << " ... ";
+
+		// ひたすらpackedsfenvalueをテキストに変換する
+		std::fstream fs;
+		fs.open(filename, ios::in | ios::binary);
+		PackedSfenValue p;
+		while (true)
+		{
+			if (fs.read((char*)&p, sizeof(PackedSfenValue))) {
+				// plain textとして書き込む
+				ofs << "sfen " << tpos.sfen_unpack(p.sfen) << std::endl;
+				ofs << "move " << to_usi_string(Move(p.move)) << std::endl;
+				ofs << "score " << p.score << std::endl;
+				ofs << "ply " << int(p.gamePly) << std::endl;
+				ofs << "result " << int(p.game_result) << std::endl;
+				ofs << "e" << std::endl;
+			}
+			else {
+				break;
+			}
+		}
+		fs.close();
+		std::cout << "done" << std::endl;
+	}
+	ofs.close();
+	std::cout << "all done" << std::endl;
+}
 
 // 生成した棋譜からの学習
 void learn(Position&, istringstream& is)
@@ -2207,6 +2335,10 @@ void learn(Position&, istringstream& is)
 	bool shuffle_quick = false;
 	// メモリにファイルを丸読みしてシャッフルする機能。(要、ファイルサイズのメモリ)
 	bool shuffle_on_memory = false;
+	// packed sfenの変換。plainではsfen(string), 評価値(整数), 指し手(例：7g7f, string)、結果(負け-1、勝ち1、引き分け0)からなる
+	bool use_convert_plain = false;
+	// plain形式の教師をやねうら王のbinに変換する
+	bool use_convert_bin = false;
 	// それらのときに書き出すファイル名(デフォルトでは"shuffled_sfen.bin")
 	string output_file_name = "shuffled_sfen.bin";
 
@@ -2234,6 +2366,11 @@ void learn(Position&, istringstream& is)
 
 	// 割引率。これを0以外にすると、PV終端以外でも勾配を加算する。(そのとき、この割引率を適用する)
 	double discount_rate = 0;
+
+	// if (gamePly < rand(reduction_gameply)) continue;
+	// のようにして、序盤を学習対象から程よく除外するためのオプション
+	// 1にしてあるとrand(1)==0なので、何も除外されない。
+	int reduction_gameply = 1;
 
 	// KK/KKP/KPP/KPPPを学習させないオプション項目
 	array<bool,4> freeze = {};
@@ -2299,6 +2436,7 @@ void learn(Position&, istringstream& is)
 		else if (option == "lose_cor")     is >> lose_correct;
 		else if (option == "draw_cor")     is >> draw_correct;
 #endif
+		else if (option == "reduction_gameply") is >> reduction_gameply;
 
 		// シャッフル関連
 		else if (option == "shuffle")	shuffle_normal = true;
@@ -2310,7 +2448,10 @@ void learn(Position&, istringstream& is)
 		else if (option == "eval_limit") is >> eval_limit;
 		else if (option == "save_only_once") save_only_once = true;
 		else if (option == "no_shuffle") no_shuffle = true;
-
+		
+		// 雑巾のconvert関連
+		else if (option == "convert_plain") use_convert_plain = true;
+		else if (option == "convert_bin") use_convert_bin = true;
 		// さもなくば、それはファイル名である。
 		else
 			filenames.push_back(option);
@@ -2355,7 +2496,8 @@ void learn(Position&, istringstream& is)
 			do {
 				entry = readdir(dp);
 				// ".bin"で終わるファイルのみを列挙
-				if (entry != NULL && ends_with(entry->d_name, ".bin"))
+				// →　連番でファイル生成するときにこの制約ちょっと嫌だな…。
+				if (entry != NULL  && ends_with(entry->d_name, ".bin")  )
 				{
 					//cout << entry->d_name << endl;
 					filenames.push_back(path_combine(target_dir, entry->d_name));
@@ -2394,6 +2536,22 @@ void learn(Position&, istringstream& is)
 		shuffle_files_on_memory(filenames,output_file_name);
 		return;
 	}
+	if (use_convert_plain)
+	{
+	  	is_ready(true);
+		cout << "convert_plain.." << endl;
+		convert_plain(filenames,output_file_name);
+		return;
+		
+	}
+	if (use_convert_bin)
+	{
+	  	is_ready(true);
+		cout << "convert_bin.." << endl;
+		convert_bin(filenames,output_file_name);
+		return;
+		
+	}
 
 	cout << "loop              : " << loop << endl;
 	cout << "eval_limit        : " << eval_limit << endl;
@@ -2412,6 +2570,11 @@ void learn(Position&, istringstream& is)
 	cout << "learning rate     : " << eta1 << " , " << eta2 << " , " << eta3 << endl;
 	cout << "eta_epoch         : " << eta1_epoch << " , " << eta2_epoch << endl;
 	cout << "discount rate     : " << discount_rate     << endl;
+
+	// reduction_gameplyに0を設定されるとrand(0)が0除算になってしまうので1に補正。
+	reduction_gameply = max(reduction_gameply, 1);
+	cout << "reduction_gameply : " << reduction_gameply << endl;
+
 #if defined (LOSS_FUNCTION_IS_ELMO_METHOD)
 	cout << "LAMBDA            : " << ELMO_LAMBDA       << endl;
 	cout << "LAMBDA2           : " << ELMO_LAMBDA2      << endl;
@@ -2467,6 +2630,7 @@ void learn(Position&, istringstream& is)
 	learn_think.save_only_once = save_only_once;
 	learn_think.sr.no_shuffle = no_shuffle;
 	learn_think.freeze = freeze;
+	learn_think.reduction_gameply = reduction_gameply;
 
 	// 局面ファイルをバックグラウンドで読み込むスレッドを起動
 	// (これを開始しないとmseの計算が出来ない。)
@@ -2498,5 +2662,10 @@ void learn(Position&, istringstream& is)
 
 
 } // namespace Learner
+
+#if defined(USE_GENSFEN2018)
+#include "gensfen2018.cpp"
+#endif
+
 
 #endif // EVAL_LEARN

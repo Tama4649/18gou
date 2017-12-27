@@ -6,7 +6,7 @@ YANEURAOU_EDITION = YANEURAOU_2017_EARLY_ENGINE
 
 
 # clangでコンパイルしたほうがgccより数%速いっぽい。
-# COMPILER = g++
+#COMPILER = g++
 COMPILER = clang++
 
 # 標準的なコンパイルオプション
@@ -130,12 +130,17 @@ SOURCES  = shogi.cpp                                                            
 	eval/kpp_kkpt_fv_var/evaluate_kpp_kkpt_fv_var_learner.cpp                  \
 	eval/evaluate.cpp                                                          \
 	eval/evaluate_io.cpp                                                       \
+	eval/evaluate_mir_inv_tools.cpp                                            \
 	engine/user-engine/user-search.cpp                                         \
 	engine/help-mate-engine/help-mate-search.cpp                               \
 	engine/2017-early-engine/2017-early-search.cpp                             \
 	learn/learner.cpp                                                          \
 	learn/learning_tools.cpp                                                   \
 	learn/multi_think.cpp
+
+ifeq ($(YANEURAOU_EDITION),MATE_ENGINE)
+	SOURCES += engine/mate-engine/mate-search.cpp
+endif
 
 #ifeq ($(YANEURAOU_EDITION),YANEURAOU_2017_GOKU_ENGINE)                        
 #	SOURCES += engine/2017-goku-engine/2017-goku-search.cpp                    \

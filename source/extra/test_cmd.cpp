@@ -1159,16 +1159,15 @@ void book_check(Position& pos, Color rootTurn, Book::MemoryBook& book, string sf
 			// 自分の手番なのでN=1
 			n = 1;
 		} else {
-#if 0
-			// 4手目までは4手ずつ候補をあげる。
-			if (ply <= 4)
-				n = 4;
-			else
-				n = 2;
-#else
 			// 常に相手側の平均分岐数は4に設定すればどうか。
-			n = 4;
-#endif
+			// →　上限がmove_list.size()すなわち、MultiPVで設定した値になっているはずなので(候補手がある限りは)
+			// ここは制限せずに、大きく10としておき、best moveの評価値との差が50以上ある指し手を枝刈りするなどして
+			// 調整したほうが良い。
+
+			// 備考 : 平手の開始局面から84歩と指した局面でdepth 34でMultiPV10で探索させたところ、34歩が5番目の
+			// 指し手になっていて、そこ以降の指し手treeが得られていなかった。
+
+			n = 10;
 		}
 
 		for (size_t i = 0; i < n; ++i)
@@ -1176,7 +1175,7 @@ void book_check(Position& pos, Color rootTurn, Book::MemoryBook& book, string sf
 			if (move_list.size() <= i)
 				break;
 
-#if 1
+#if 0
 			// 定跡生成のときにevalが-400以下とかなら、その枝、それ以上生成しなくていいような…。
 			// 自分側から見て-400になるような局面に行く指し手を自分は選ばないはずだし、
 			// 相手側から見て-400以下の局面に到達したなら、あとは自力で勝てるだろうから…。
@@ -1184,6 +1183,54 @@ void book_check(Position& pos, Color rootTurn, Book::MemoryBook& book, string sf
 			// 極端に時間がかかる原因となるのでこのような枝刈りが必須。
 
 			if (move_list[i].value <= -400)
+				continue;
+
+			if (move_list[0].value - move_list[i].value >= 100)
+				continue;
+#endif
+
+#if 0
+			// 定跡の生成を進めていくときに(ply >= 10ぐらいから)、
+			// 途中までの経路において、valueが-200以下だとか、
+			// best moveとのvalueの差が50～100以上なら、そんな指し手も枝刈りしていいだろう…。
+
+			if (move_list[i].value <= -200)
+				continue;
+
+			// 4手目までにこの条件を入れてしまうと、いまのコンピュータ将棋では振り飛車をかなり悪く評価しているので
+			// 初手から86歩34歩76歩44歩の44歩だが、best valueとの差が100以上あってここで枝刈りされてしまう。
+			// そこで5手目まではこの条件を有効にしない。
+			if (pos.game_ply() >= 5 && move_list[0].value - move_list[i].value >= 50)
+				continue;
+#endif
+
+#if 1
+			// 上の式でもply=14ぐらいから組み合わせ爆発がひどい。もう少し厳し目の条件で考えてみる。
+
+			// 先手なら -50～+150まで
+			// 後手なら-150～+100まで
+			// bestmoveとの差、50まで。
+
+			if ((pos.side_to_move() == BLACK && !( -50 <= move_list[i].value && move_list[i].value <= 150))
+			||  (pos.side_to_move() == WHITE && !(-150 <= move_list[i].value && move_list[i].value <= 100)))
+				continue;
+
+			if (pos.game_ply() >= 5 && move_list[0].value - move_list[i].value >= 50)
+				continue;
+#endif
+
+#if 0
+			// もっともっと厳しい条件
+
+			// 先手なら -20～+120まで
+			// 後手なら-150～+100まで
+			// bestmoveとの差、30まで。
+
+			if ((pos.side_to_move() == BLACK && !( -20 <= move_list[i].value && move_list[i].value <= 120))
+			 || (pos.side_to_move() == WHITE && !(-150 <= move_list[i].value && move_list[i].value <= 100)))
+				continue;
+
+			if (pos.game_ply() >= 5 && move_list[0].value - move_list[i].value >= 30)
 				continue;
 #endif
 
@@ -1304,6 +1351,7 @@ void eval_exam(istringstream& is)
 		Eval::foreach_eval_param(count_zero,i);
 		cout << left << "count_zero       : ";
 	       	cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 	       		cout << left << " , ";
@@ -1313,6 +1361,11 @@ void eval_exam(istringstream& is)
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+	       	cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 絶対値を足し合わせる
 		auto sum_abs = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1323,6 +1376,7 @@ void eval_exam(istringstream& is)
 		Eval::foreach_eval_param(sum_abs,i);
 		cout << left << "sum_abs          : ";
 	       	cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 	       		cout << left << " , ";
@@ -1332,6 +1386,11 @@ void eval_exam(istringstream& is)
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+	       	cout << left << " , ";
+	       	cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 絶対値が16未満の要素の数
 		auto count_abs_less16 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1342,6 +1401,7 @@ void eval_exam(istringstream& is)
 		Eval::foreach_eval_param(count_abs_less16,i);
 		cout << left << "count_abs_less16 : ";
 	       	cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 	       		cout << left << " , ";
@@ -1351,7 +1411,11 @@ void eval_exam(istringstream& is)
 		{
 			cout << endl;
 		}
-
+#endif
+#if defined(EVAL_KPPT)
+	       	cout << left << " , ";
+	       	cout << setw(11) << dec << right << sum1 << endl;
+#endif
 		// 評価値が最大、最小のものを求める
 		auto eval_max = [&sum0, &sum1](s32 v0, s32 v1)
 		{
@@ -1362,6 +1426,7 @@ void eval_exam(istringstream& is)
 		Eval::foreach_eval_param(eval_max, i);
 		cout << left << "eval_max         : ";
 	       	cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 	       		cout << left << " , ";
@@ -1371,6 +1436,11 @@ void eval_exam(istringstream& is)
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+	       	cout << left << " , ";
+	       	cout << setw(11) << dec << right << sum1 << endl;
+#endif
 		auto eval_min = [&sum0, &sum1](s32 v0, s32 v1)
 		{
 			sum0 = std::min(sum0, (s64)v0);
@@ -1380,6 +1450,7 @@ void eval_exam(istringstream& is)
 		Eval::foreach_eval_param(eval_min, i);
 		cout << left << "eval_min         : ";
 	       	cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 	        	cout << left << " , ";
@@ -1389,6 +1460,11 @@ void eval_exam(istringstream& is)
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+	        cout << left << " , ";
+	       	cout << setw(11) << dec << right << sum1 << endl;
+#endif
 		cout << endl;
 	}
 
@@ -1417,16 +1493,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m10000,i);
 		cout << left << "      - -10000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -9999～-8000の数を数える。
 		auto count_m8000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1436,16 +1518,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m8000,i);
 		cout << left << "-9999 -  -8000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -7999～-6000の数を数える。
 		auto count_m6000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1455,16 +1543,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m6000,i);
 		cout << left << "-7999 -  -6000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -5999～-4000の数を数える。
 		auto count_m4000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1474,16 +1568,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m4000,i);
 		cout << left << "-5999 -  -4000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -3999～-2000の数を数える。
 		auto count_m2000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1493,16 +1593,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m2000,i);
 		cout << left << "-3999 -  -2000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -1999～-1000の数を数える。
 		auto count_m1000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1512,16 +1618,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m1000,i);
 		cout << left << "-1999 -  -1000 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -999～-500の数を数える。
 		auto count_m500 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1531,16 +1643,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m500,i);
 		cout << left << " -999 -   -500 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -499～-100の数を数える。
 		auto count_m100 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1550,16 +1668,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m100,i);
 		cout << left << " -499 -   -100 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// -99～-1の数を数える。
 		auto count_m1 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1569,16 +1693,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m1,i);
 		cout << left << "  -99 -     -1 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 0の数を数える。
 		auto count_m0 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1588,16 +1718,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_m0,i);
 		cout << left << "             0 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 1～99の数を数える。
 		auto count_1 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1607,16 +1743,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_1,i);
 		cout << left << "    1 -     99 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 100～499の数を数える。
 		auto count_100 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1626,16 +1768,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_100,i);
 		cout << left << "  100 -    499 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 500～999の数を数える。
 		auto count_500 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1645,16 +1793,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_500,i);
 		cout << left << "  500 -    999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 1000～1999の数を数える。
 		auto count_1000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1664,16 +1818,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_1000,i);
 		cout << left << " 1000 -   1999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 2000～3999の数を数える。
 		auto count_2000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1683,16 +1843,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_2000,i);
 		cout << left << " 2000 -   3999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 4000～5999の数を数える。
 		auto count_4000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1702,16 +1868,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_4000,i);
 		cout << left << " 4000 -   5999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 6000～7999の数を数える。
 		auto count_6000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1721,16 +1893,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_6000,i);
 		cout << left << " 6000 -   7999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 8000～9999の数を数える。
 		auto count_8000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1740,16 +1918,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_8000,i);
 		cout << left << " 8000 -   9999 : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 
 		// 10000～の数を数える。
 		auto count_10000 = [&sum0, &sum1](s32 v0, s32 v1) {
@@ -1759,16 +1943,22 @@ void eval_exam2(istringstream& is)
 		sum0 = sum1 = 0;
 		Eval::foreach_eval_param(count_10000,i);
 		cout << left << "10000 -        : ";
-		cout << setw(10) << dec << right << sum0;
+		cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 		if (i < 2)
 		{
 			cout << left << " , ";
-			cout << setw(10) << dec << right << sum1 << endl;
+			cout << setw(11) << dec << right << sum1 << endl;
 		}
 		else
 		{
 			cout << endl;
 		}
+#endif
+#if defined(EVAL_KPPT)
+		cout << left << " , ";
+		cout << setw(11) << dec << right << sum1 << endl;
+#endif
 		cout << endl;
 	}
 
@@ -1799,16 +1989,22 @@ void eval_exam3(istringstream& is)
 			sum0 = sum1 = 0;
 			Eval::foreach_eval_param(count_j,i);
 			cout << setw(4)  << dec << right << j << " : ";
-			cout << setw(10) << dec << right << sum0;
+			cout << setw(11) << dec << right << sum0;
+#if defined(EVAL_KPP_KKPT)
 			if (i < 2)
 			{
 				cout << left << " , ";
-				cout << setw(10) << dec << right << sum1 << endl;
+				cout << setw(11) << dec << right << sum1 << endl;
 			}
 			else
 			{
 				cout << endl;
 			}
+#endif
+#if defined(EVAL_KPPT)
+			cout << left << " , ";
+			cout << setw(11) << dec << right << sum1 << endl;
+#endif
 		}
 	}
 
@@ -1849,9 +2045,14 @@ struct KPPT_reader
 	void read(string dir)
 	{
 		auto make_name = [&](std::string filename) { return path_combine(dir, filename); };
+#if defined(EVAL_KPP_KKPT)
 		auto input = EvalIO::EvalInfo::build_kpp_kkpt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		auto output = EvalIO::EvalInfo::build_kpp_kkpt32((void*)kk_, (void*)kkp_, (void*)kpp_);
-
+#endif
+#if defined(EVAL_KPPT)
+		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
+		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk_, (void*)kkp_, (void*)kpp_);
+#endif
 		// 評価関数の実験のためにfe_endをKPPT32から変更しているかも知れないので現在のfe_endの値をもとに読み込む。
 		input.fe_end = output.fe_end = Eval::fe_end;
 
@@ -1869,8 +2070,14 @@ struct KPPT_reader
 		// read()のときとinputとoutputを入れ替えると書き出せる。EvalIOマジ天使。
 
 		auto make_name = [&](std::string filename) { return path_combine(dir, filename); };
+#if defined(EVAL_KPP_KKPT)
 		auto input = EvalIO::EvalInfo::build_kpp_kkpt32((void*)kk_, (void*)kkp_, (void*)kpp_);
 		auto output = EvalIO::EvalInfo::build_kpp_kkpt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
+#endif
+#if defined(EVAL_KPPT)
+		auto input = EvalIO::EvalInfo::build_kppt32((void*)kk_, (void*)kkp_, (void*)kpp_);
+		auto output = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
+#endif
 		input.fe_end = output.fe_end = Eval::fe_end;
 
 		if (!EvalIO::eval_convert(input, output, nullptr))
@@ -2065,6 +2272,129 @@ struct KPPT_reader
 						(*kpp_)[k1][p1][p2][0] = -(*kpp_)[k1][p1][p2][0];
 				}
 	}
+
+	// 評価値を指定％分、共通側か手番ボーナス側かにスライドする。
+	// スライドする評価値の基準は手番ボーナス側の値を元にして計算する。
+	// 指定％が100%未満なら手番ボーナスから共通側へスライド、そうでなければ共通側から
+	// 手番ボーナス側へスライドする。KKP限定。（KPPでやるのはちと難しい）
+	void apply_func_slide(const KPPT_reader& eval1, double perc)
+	{
+		auto r1 = (perc - 100) / 100.0;
+		s32  sl = 0;
+
+		for (auto k1 : SQ)
+			for (auto k2 : SQ)
+				for (int p1 = 0; p1 < fe_end; ++p1)
+				{
+					if (r1 < 0) {	// ボーナス側から共通側へ
+						if ((*kkp_)[k1][k2][p1][1] != 0) {
+							sl = (*kkp_)[k1][k2][p1][1] * r1;
+							(*kkp_)[k1][k2][p1][0] -= sl;
+							(*kkp_)[k1][k2][p1][1] += sl; }
+					} else {	// 共通側からボーナス側へ
+						if ((*kkp_)[k1][k2][p1][0] != 0) {
+							sl = (*kkp_)[k1][k2][p1][0] * r1;
+							(*kkp_)[k1][k2][p1][0] -= sl;
+							(*kkp_)[k1][k2][p1][1] += sl; }
+					}
+				}
+	}
+
+	// 指定範囲の評価値のダンプ
+	// 範囲の基準は共通側の評価値。
+	void apply_func_dump(const KPPT_reader& eval1, s32 r1, s32 r2, string feature, u32 cnt)
+	{
+		u32 c = 0;
+		if (feature == "KK" || feature == "ALL") {
+		cout << "Feature type : KK" << endl;
+		for (auto k1 : SQ)
+			for (auto k2 : SQ)
+			{
+				if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+					cout << k1 << ":" << k2 << ": " << (*kk_)[k1][k2][0] << " , " << (*kk_)[k1][k2][1] << endl;
+					c++;
+					if (cnt != 0 && c > cnt) goto TOKKP;
+				}
+			}
+TOKKP:
+		cout << endl;
+		}
+		c = 0;
+		if (feature == "KKP" || feature == "ALL") {
+		cout << "Feature type : KKP" << endl;
+		for (auto k1 : SQ)
+			for (auto k2 : SQ)
+				for (int p1 = 0; p1 < fe_end; ++p1)
+				{
+					if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+						cout << k1 << ":" << k2 << ":" << p1 << ": " << (*kkp_)[k1][k2][p1][0] << " , " << (*kkp_)[k1][k2][p1][1] << endl;
+						c++;
+						if (cnt != 0 && c > cnt) goto TOKPP;
+					}
+				}
+TOKPP:
+		cout << endl;
+		}
+		c = 0;
+		if (feature == "KPP" || feature == "ALL") {
+		cout << "Feature type : KPP" << endl;
+		for (auto k1 : SQ)
+			for (int p1 = 0; p1<fe_end; ++p1)
+				for (int p2 = 0; p2 < fe_end; ++p2)
+				{
+					if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+						cout << k1 << ":" << p1 << ":" << p2 << ": " << (*kpp_)[k1][p1][p2][0] << endl;
+						c++;
+						if (cnt != 0 && c > cnt) goto TOESC;
+					}
+				}
+TOESC:
+		cout << endl;
+		}
+	}
+
+	// 2017/11/26 Tama
+	// 玉の段についてボーナスを追加する。
+	// 自玉にはプラス、相手玉にはマイナスを追加することによって、入玉しやすい評価値に
+	// なればおもしろいな、と。
+	// （下から見て）以下の値を評価値に加える。まずはKKにのみ与えてみる。
+	// KKじゃ利かなかったのでKKPに入れてみる。
+	// KKPでもダメだったんで、最終手段のKPPに入れてみるぜ！
+	// １～２段目：    0
+	// ３段目　　：  100
+	// ４段目　　：  200
+	// ５段目　　：  500
+	// ６段目　　：  700
+	// ７段目　　： 1000
+	// ８～９段目：    0（入玉してしまえばボーナスはいらないでしょ）
+	void apply_func_kplus(const KPPT_reader& eval1)
+	{
+		for (auto k1 : SQ)
+			for (int p1 = 0; p1<fe_end; ++p1)
+				for (int p2 = 0; p2 < fe_end; ++p2)
+				{
+				if ((Rank)k1 == RANK_7) {
+					(*kpp_)[k1][p1][p2][0] += 100;
+					(*kpp_)[k1][p1][p2][1] += 100;
+				}
+				if ((Rank)k1 == RANK_6) {
+					(*kpp_)[k1][p1][p2][0] += 200;
+					(*kpp_)[k1][p1][p2][1] += 200;
+				}
+				if ((Rank)k1 == RANK_5) {
+					(*kpp_)[k1][p1][p2][0] += 500;
+					(*kpp_)[k1][p1][p2][1] += 500;
+				}
+				if ((Rank)k1 == RANK_4) {
+					(*kpp_)[k1][p1][p2][0] += 700;
+					(*kpp_)[k1][p1][p2][1] += 700;
+				}
+				if ((Rank)k1 == RANK_3) {
+					(*kpp_)[k1][p1][p2][0] += 1000;
+					(*kpp_)[k1][p1][p2][1] += 1000;
+				}
+			}
+	}
 };
 
 // "test evalrev dir1 dir2"
@@ -2072,13 +2402,13 @@ void eval_reverse(istringstream& is)
 {
 	string dir1, dir2;
 	string opt;
-	int merge_features = -1; // ミラー化対象がKK,KKP,KPPのどれであるか。-1 = all
+	int merge_features = -1; // 反転対象がKK,KKP,KPPのどれであるか。-1 = all
 
 	// デフォルトではnew_eval
 	dir2 = "new_eval";
 	is >> dir1 >> dir2 >> opt;
 
-	cout << "eval reverse KKPT" << endl; // とりあえずKKPT型評価関数のmirror専用。
+	cout << "eval reverse KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreverse専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
 
@@ -2094,6 +2424,75 @@ void eval_reverse(istringstream& is)
 	KPPT_reader eval1;
 	eval1.read(dir1);
 	eval1.apply_func_rev(eval1,merge_features);
+	eval1.write(dir2);
+
+	cout << "..done" << endl;
+}
+
+// "test evalslide dir1 dir2 percent"
+void eval_slide(istringstream& is)
+{
+	string dir1, dir2;
+	double perc;
+
+	// デフォルトではnew_eval
+	dir2 = "new_eval";
+	is >> dir1 >> dir2 >> perc;
+
+	cout << "eval slide KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	cout << "InDir   : " << dir1 << endl;
+	cout << "OutDir  : " << dir2 << endl;
+	cout << "slide % : " << perc << endl;
+
+	MKDIR(dir2);
+
+	KPPT_reader eval1;
+	eval1.read(dir1);
+	eval1.apply_func_slide(eval1,perc);
+	eval1.write(dir2);
+
+	cout << "..done" << endl;
+}
+
+// "test evaldump dir1 rangefrom rangeto count"
+void eval_dump(istringstream& is)
+{
+	string dir1, feature;
+	s32 r1, r2;
+	u32 cnt;
+
+	is >> dir1 >> r1 >> r2 >> feature >> cnt;
+
+	cout << "eval dump KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	cout << "InDir : " << dir1 << endl;
+	cout << "Range : " << r1 << " - " << r2 << endl;
+	cout << "Fea.  : " << feature << endl;
+	cout << "Count : " << cnt << endl;
+
+	KPPT_reader eval1;
+	eval1.read(dir1);
+	eval1.apply_func_dump(eval1,r1,r2,feature,cnt);
+	cout << "..done" << endl;
+}
+
+// "test evalkplus dir1 dir2"
+void eval_kplus(istringstream& is)
+{
+	string dir1, dir2;
+
+	// デフォルトではnew_eval
+	dir2 = "new_eval";
+	is >> dir1 >> dir2;
+
+	cout << "eval plus KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	cout << "InDir   : " << dir1 << endl;
+	cout << "OutDir  : " << dir2 << endl;
+
+	MKDIR(dir2);
+
+	KPPT_reader eval1;
+	eval1.read(dir1);
+	eval1.apply_func_kplus(eval1);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
@@ -2139,8 +2538,6 @@ void eval_merge(istringstream& is)
 	// 指定範囲の評価値を％分増減する隠しコマンド。
 	bool select_eq = opt == "eq";
 	// 正なら左側、負なら右側の評価値を取る隠しコマンド。
-	bool select_ashura = opt == "ashura";
-	// 左側の評価値が指定範囲ならブレンドする隠しコマンド。
 	bool select_rngbl = opt == "rngbl";
 	// 右側の評価値を指定%分上乗せする隠しコマンド。
 	bool select_add = opt == "add";
@@ -2151,7 +2548,7 @@ void eval_merge(istringstream& is)
 	// 適用する関数
 	function<s32(s32, s32)> f;
 
-	cout << "eval merge KPPT" << endl; // とりあえずKKPT型評価関数のmerge専用。
+	cout << "eval merge KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のmerge専用。
 	cout << "dir1    : " << dir1 << endl;
 	cout << "dir2    : " << dir2 << endl;
 	cout << "OutDir  : " << dir3 << endl;
@@ -2314,23 +2711,6 @@ void eval_merge(istringstream& is)
 		f = [r1](s32 a, s32 b) { return (s32)(a + b*r1); };
 		cout << "mode    : add mode , percent = " << percent << endl;
 		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
-	}
-	else if (select_ashura)
-	{
-		// 評価値が正なら左側、負なら右側を採用する。（あしゅら男爵）
-		// 仮に左と右の符号が反対だったら、左の符号の都合で判別する。
-		// だいたい似たような学習をしてきている評価関数でやるから、
-		// そうそうあることではない（と思っている）
-		f = [](s32 a, s32 b)
-		{
-			if (a < 0) return b;
-			return a;
-		};
-		cout << "mode    : ashura mode , ";
-		// ashuraするfeatureを選択する隠しオプション
 		// ここで指定する値は、apply_func()の第三引数。
 		is >> merge_features;
 		cout << "merge features = " << merge_features << endl;
@@ -2810,6 +3190,9 @@ void test_cmd(Position& pos, istringstream& is)
 	else if (param == "evalexam3") eval_exam3(is);                   // 評価関数ファイルの調査用
 	else if (param == "evalresolve") eval_resolve(is);               // 評価関数ファイルの調査用
 	else if (param == "evalrev") eval_reverse(is);                   // 評価関数の符号反転コマンド
+	else if (param == "evalslide") eval_slide(is);                   // 評価関数の移動コマンド
+	else if (param == "evaldump") eval_dump(is);                     // 評価関数のダンプコマンド
+	else if (param == "evalkplus") eval_kplus(is);                   // 評価関数のKKボーナス追加コマンド
 #if defined(EVAL_LEARN)
 	else if (param == "regkk") regularize_kk_cmd(is);		 // 評価関数のKKの正規化
 #endif
@@ -2899,12 +3282,9 @@ void test_mate_engine_cmd(Position& pos, istringstream& is) {
 	time.reset();
 
 	for (const char* sfen : TestMateEngineSfen) {
-		Search::StateStackPtr st;
-		auto states = Search::StateStackPtr(new aligned_stack<StateInfo>);
-		states->push(StateInfo());
-
 		Position pos;
-		pos.set(sfen, Threads.main());
+		StateListPtr st(new StateList(1));
+		pos.set(sfen, &st->back(), Threads.main());
 
 		sync_cout << "\nPosition: " << sfen << sync_endl;
 

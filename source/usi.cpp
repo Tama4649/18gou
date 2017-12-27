@@ -46,14 +46,26 @@ namespace Book { extern void makebook_cmd(Position& pos, istringstream& is); }
 #endif
 
 // 棋譜を自動生成するコマンド
-#ifdef EVAL_LEARN
+#if defined (EVAL_LEARN)
 namespace Learner
 {
-  // 棋譜の自動生成。
+  // 教師局面の自動生成
   void gen_sfen(Position& pos, istringstream& is);
 
   // 生成した棋譜からの学習
   void learn(Position& pos, istringstream& is);
+
+#if defined(USE_GENSFEN2018)
+  // 開発中の教師局面の自動生成コマンド
+  void gen_sfen2018(Position& pos, istringstream& is);
+#endif
+
+  // 読み筋と評価値のペア。Learner::search(),Learner::qsearch()が返す。
+  typedef std::pair<Value, std::vector<Move> > ValueAndPV;
+
+  ValueAndPV qsearch(Position& pos);
+  ValueAndPV search(Position& pos, int depth_, size_t multiPV /* = 1*/);
+
 }
 #endif
 
@@ -702,7 +714,43 @@ void go_cmd(const Position& pos, istringstream& is , StateListPtr& states) {
 	Threads.start_thinking(pos, states , limits , ponderMode);
 }
 
+// --------------------
+// テスト用にqsearch(),search()を直接呼ぶ
+// --------------------
 
+#if defined(EVAL_LEARN)
+void qsearch_cmd(Position& pos)
+{
+	cout << "qsearch : ";
+	auto pv = Learner::qsearch(pos);
+	cout << "Value = " << pv.first << " , PV = ";
+	for (auto m : pv.second)
+		cout << m << " ";
+	cout << endl;
+}
+
+void search_cmd(Position& pos, istringstream& is)
+{
+	string token;
+	int depth = 1;
+	int multi_pv = (int)Options["MultiPV"];
+	while (is >> token)
+	{
+		if (token == "depth")
+			is >> depth;
+		if (token == "multipv")
+			is >> multi_pv;
+	}
+
+	cout << "search depth = " << depth << " , multi_pv = " << multi_pv << " : ";
+	auto pv = Learner::search(pos , depth , multi_pv);
+	cout << "Value = " << pv.first << " , PV = ";
+	for (auto m : pv.second)
+		cout << m << " ";
+	cout << endl;
+}
+
+#endif
 
 // --------------------
 // 　　USI応答部
@@ -843,6 +891,12 @@ void USI::loop(int argc, char* argv[])
 		else if (token == "eval") cout << "eval = " << Eval::compute_eval(pos) << endl;
 		else if (token == "evalstat") Eval::print_eval_stat(pos);
 
+#if defined(EVAL_LEARN)
+		// テスト用にqsearch(),search()を直接呼ぶコマンド
+		else if (token == "qsearch") qsearch_cmd(pos);
+		else if (token == "search") search_cmd(pos,is);
+#endif
+
 		// この局面での指し手をすべて出力
 		else if (token == "moves") {
 			for (auto m : MoveList<LEGAL_ALL>(pos))
@@ -884,9 +938,14 @@ void USI::loop(int argc, char* argv[])
 		else if (token == "makebook") Book::makebook_cmd(pos, is);
 #endif
 
-#ifdef EVAL_LEARN
+#if defined (EVAL_LEARN)
 		else if (token == "gensfen") Learner::gen_sfen(pos, is);
 		else if (token == "learn") Learner::learn(pos, is);
+#if defined (USE_GENSFEN2018)
+		// 開発中の教師局面生成コマンド
+		else if (token == "gensfen2018") Learner::gen_sfen2018(pos, is);
+#endif
+
 #endif
 		// "usinewgame"はゲーム中にsetoptionなどを送らないことを宣言するためのものだが、
 		// 我々はこれに関知しないので単に無視すれば良い。

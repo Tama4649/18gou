@@ -18,7 +18,7 @@
 #include "eval/experimental/evaluate_experimental.h"
 #undef EVAL_EXPERIMENTAL_HEADER
 #elif defined(EVAL_NABLA)
-#define BonaPieceExpansion (1024*4)
+#define BonaPieceExpansion (6*6*6 * 6)
 #else
 #define BonaPieceExpansion 0
 #endif

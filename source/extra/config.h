@@ -110,7 +110,7 @@
 // #define EVAL_PPET      // ×  技巧型 2駒+利き+手番(実装予定なし)
 // #define EVAL_KKPPT     // ○  KKPP型 4駒関係 手番あり。(55将棋、56将棋でも使えそう)※3
 // #define EVAL_KKPP_KKPT // ○  KKPP型 4駒関係 手番はKK,KKPTにのみあり。※3
-// #define EVAL_NABLA     // ？  ∇(ナブラ) 評価関数
+// #define EVAL_NABLA     // ○  ∇(ナブラ) 評価関数(現状、非公開)
 // #define EVAL_HELICES   // ？  螺旋評価関数
 
 // ※1 : KPP_PPTは、差分計算が面倒で割に合わないことが判明したのでこれを使うぐらいならKPP_KKPTで十分だという結論。
@@ -224,8 +224,8 @@
 // やねうら王2017Early
 #if defined(YANEURAOU_2017_EARLY_ENGINE)
 #define ENGINE_NAME "Jinzou Kishi 18gou"
-//#define EVAL_KPPT
-#define EVAL_KPP_KKPT
+#define EVAL_KPPT
+//#define EVAL_KPP_KKPT
 
 #define USE_EVAL_HASH
 #define USE_SEE
@@ -263,7 +263,7 @@
 #define ENGINE_NAME "YaneuraOu 2017 GOKU"
 
 //#define EVAL_KPPT
-//#define EVAL_KPP_KKPT
+#define EVAL_KPP_KKPT
 
 //#define USE_HELICES_MIRROR
 //#define EVAL_HELICES 81
@@ -277,11 +277,13 @@
 //#define EVAL_KPPPT 18
 
 //#define EVAL_KKPP_KKPT 36
+//#define EVAL_KKPP_KKPT 45
 //#define EVAL_KKPPT 36
 
 //#define EVAL_KPP_KKPT_FV_VAR
 
-#define EVAL_NABLA
+//#define EVAL_NABLA
+
 //#define EVAL_MATERIAL
 
 // 実験中の評価関数
@@ -307,6 +309,8 @@
 #define USE_SFEN_PACKER
 // 学習機能を有効にするオプション。
 #define EVAL_LEARN
+// 開発中の教師局面の生成コマンド
+#define USE_GENSFEN2018
 
 // 定跡生成絡み
 #define ENABLE_MAKEBOOK_CMD
@@ -349,6 +353,7 @@
 #define KEEP_LAST_MOVE
 #undef  MAX_PLY_NUM
 #define MAX_PLY_NUM 2000
+#define USE_SEE
 #define USE_MATE_1PLY
 #define EVAL_MATERIAL
 #define LONG_EFFECT_LIBRARY
@@ -710,7 +715,7 @@ inline int MKDIR(std::string dir_name)
 #elif defined(EVAL_KPP_KKPT_FV_VAR)
 #define EVAL_TYPE_NAME "KPP_KKPT_FV_VAR"
 #elif defined(EVAL_NABLA)
-#define EVAL_TYPE_NAME "NABLA"
+#define EVAL_TYPE_NAME "NABLA V2"
 #else
 #define EVAL_TYPE_NAME ""
 #endif

@@ -12,9 +12,9 @@
   
 2018/1/2  
   
-  コンパイルオプションで、KPP_Synthesize.binのみで動作するモードを追加しました。  
+  コンパイルオプションで、KPP_synthesized.binのみで動作するモードを追加しました。  
   extra/config.hの最後尾のほうにある「USE_ONLY_KPPT」というパラメータを有効にすると、  
-  KK_Synthesize.binとKKP_Synthesize.binは読み込まなくなります。  
+  KK_synthesized.binとKKP_synthesized.binは読み込まなくなります。  
   これで従来のKPP_KKPTよりも18%、ファイルサイズが小さくなります。  
   また、処理が2ファイル分減ったので、ほんのちょっとだけパフォーマンスは上がっています。  
   ですが、評価関数が減った分のR低下とパフォーマンスによるR向上を比較した場合、  

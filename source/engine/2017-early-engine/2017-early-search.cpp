@@ -199,7 +199,9 @@ namespace YaneuraOu2017Early
 	// depthに基づく、historyとstatsのupdate bonus
 	int stat_bonus(Depth depth) {
 		int d = depth / ONE_PLY;
+		// 2017/12/27 by Tama
 		return d > 17 ? 0 : d * d + 2 * d - 2;
+//		return 0;
 	}
 
 	// -----------------------

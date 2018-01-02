@@ -224,8 +224,8 @@
 // やねうら王2017Early
 #if defined(YANEURAOU_2017_EARLY_ENGINE)
 #define ENGINE_NAME "Jinzou Kishi 18gou"
-#define EVAL_KPPT
-//#define EVAL_KPP_KKPT
+//#define EVAL_KPPT
+#define EVAL_KPP_KKPT
 
 #define USE_EVAL_HASH
 #define USE_SEE
@@ -764,5 +764,8 @@ inline int MKDIR(std::string dir_name)
 // ↑の関数のundo_move()時用。こちらは、評価関数の差分更新を行わない。(評価関数の値を巻き戻すのは簡単であるため)
 #define ADD_BOARD_EFFECT_REWIND(color_,sq_,e1_) { board_effect[color_].e[sq_] += (uint8_t)e1_; }
 #define ADD_BOARD_EFFECT_BOTH_REWIND(color_,sq_,e1_,e2_) { board_effect[color_].e[sq_] += (uint8_t)e1_; board_effect[~color_].e[sq_] += (uint8_t)e2_; }
+
+// KPPTのみ利用する場合に指定
+//#define USE_ONLY_KPPT
 
 #endif // _CONFIG_H_

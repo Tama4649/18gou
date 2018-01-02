@@ -368,8 +368,6 @@ namespace Eval
 #if !defined ( USE_ONLY_KPPT )
 		// KK
 		sum.p[2] = kk[sq_bk][sq_wk];
-#else
-		sum.p[2][0] = sum.p[2][1] = 0;
 #endif
 
 		for (i = 0; i < length ; ++i)
@@ -406,7 +404,9 @@ namespace Eval
 		}
 
 		auto st = pos.state();
+#if !defined ( USE_ONLY_KPPT )
 		sum.p[2][0] += st->materialValue * FV_SCALE;
+#endif
 
 		st->sum = sum;
 	}
@@ -617,10 +617,8 @@ namespace Eval
 			// ΣKKPは最初から全計算するしかないので初期化する。
 #if !defined ( USE_ONLY_KPPT )
 			diff.p[2] = kk[sq_bk][sq_wk];
-#else
-			diff.p[2][0] = diff.p[2][1] = 0;
-#endif
 			diff.p[2][0] += now->materialValue * FV_SCALE;
+#endif
 
 			// 後手玉の移動(片側分のKPPを丸ごと求める)
 			if (dirty == PIECE_NUMBER_WKING)

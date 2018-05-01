@@ -1,13 +1,14 @@
 # > Select YaneuraOu edition below.
 
-YANEURAOU_EDITION = YANEURAOU_2017_EARLY_ENGINE
+YANEURAOU_EDITION = YANEURAOU_2018_OTAFUKU_ENGINE
 #YANEURAOU_EDITION = HELP_MATE_ENGINE
 #YANEURAOU_EDITION = MATE_ENGINE
+#YANEURAOU_EDITION = YANEURAOU_2018_GOKU_ENGINE
 
 
 # clangでコンパイルしたほうがgccより数%速いっぽい。
-COMPILER = g++
-#COMPILER = clang++
+#COMPILER = g++
+COMPILER = clang++
 
 # 標準的なコンパイルオプション
 CFLAGS   = -std=c++14 -fno-exceptions -fno-rtti -Wextra -Ofast -MMD -MP -fpermissive
@@ -79,6 +80,7 @@ endif
 ifeq ($(findstring clang++,$(COMPILER)),clang++)
         OPENMP   = -fopenmp
         OPENMP_LDFLAGS = -lomp
+#        OPENMP_LDFLAGS = 
 endif
 
 CFLAGS  += -DNO_EXCEPTIONS
@@ -133,7 +135,7 @@ SOURCES  = shogi.cpp                                                            
 	eval/evaluate_mir_inv_tools.cpp                                            \
 	engine/user-engine/user-search.cpp                                         \
 	engine/help-mate-engine/help-mate-search.cpp                               \
-	engine/2017-early-engine/2017-early-search.cpp                             \
+	engine/2018-otafuku-engine/2018-otafuku-search.cpp                         \
 	learn/learner.cpp                                                          \
 	learn/learning_tools.cpp                                                   \
 	learn/multi_think.cpp
@@ -142,10 +144,6 @@ ifeq ($(YANEURAOU_EDITION),MATE_ENGINE)
 	SOURCES += engine/mate-engine/mate-search.cpp
 endif
 
-#ifeq ($(YANEURAOU_EDITION),YANEURAOU_2017_GOKU_ENGINE)                        
-#	SOURCES += engine/2017-goku-engine/2017-goku-search.cpp                    \
-#	           eval/evaluate_ppap.cpp                                          
-#endif
 
 OBJECTS  = $(addprefix $(OBJDIR)/, $(SOURCES:.cpp=.o))
 DEPENDS  = $(OBJECTS:.o=.d)
@@ -161,17 +159,17 @@ all: clean $(TARGET)
 
 # 学習用バイナリのときは、openmpを有効にする。
 evallearn:
-	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 evallearn-sse42:
 	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_SSE42 -msse4.2 -march=corei7' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 tournament:
-	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi2 -mavx2 -DFOR_TOURNAMENT -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -DFOR_TOURNAMENT -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 tournament-sse42:
 	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_SSE42 -msse4.2 -DFOR_TOURNAMENT -march=corei7' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 avx2:
-	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 sse42:
 	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_SSE42 -msse4.2 -march=corei7' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)

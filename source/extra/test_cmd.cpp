@@ -2245,161 +2245,288 @@ struct KPPT_reader
 	//   0 : KK
 	//   1 : KKP
 	//   2 : KPP
-	void apply_func_rev(const KPPT_reader& eval1, int merge_features)
-	{
+	void apply_func_rev(const KPPT_reader& eval1, int merge_features) {
 		for (auto k1 : SQ)
-			for (auto k2 : SQ)
-			{
-				if (merge_features == -1 || merge_features == 0)
+			for (auto k2 : SQ) {
+				if (merge_features == -1 || merge_features == 0) {
 					(*kk_)[k1][k2][0] = -(*kk_)[k1][k2][0];
 					(*kk_)[k1][k2][1] = -(*kk_)[k1][k2][1];
-			}
+				}
+		}
 
 		for (auto k1 : SQ)
 			for (auto k2 : SQ)
-				for (int p1 = 0; p1 < fe_end; ++p1)
-				{
-					if (merge_features == -1 || merge_features == 1)
+				for (int p1 = 0; p1 < fe_end; ++p1) {
+					if (merge_features == -1 || merge_features == 1) {
 						(*kkp_)[k1][k2][p1][0] = -(*kkp_)[k1][k2][p1][0];
 						(*kkp_)[k1][k2][p1][1] = -(*kkp_)[k1][k2][p1][1];
-				}
+					}
+		}
 
 		for (auto k1 : SQ)
 			for (int p1 = 0; p1<fe_end; ++p1)
-				for (int p2 = 0; p2 < fe_end; ++p2)
-				{
-					if (merge_features == -1 || merge_features == 2)
+				for (int p2 = 0; p2 < fe_end; ++p2) {
+					if (merge_features == -1 || merge_features == 2) {
 						(*kpp_)[k1][p1][p2][0] = -(*kpp_)[k1][p1][p2][0];
-				}
+#if defined(EVAL_KPPT)
+						(*kpp_)[k1][p1][p2][1] = -(*kpp_)[k1][p1][p2][1];
+#endif
+					}
+		}
 	}
 
 	// 評価値を指定％分、共通側か手番ボーナス側かにスライドする。
 	// スライドする評価値の基準は手番ボーナス側の値を元にして計算する。
 	// 指定％が100%未満なら手番ボーナスから共通側へスライド、そうでなければ共通側から
-	// 手番ボーナス側へスライドする。KKP限定。（KPPでやるのはちと難しい）
-	void apply_func_slide(const KPPT_reader& eval1, double perc)
-	{
+	// 手番ボーナス側へスライドする。
+	void apply_func_slide(const KPPT_reader& eval1, double perc, string feature) {
 		auto r1 = (perc - 100) / 100.0;
 		s32  sl = 0;
 
-		for (auto k1 : SQ)
-			for (auto k2 : SQ)
-				for (int p1 = 0; p1 < fe_end; ++p1)
-				{
+		if (feature == "KK" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ) {
 					if (r1 < 0) {	// ボーナス側から共通側へ
-						if ((*kkp_)[k1][k2][p1][1] != 0) {
-							sl = (*kkp_)[k1][k2][p1][1] * r1;
-							(*kkp_)[k1][k2][p1][0] -= sl;
-							(*kkp_)[k1][k2][p1][1] += sl; }
+						sl = (*kk_)[k1][k2][1] * r1;
+						(*kk_)[k1][k2][0] -= sl;
+						(*kk_)[k1][k2][1] += sl;
 					} else {	// 共通側からボーナス側へ
-						if ((*kkp_)[k1][k2][p1][0] != 0) {
-							sl = (*kkp_)[k1][k2][p1][0] * r1;
-							(*kkp_)[k1][k2][p1][0] -= sl;
-							(*kkp_)[k1][k2][p1][1] += sl; }
+						sl = (*kk_)[k1][k2][0] * r1;
+						(*kk_)[k1][k2][0] -= sl;
+						(*kk_)[k1][k2][1] += sl;
 					}
-				}
+					(*kk_)[k1][k2][0] -= sl;
+					(*kk_)[k1][k2][1] += sl;
+			}
+		}
+
+		if (feature == "KKP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ)
+					for (int p1 = 0; p1 < fe_end; ++p1) {
+						if (r1 < 0) {	// ボーナス側から共通側へ
+							sl = (*kkp_)[k1][k2][p1][1] * r1;
+						} else {	// 共通側からボーナス側へ
+							sl = (*kkp_)[k1][k2][p1][0] * r1;
+						}
+						(*kkp_)[k1][k2][p1][0] -= sl;
+						(*kkp_)[k1][k2][p1][1] += sl;
+			}
+		}
+
+#if defined(EVAL_KPPT)
+		if (feature == "KPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (int p1 = 0; p1<fe_end; ++p1)
+					for (int p2 = 0; p2 < fe_end; ++p2) {
+						if (r1 < 0) {	// ボーナス側から共通側へ
+							sl = (*kpp_)[k1][p1][p2][1] * r1;
+						} else {	// 共通側からボーナス側へ
+							sl = (*kpp_)[k1][p1][p2][0] * r1;
+						}
+						(*kpp_)[k1][p1][p2][0] -= sl;
+						(*kpp_)[k1][p1][p2][1] += sl;
+			}
+		}
+#endif
 	}
 
 	// 指定範囲の評価値のダンプ
 	// 範囲の基準は共通側の評価値。
-	void apply_func_dump(const KPPT_reader& eval1, s32 r1, s32 r2, string feature, u32 cnt)
-	{
+	void apply_func_dump(const KPPT_reader& eval1, s32 r1, s32 r2, string feature, u32 cnt) {
 		u32 c = 0;
 		if (feature == "KK" || feature == "ALL") {
-		cout << "Feature type : KK" << endl;
-		for (auto k1 : SQ)
-			for (auto k2 : SQ)
-			{
-				if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
-					cout << k1 << ":" << k2 << ": " << (*kk_)[k1][k2][0] << " , " << (*kk_)[k1][k2][1] << endl;
-					c++;
-					if (cnt != 0 && c > cnt) goto TOKKP;
-				}
+			cout << "Feature type : KK" << endl;
+			for (auto k1 : SQ)
+				for (auto k2 : SQ) {
+					if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+						cout << k1 << ":" << k2 << ": " << (*kk_)[k1][k2][0] << " , " << (*kk_)[k1][k2][1] << endl;
+						c++;
+						if (cnt != 0 && c > cnt) goto TOKKP;
+					}
 			}
 TOKKP:
-		cout << endl;
+			cout << endl;
 		}
 		c = 0;
 		if (feature == "KKP" || feature == "ALL") {
-		cout << "Feature type : KKP" << endl;
-		for (auto k1 : SQ)
-			for (auto k2 : SQ)
-				for (int p1 = 0; p1 < fe_end; ++p1)
-				{
-					if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
-						cout << k1 << ":" << k2 << ":" << p1 << ": " << (*kkp_)[k1][k2][p1][0] << " , " << (*kkp_)[k1][k2][p1][1] << endl;
-						c++;
-						if (cnt != 0 && c > cnt) goto TOKPP;
-					}
-				}
+			cout << "Feature type : KKP" << endl;
+			for (auto k1 : SQ)
+				for (auto k2 : SQ)
+					for (int p1 = 0; p1 < fe_end; ++p1) {
+						if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+							cout << k1 << ":" << k2 << ":" << p1 << ": " << (*kkp_)[k1][k2][p1][0] << " , " << (*kkp_)[k1][k2][p1][1] << endl;
+							c++;
+							if (cnt != 0 && c > cnt) goto TOKPP;
+						}
+			}
 TOKPP:
-		cout << endl;
+			cout << endl;
 		}
 		c = 0;
 		if (feature == "KPP" || feature == "ALL") {
-		cout << "Feature type : KPP" << endl;
-		for (auto k1 : SQ)
-			for (int p1 = 0; p1<fe_end; ++p1)
-				for (int p2 = 0; p2 < fe_end; ++p2)
-				{
-					if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
-						cout << k1 << ":" << p1 << ":" << p2 << ": " << (*kpp_)[k1][p1][p2][0] << endl;
-						c++;
-						if (cnt != 0 && c > cnt) goto TOESC;
-					}
-				}
+			cout << "Feature type : KPP" << endl;
+			for (auto k1 : SQ)
+				for (int p1 = 0; p1<fe_end; ++p1)
+					for (int p2 = 0; p2 < fe_end; ++p2) {
+						if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+#if defined(EVAL_KPP_KKPT)
+							cout << k1 << ":" << p1 << ":" << p2 << ": " << (*kpp_)[k1][p1][p2][0] << endl;
+#endif
+#if defined(EVAL_KPPT)
+							cout << k1 << ":" << p1 << ":" << p2 << ": " << (*kpp_)[k1][p1][p2][0] << " , " << (*kpp_)[k1][p1][p2][1] << endl;
+#endif
+							c++;
+							if (cnt != 0 && c > cnt) goto TOESC;
+						}
+			}
 TOESC:
-		cout << endl;
+			cout << endl;
 		}
 	}
 
-	// 2017/11/26 Tama
-	// 玉の段についてボーナスを追加する。
-	// 自玉にはプラス、相手玉にはマイナスを追加することによって、入玉しやすい評価値に
-	// なればおもしろいな、と。
-	// （下から見て）以下の値を評価値に加える。まずはKKにのみ与えてみる。
-	// KKじゃ利かなかったのでKKPに入れてみる。
-	// KKPでもダメだったんで、最終手段のKPPに入れてみるぜ！
-	// １～２段目：    0
-	// ３段目　　：  100
-	// ４段目　　：  200
-	// ５段目　　：  500
-	// ６段目　　：  700
-	// ７段目　　： 1000
-	// ８～９段目：    0（入玉してしまえばボーナスはいらないでしょ）
-	void apply_func_kplus(const KPPT_reader& eval1)
-	{
-		for (auto k1 : SQ)
-			for (int p1 = 0; p1<fe_end; ++p1)
-				for (int p2 = 0; p2 < fe_end; ++p2)
-				{
-				if ((Rank)k1 == RANK_7) {
-					(*kpp_)[k1][p1][p2][0] += 100;
-					(*kpp_)[k1][p1][p2][1] += 100;
-				}
-				if ((Rank)k1 == RANK_6) {
-					(*kpp_)[k1][p1][p2][0] += 200;
-					(*kpp_)[k1][p1][p2][1] += 200;
-				}
-				if ((Rank)k1 == RANK_5) {
-					(*kpp_)[k1][p1][p2][0] += 500;
-					(*kpp_)[k1][p1][p2][1] += 500;
-				}
-				if ((Rank)k1 == RANK_4) {
-					(*kpp_)[k1][p1][p2][0] += 700;
-					(*kpp_)[k1][p1][p2][1] += 700;
-				}
-				if ((Rank)k1 == RANK_3) {
-					(*kpp_)[k1][p1][p2][0] += 1000;
-					(*kpp_)[k1][p1][p2][1] += 1000;
-				}
+	// 指定範囲の評価値の増減
+	// 範囲の基準は共通側の評価値。
+	void apply_func_eq(const KPPT_reader& eval1, s32 r1, s32 r2, double percent, string feature) {
+		auto p = percent / 100.0;
+		if (feature == "KK" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ) {
+					if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+						(*kk_)[k1][k2][0] *= p;
+						(*kk_)[k1][k2][1] *= p;
+					}
 			}
+		}
+		if (feature == "KKP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ)
+					for (int p1 = 0; p1 < fe_end; ++p1) {
+						if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+							(*kkp_)[k1][k2][p1][0] *= p;
+							(*kkp_)[k1][k2][p1][1] *= p;
+						}
+			}
+		}
+		if (feature == "KPP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (int p1 = 0; p1<fe_end; ++p1)
+					for (int p2 = 0; p2 < fe_end; ++p2) {
+						if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+							(*kpp_)[k1][p1][p2][0] *= p;
+#if defined(EVAL_KPPT)
+							(*kpp_)[k1][p1][p2][1] *= p;
+#endif
+						}
+			}
+		}
+	}
+
+	// 指定範囲の評価値の正則化
+	// 範囲の基準は共通側の評価値。
+	void apply_func_reg(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature) {
+		auto p = percent / 100.0;
+		auto nr = 1.0;
+		if (feature == "KK" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ) {
+					if (abs((*kk_)[k1][k2][0]) > r1) {
+						nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+						(*kk_)[k1][k2][0] *= nr;
+						nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+						(*kk_)[k1][k2][1] *= nr;
+					}
+			}
+		}
+		if (feature == "KKP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ)
+					for (int p1 = 0; p1 < fe_end; ++p1) {
+						if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
+							nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+							(*kkp_)[k1][k2][p1][0] *= nr;
+							nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+							(*kkp_)[k1][k2][p1][1] *= nr;
+						}
+			}
+		}
+		if (feature == "KPP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (int p1 = 0; p1 < fe_end; ++p1)
+					for (int p2 = 0; p2 < fe_end; ++p2) {
+						if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
+							nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+							(*kpp_)[k1][p1][p2][0] *= nr;
+#if defined(EVAL_KPPT)
+							nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+							(*kpp_)[k1][p1][p2][1] *= nr;
+#endif
+						}
+			}
+		}
+	}
+
+	// 指定範囲の評価値の正則化
+	// 範囲の基準は共通側の評価値。
+	void apply_func_reg2(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature) {
+		auto p = percent / 100.0;
+		auto nr = 1.0;
+		if (feature == "KK" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ) {
+					if (abs((*kk_)[k1][k2][0]) > r1) {
+						nr = -(exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p) + 1;
+						(*kk_)[k1][k2][0] *= nr;
+						nr = -(exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p) + 1;
+						(*kk_)[k1][k2][1] *= nr;
+					} else {
+						nr = 1 - p;
+						(*kk_)[k1][k2][0] *= nr;
+						(*kk_)[k1][k2][1] *= nr;
+					}
+			}
+		}
+		if (feature == "KKP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (auto k2 : SQ)
+					for (int p1 = 0; p1 < fe_end; ++p1) {
+						if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
+							nr = -(exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p) + 1;
+							(*kkp_)[k1][k2][p1][0] *= nr;
+							nr = -(exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p) + 1;
+							(*kkp_)[k1][k2][p1][1] *= nr;
+						} else {
+							nr = 1 - p;
+							(*kkp_)[k1][k2][p1][0] *= nr;
+							(*kkp_)[k1][k2][p1][1] *= nr;
+						}
+			}
+		}
+		if (feature == "KPP" || feature == "KKPP" || feature == "ALL") {
+			for (auto k1 : SQ)
+				for (int p1 = 0; p1 < fe_end; ++p1)
+					for (int p2 = 0; p2 < fe_end; ++p2) {
+						if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
+							nr = -(exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p) + 1;
+							(*kpp_)[k1][p1][p2][0] *= nr;
+#if defined(EVAL_KPPT)
+							nr = -(exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p) + 1;
+							(*kpp_)[k1][p1][p2][1] *= nr;
+#endif
+						} else {
+							nr = 1 - p;
+							(*kpp_)[k1][p1][p2][0] *= nr;
+#if defined(EVAL_KPPT)
+							(*kpp_)[k1][p1][p2][1] *= nr;
+#endif
+						}
+			}
+		}
 	}
 };
 
 // "test evalrev dir1 dir2"
-void eval_reverse(istringstream& is)
-{
+void eval_reverse(istringstream& is) {
 	string dir1, dir2;
 	string opt;
 	int merge_features = -1; // 反転対象がKK,KKP,KPPのどれであるか。-1 = all
@@ -2408,13 +2535,12 @@ void eval_reverse(istringstream& is)
 	dir2 = "new_eval";
 	is >> dir1 >> dir2 >> opt;
 
-	cout << "eval reverse KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreverse専用。
+	cout << "eval reverse for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreverse専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
 
 	// reverseするfeatureを選択する隠しオプション
-	if (opt == "feature")
-	{
+	if (opt == "feature") {
 		is >> merge_features;
 		cout << "merge features = " << merge_features << endl;
 	}
@@ -2430,40 +2556,45 @@ void eval_reverse(istringstream& is)
 }
 
 // "test evalslide dir1 dir2 percent"
-void eval_slide(istringstream& is)
-{
-	string dir1, dir2;
+void eval_slide(istringstream& is) {
+	string dir1, dir2, opt;
 	double perc;
+	string features = "ALL"; // slide対象がKK,KKP,KPPのどれであるか。KK,KKP,KPP,ALL
 
 	// デフォルトではnew_eval
 	dir2 = "new_eval";
-	is >> dir1 >> dir2 >> perc;
+	is >> dir1 >> dir2 >> perc >> opt;
 
-	cout << "eval slide KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	// slideするfeatureを選択する隠しオプション
+	if (opt == "feature") {
+		is >> features;
+	}
+
+	cout << "eval slide for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
 	cout << "slide % : " << perc << endl;
+	cout << "features: " << features << endl;
 
 	MKDIR(dir2);
 
 	KPPT_reader eval1;
 	eval1.read(dir1);
-	eval1.apply_func_slide(eval1,perc);
+	eval1.apply_func_slide(eval1,perc,features);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
 }
 
 // "test evaldump dir1 rangefrom rangeto count"
-void eval_dump(istringstream& is)
-{
+void eval_dump(istringstream& is) {
 	string dir1, feature;
 	s32 r1, r2;
 	u32 cnt;
 
 	is >> dir1 >> r1 >> r2 >> feature >> cnt;
 
-	cout << "eval dump KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	cout << "eval dump for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のdump専用。
 	cout << "InDir : " << dir1 << endl;
 	cout << "Range : " << r1 << " - " << r2 << endl;
 	cout << "Fea.  : " << feature << endl;
@@ -2475,24 +2606,91 @@ void eval_dump(istringstream& is)
 	cout << "..done" << endl;
 }
 
-// "test evalkplus dir1 dir2"
-void eval_kplus(istringstream& is)
-{
-	string dir1, dir2;
+// "test evaleq dir1 dir2 rangefrom rangeto percent feature"
+// feature : KK,KKP,KPP,KKPP,ALL
+void eval_eq(istringstream& is) {
+	string dir1, dir2, feature;
+	s32 r1, r2;
+	double perc;
 
-	// デフォルトではnew_eval
-	dir2 = "new_eval";
-	is >> dir1 >> dir2;
+	// デフォルト設定
+	feature = "ALL";
+	is >> dir1 >> dir2 >> r1 >> r2 >> perc >> feature;
 
-	cout << "eval plus KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のslide専用。
+	cout << "eval equalizer for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のeq専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
+	cout << "Range   : " << r1 << " - " << r2 << endl;
+	cout << "Percent : " << perc << endl;
+	cout << "Feature : " << feature << endl;
 
 	MKDIR(dir2);
 
 	KPPT_reader eval1;
 	eval1.read(dir1);
-	eval1.apply_func_kplus(eval1);
+	eval1.apply_func_eq(eval1,r1,r2,perc,feature);
+	eval1.write(dir2);
+
+	cout << "..done" << endl;
+}
+
+// "test evalreg dir1 range percent ponanza feature"
+// feature : KK,KKP,KPP,KKPP,ALL
+void eval_reg(istringstream& is) {
+	string dir1, dir2, feature;
+	s32 r1;
+	u16 pona;
+	double perc;
+
+	// デフォルト設定
+	pona = 600;
+	feature = "ALL";
+	is >> dir1 >> dir2 >> r1 >> perc >> pona >> feature;
+
+	cout << "eval regularizer for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreg専用。
+	cout << "InDir   : " << dir1 << endl;
+	cout << "OutDir  : " << dir2 << endl;
+	cout << "Range   : " << r1 << endl;
+	cout << "Percent : " << perc << endl;
+	cout << "Ponanza : " << pona << endl;
+	cout << "Feature : " << feature << endl;
+
+	MKDIR(dir2);
+
+	KPPT_reader eval1;
+	eval1.read(dir1);
+	eval1.apply_func_reg(eval1,r1,perc,pona,feature);
+	eval1.write(dir2);
+
+	cout << "..done" << endl;
+}
+
+// "test evalreg2 dir1 range percent ponanza feature"
+// feature : KK,KKP,KPP,KKPP,ALL
+void eval_reg2(istringstream& is) {
+	string dir1, dir2, feature;
+	s32 r1;
+	u16 pona;
+	double perc;
+
+	// デフォルト設定
+	pona = 600;
+	feature = "ALL";
+	is >> dir1 >> dir2 >> r1 >> perc >> pona >> feature;
+
+	cout << "eval regularizer2 for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreg専用。
+	cout << "InDir   : " << dir1 << endl;
+	cout << "OutDir  : " << dir2 << endl;
+	cout << "Range   : " << r1 << endl;
+	cout << "Percent : " << perc << endl;
+	cout << "Ponanza : " << pona << endl;
+	cout << "Feature : " << feature << endl;
+
+	MKDIR(dir2);
+
+	KPPT_reader eval1;
+	eval1.read(dir1);
+	eval1.apply_func_reg2(eval1,r1,perc,pona,feature);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
@@ -2542,13 +2740,13 @@ void eval_merge(istringstream& is)
 	// 右側の評価値を指定%分上乗せする隠しコマンド。
 	bool select_add = opt == "add";
 
-	// KPPの手番をやめてPPの手番のみに変更するオプション
-	bool select_kkpt = opt == "kkpt";
+//	// KPPの手番をやめてPPの手番のみに変更するオプション
+//	bool select_kkpt = opt == "kkpt";
 
 	// 適用する関数
 	function<s32(s32, s32)> f;
 
-	cout << "eval merge KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のmerge専用。
+	cout << "eval merge for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のmerge専用。
 	cout << "dir1    : " << dir1 << endl;
 	cout << "dir2    : " << dir2 << endl;
 	cout << "OutDir  : " << dir3 << endl;
@@ -2556,164 +2754,110 @@ void eval_merge(istringstream& is)
 	{
 		f = [](s32 a, s32 b) { return (abs(a) > abs(b)) ? a : b; };
 		cout << "mode    : absmax mode " << endl;
+		is >> opt;
 	}
 	else if (select_absmin)
 	{
 		f = [](s32 a, s32 b) { return (abs(a) < abs(b)) ? a : b; };
 		cout << "mode    : absmin mode " << endl;
+		// mergeするfeatureを選択する隠しオプション
+		// ここで指定する値は、apply_func()の第三引数。
+		is >> opt;
 	}
-	else if (select_bl2)
-	{
+	else if (select_bl2) {
 		// 片側が0ならもう片方を返す。どっちも入ってれば按分
 		auto r1 = percent / 100.0;
 		auto r2 = 1 - r1;
 		// r1:r2で合成する。
-		f = [r1, r2](s32 a, s32 b)
-		{
+		f = [r1, r2](s32 a, s32 b) {
 			if (a == 0) return b;
 			if (b == 0) return a;
 			return (s32)(a*r1 + b*r2);
 		};
 		cout << "mode    : interpolation2 , percent = " << percent << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		if (opt == "feature")
-		{
-			is >> merge_features;
-			cout << "merge features = " << merge_features << endl;
-		}
+		is >> opt;
 	}
-	else if (select_pad)
-	{
+	else if (select_pad) {
 		// 左側が0の場合は右側の値で埋める。
-		f = [](s32 a, s32 b)
-		{
+		f = [](s32 a, s32 b) {
 			if (a == 0) return b;
 			return a;
 		};
 		cout << "mode    : padding mode" << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		if (opt == "feature")
-		{
-			is >> merge_features;
-			cout << "merge features = " << merge_features << endl;
-		}
+		is >> opt;
 	}
-	else if (select_absmin2)
-	{
+	else if (select_absmin2) {
 		// 左側が0の場合は右側の値で埋めて、それ以外は絶対値が小さいほうを採用する。
-
-		f = [](s32 a, s32 b)
-		{
+		f = [](s32 a, s32 b) {
 			if (a == 0) return b;
 			return (abs(a) < abs(b)) ? a : b;
 		};
 		cout << "mode    : absmin2 mode" << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		if (opt == "feature")
-		{
-			is >> merge_features;
-			cout << "merge features = " << merge_features << endl;
-		}
+		is >> opt;
 	}
-	else if (select_noise)
-	{
+	else if (select_noise) {
 		// 指定した確率で右側の評価値を採用する。
-
-		f = [percent](s32 a, s32 b)
-		{
+		f = [percent](s32 a, s32 b) {
 			if ((rand() % 100) < percent) return b;
 			return a;
 		};
 		cout << "mode    : noise , percent = " << percent << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		if (opt == "feature")
-		{
-			is >> merge_features;
-			cout << "merge features = " << merge_features << endl;
-		}
+		is >> opt;
 	}
-	else if (select_dist)
-	{
+	else if (select_dist) {
 		// 左側の絶対値が閾値以上の場合はの場合は％分削る。（ディストーション）
 		is >> threshold;
 		auto r = percent / 100.0;
-		f = [threshold, r](s32 a, s32 b)
-		{
+		f = [threshold, r](s32 a, s32 b) {
 			if (abs(a) < threshold) return a;
 			return (s32)(a*r);
 		};
 		cout << "mode    : distortion mode , percent = " << percent << " , threshold = " << threshold << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
+		is >> opt;
 	}
-	else if (select_eq)
-	{
+	else if (select_eq) {
 		// 左側の評価値が指定範囲内なら、％分増減する。（パラメトリックイコライザー）
 		is >> range1 >> range2;
 		auto r = percent / 100.0;
-		f = [range1, range2, r](s32 a, s32 b)
-		{
+		f = [range1, range2, r](s32 a, s32 b) {
 			if (a < range1) return a;
 			if (a > range2) return a;
 			return (s32)(a*r);
 		};
 		cout << "mode    : equalizer mode , percent = " << percent << " , range = " << range1 << " - " << range2 << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
+		is >> opt;
 	}
-	else if (select_rngrep)
-	{
+	else if (select_rngrep) {
 		// 左側の評価値が指定範囲内なら置き換える。
 		is >> range1 >> range2;
-		f = [range1, range2](s32 a, s32 b)
-		{
+		f = [range1, range2](s32 a, s32 b) {
 			if (a < range1) return a;
 			if (a > range2) return a;
 			return b;
 		};
 		cout << "mode    : range replace mode , range = " << range1 << " - " << range2 << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
+		is >> opt;
 	}
-	else if (select_rngbl)
-	{
+	else if (select_rngbl) {
 		// 左側の評価値が指定範囲内ならブレンドする。
 		is >> range1 >> range2;
 		auto r1 = percent / 100.0;
 		auto r2 = 1 - r1;
-		f = [range1, range2, r1, r2](s32 a, s32 b)
-		{
+		f = [range1, range2, r1, r2](s32 a, s32 b) {
 			if (a < range1) return a;
 			if (a > range2) return a;
 			// r1:r2で合成する。
 			return (s32)(a*r1 + b*r2);
 		};
 		cout << "mode    : range blend mode , percent = " << percent << " , range = " << range1 << " - " << range2 << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
+		is >> opt;
 	}
-	else if (select_add)
-	{
+	else if (select_add) {
 		// 右側の評価値を指定%分上乗せする。
 		auto r1 = percent / 100.0;
 		f = [r1](s32 a, s32 b) { return (s32)(a + b*r1); };
 		cout << "mode    : add mode , percent = " << percent << endl;
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		is >> merge_features;
-		cout << "merge features = " << merge_features << endl;
+		is >> opt;
 	}
 	else
 	{
@@ -2723,14 +2867,14 @@ void eval_merge(istringstream& is)
 		f = [r1, r2](s32 a, s32 b) { return (s32)(a*r1 + b*r2); };
 
 		cout << "mode    : interpolation , percent = " << percent << endl;
+	}
 
-		// mergeするfeatureを選択する隠しオプション
-		// ここで指定する値は、apply_func()の第三引数。
-		if (opt == "feature")
-		{
-			is >> merge_features;
-			cout << "merge features = " << merge_features << endl;
-		}
+	// mergeするfeatureを選択する隠しオプション
+	// ここで指定する値は、apply_func()の第三引数。
+	if (opt == "feature")
+	{
+		is >> merge_features;
+		cout << "merge features = " << merge_features << endl;
 	}
 
 	MKDIR(dir3);
@@ -2739,8 +2883,6 @@ void eval_merge(istringstream& is)
 	eval1.read(dir1);
 	eval2.read(dir2);
 	eval1.apply_func(eval2,f,merge_features);
-	if (select_kkpt)
-		eval1.to_kkpt();
 	eval1.write(dir3);
 
 	cout << "..done" << endl;
@@ -3192,7 +3334,9 @@ void test_cmd(Position& pos, istringstream& is)
 	else if (param == "evalrev") eval_reverse(is);                   // 評価関数の符号反転コマンド
 	else if (param == "evalslide") eval_slide(is);                   // 評価関数の移動コマンド
 	else if (param == "evaldump") eval_dump(is);                     // 評価関数のダンプコマンド
-	else if (param == "evalkplus") eval_kplus(is);                   // 評価関数のKKボーナス追加コマンド
+	else if (param == "evaleq") eval_eq(is);                         // 評価関数の増減コマンド
+	else if (param == "evalreg") eval_reg(is);                       // 評価関数の正則化コマンド
+	else if (param == "evalreg2") eval_reg2(is);                     // 評価関数の正則化コマンド
 #if defined(EVAL_LEARN)
 	else if (param == "regkk") regularize_kk_cmd(is);		 // 評価関数のKKの正規化
 #endif

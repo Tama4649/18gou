@@ -1314,7 +1314,8 @@ struct SfenReader
 
 			fs.open(filename, ios::in | ios::binary);
 			cout << "open filename = " << filename << endl;
-
+			cout << endl;
+			cout << "date,sfens,epoch,eta,hirate eval,te,le,tw,lw,t,l" << endl;
 			return true;
 		};
 
@@ -1550,7 +1551,8 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	auto& pos = th->rootPos;
 	StateInfo si;
 	pos.set_hirate(&si,th);
-	std::cout << "hirate eval = " << Eval::evaluate(pos) << endl;
+//	std::cout << "hirate eval = " << Eval::evaluate(pos) << endl;
+	std::cout << Eval::evaluate(pos) << ",";
 
 	//Eval::print_eval_stat(pos);
 
@@ -1672,6 +1674,7 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 			<< " , move accuracy = "			<< (move_accord_count * 100.0 / sr.sfen_for_mse.size()) << "%"
 			<< endl;
 #endif
+#if 0
 		cout << "test_cross_entropy_eval  : " << test_sum_cross_entropy_eval / sr.sfen_for_mse.size() << endl;
 		cout << "learn_cross_entropy_eval : " << learn_sum_cross_entropy_eval / done << endl;
 		cout << "test_cross_entropy_win   : " << test_sum_cross_entropy_win / sr.sfen_for_mse.size() << endl;
@@ -1679,6 +1682,13 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 		cout << "test_cross_entropy       : " << (test_sum_cross_entropy_eval + test_sum_cross_entropy_win) / sr.sfen_for_mse.size() << endl;
 		cout << "learn_cross_entropy      : " << (learn_sum_cross_entropy_eval + learn_sum_cross_entropy_win) / done << endl;
 		cout << "norm                     : " << sum_norm << endl;
+#endif
+		cout << test_sum_cross_entropy_eval / sr.sfen_for_mse.size() << ",";
+		cout << learn_sum_cross_entropy_eval / done << ",";
+		cout << test_sum_cross_entropy_win / sr.sfen_for_mse.size() << ",";
+		cout << learn_sum_cross_entropy_win / done << ",";
+		cout << (test_sum_cross_entropy_eval + test_sum_cross_entropy_win) / sr.sfen_for_mse.size() << ",";
+		cout << (learn_sum_cross_entropy_eval + learn_sum_cross_entropy_win) / done << endl;
 	}
 	else {
 		cout << "Error! : sr.sfen_for_mse.size() = " << sr.sfen_for_mse.size() << " ,  done = " << done << endl;
@@ -1727,13 +1737,15 @@ void LearnerThink::thread_worker(size_t thread_id)
 				}
 
 				// 現在時刻を出力。毎回出力する。
-				std::cout << sr.total_done << " sfens , at " << now_string() << std::endl;
+//				std::cout << sr.total_done << " sfens , at " << now_string() << std::endl;
+				std::cout << now_string() << "," << sr.total_done << ",";
 
 				// このタイミングで勾配をweight配列に反映。勾配の計算も1M局面ごとでmini-batch的にはちょうどいいのでは。
 				Eval::update_weights(epoch , freeze);
 
 				// デバッグ用にepochと現在のetaを表示してやる。
-				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
+//				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
+				std::cout << epoch << "," << Eval::get_eta() << ",";
 				++epoch;
 
 				// 10億局面ごとに1回保存、ぐらいの感じで。
@@ -2471,6 +2483,11 @@ void learn(Position&, istringstream& is)
 
 		// このフォルダを根こそぎ取る。base_dir相対にしておく。
 #if defined(_MSC_VER)
+		// std::tr2を使用するとwaring C4996が出るので抑制。
+		// ※　std::tr2は、std:c++14 の下では既定で非推奨の警告を出し、/std:c++17 では既定で削除された。
+		#pragma warning(push)
+		#pragma warning(disable:4996)
+
 		namespace sys = std::tr2::sys;
 		sys::path p(kif_base_dir); // 列挙の起点
 		std::for_each(sys::directory_iterator(p), sys::directory_iterator(),
@@ -2478,6 +2495,8 @@ void learn(Position&, istringstream& is)
 			if (sys::is_regular_file(p))
 				filenames.push_back(path_combine(target_dir, p.filename().generic_string()));
 		});
+		#pragma warning(pop)
+
 #elif defined(__GNUC__)
 
 		auto ends_with = [](std::string const & value, std::string const & ending)

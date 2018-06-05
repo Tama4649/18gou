@@ -253,6 +253,55 @@ namespace MateEngine
 			return;
 		}
 
+		// 千日手のチェック
+		// 対局規定（抄録）｜よくある質問｜日本将棋連盟 https://www.shogi.or.jp/faq/taikyoku-kitei.html
+		// 第8条 反則
+		// 7. 連続王手の千日手とは、同一局面が４回出現した一連の手順中、片方の手が
+		// すべて王手だった場合を指し、王手を続けた側がその時点で負けとなる。
+		// 従って開始局面により、連続王手の千日手成立局面が王手をかけた状態と
+		// 王手を解除した状態の二つのケースがある。 （※）
+		// （※）は平成25年10月1日より暫定施行。
+		auto draw_type = n.is_repetition(n.game_ply());
+		switch (draw_type) {
+		case REPETITION_WIN:
+			// 連続王手の千日手による勝ち
+			if (or_node) {
+				// ここは通らないはず
+				entry.pn = 0;
+				entry.dn = kInfinitePnDn;
+				entry.minimum_distance = std::min(entry.minimum_distance, depth);
+			}
+			else {
+				entry.pn = kInfinitePnDn;
+				entry.dn = 0;
+				entry.minimum_distance = std::min(entry.minimum_distance, depth);
+			}
+			return;
+
+		case REPETITION_LOSE:
+			// 連続王手の千日手による負け
+			if (or_node) {
+				entry.pn = kInfinitePnDn;
+				entry.dn = 0;
+				entry.minimum_distance = std::min(entry.minimum_distance, depth);
+			}
+			else {
+				// ここは通らないはず
+				entry.pn = 0;
+				entry.dn = kInfinitePnDn;
+				entry.minimum_distance = std::min(entry.minimum_distance, depth);
+			}
+			return;
+
+		case REPETITION_DRAW:
+			// 普通の千日手
+			// ここは通らないはず
+			entry.pn = kInfinitePnDn;
+			entry.dn = 0;
+			entry.minimum_distance = std::min(entry.minimum_distance, depth);
+			return;
+		}
+
 		MovePicker move_picker(n, or_node);
 		if (move_picker.empty()) {
 			// nが先端ノード
@@ -459,9 +508,12 @@ namespace MateEngine
 
 	// 詰将棋探索のエントリポイント
 	void dfpn(Position& r) {
+		Threads.stop = false;
+
 		if (r.in_check()) {
+			// 逆王手からの詰みは対応しないので、notimplementedを返す.
 			sync_cout << "info string The king is checked... df-pn is skipped..." << sync_endl;
-			sync_cout << "bestmove None" << sync_endl;
+			sync_cout << "checkmate notimplemented" << sync_endl;
 			return;
 		}
 
@@ -491,12 +543,13 @@ namespace MateEngine
 			auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 			time_ms = std::max(time_ms, decltype(time_ms)(1));
 			int64_t nps = nodes_searched * 1000LL / time_ms;
+			// pv サブコマンドは info コマンドの最後に書く。
 			std::ostringstream oss;
-			oss << "info depth " << moves.size() << " time " << time_ms << " nodes " << nodes_searched << " pv";
+			oss << "info depth " << moves.size() << " time " << time_ms << " nodes " << nodes_searched
+				<< " score mate + nps " << nps << " pv";
 			for (const auto& move : moves) {
 				oss << " " << move;
 			}
-			oss << " score mate + nps " << nps;
 			sync_cout << oss.str() << sync_endl;
 		}
 
@@ -510,13 +563,17 @@ namespace MateEngine
 		// (思考のためには計算資源を使っていないので。)
 
 		if (moves.empty()) {
-			sync_cout << "bestmove None" << sync_endl;
-		}
-		else if (moves.size() == 1) {
-			sync_cout << "bestmove " << moves[0] << sync_endl;
+			// 詰みの手がない。
+			sync_cout << "checkmate nomate" << sync_endl;
 		}
 		else {
-			sync_cout << "bestmove " << moves[0] << " ponder " << moves[1] << sync_endl;
+			// 詰む手を返す。
+			std::ostringstream oss;
+			oss << "checkmate";
+			for (const auto& move : moves) {
+				oss << " " << move;
+			}
+			sync_cout << oss.str() << sync_endl;
 		}
 
 		Threads.stop = true;
@@ -533,6 +590,15 @@ void MainThread::think() {
 	Thread::search();
 }
 void Thread::search() {
+	// 通常のgoコマンドで呼ばれたときは、resignを返す。
+	// 詰み用のworkerでそれだと支障がある場合は適宜変更する。
+	if (Search::Limits.mate == 0) {
+		// "go infinite"に対してはstopが送られてくるまで待つ。
+		while (!Threads.stop && Limits.infinite)
+			sleep(1);
+		sync_cout << "bestmove resign" << sync_endl;
+		return;
+	}
 	MateEngine::dfpn(rootPos);
 }
 

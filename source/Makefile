@@ -1,9 +1,10 @@
 # > Select YaneuraOu edition below.
 
-YANEURAOU_EDITION = YANEURAOU_2018_OTAFUKU_ENGINE
+#YANEURAOU_EDITION = YANEURAOU_2018_OTAFUKU_ENGINE
 #YANEURAOU_EDITION = HELP_MATE_ENGINE
 #YANEURAOU_EDITION = MATE_ENGINE
 #YANEURAOU_EDITION = YANEURAOU_2018_GOKU_ENGINE
+YANEURAOU_EDITION = YANEURAOU_2018_TNK_ENGINE
 
 
 # clangでコンパイルしたほうがgccより数%速いっぽい。
@@ -31,7 +32,7 @@ ifeq ($(findstring clang++,$(COMPILER)),clang++)
   # static 変数を初期化したかを pthread_mutex_t でロックを取って確認し、
   # 最初の実行なら初期化するスレッドセーフなコードを生成するためのもの。
   # → 本当に消してしまっても大丈夫か？
-  WCFLAGS += -fno-threadsafe-statics
+  WCFLAGS += -fno-threadsafe-statics -I/mingw64/include/OpenBLAS
 
   # msys2用のclangでは、OpenMP使えない？インスコ仕方がわからん。
 
@@ -83,8 +84,8 @@ ifeq ($(findstring clang++,$(COMPILER)),clang++)
 #        OPENMP_LDFLAGS = 
 endif
 
-CFLAGS  += -DNO_EXCEPTIONS
-LDFLAGS += -lpthread
+CFLAGS  += -DNO_EXCEPTIONS -DUSE_BLAS
+LDFLAGS += -lpthread -lopenblas
 LDFLAGS += -v
 
 OBJDIR   = ../obj
@@ -144,6 +145,15 @@ ifeq ($(YANEURAOU_EDITION),MATE_ENGINE)
 	SOURCES += engine/mate-engine/mate-search.cpp
 endif
 
+ifeq ($(YANEURAOU_EDITION),YANEURAOU_2018_TNK_ENGINE)
+	SOURCES += eval/nnue/evaluate_nnue.cpp                                     \
+	           eval/nnue/evaluate_nnue_learner.cpp                             \
+	           eval/nnue/nnue_test_command.cpp                                 \
+	           eval/nnue/features/k.cpp                                        \
+	           eval/nnue/features/p.cpp                                        \
+	           eval/nnue/features/half_kp.cpp                                  \
+	           eval/nnue/features/half_relative_kp.cpp
+endif
 
 OBJECTS  = $(addprefix $(OBJDIR)/, $(SOURCES:.cpp=.o))
 DEPENDS  = $(OBJECTS:.o=.d)

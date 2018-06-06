@@ -2106,7 +2106,7 @@ void LearnerThink::thread_worker(size_t thread_id)
 bool LearnerThink::save(bool is_final)
 {
 	// 保存前にcheck sumを計算して出力しておく。(次に読み込んだときに合致するか調べるため)
-	std::cout << "Check Sum = " << std::hex << Eval::calc_check_sum() << std::dec << std::endl;
+//	std::cout << "Check Sum = " << std::hex << Eval::calc_check_sum() << std::dec << std::endl;
 
 	// 保存ごとにファイル名の拡張子部分を"0","1","2",..のように変えていく。
 	// (あとでそれぞれの評価関数パラメーターにおいて勝率を比較したいため)
@@ -2184,13 +2184,12 @@ void shuffle_write(const string& output_file_name , PRNG& prng , vector<fstream>
 	auto print_status = [&]()
 	{
 		// 10M局面ごと、もしくは、すべての書き出しが終わったときに進捗を出力する
-		if (((write_sfen_count % buffer_size) == 0) ||
-			(write_sfen_count == total_sfen_count))
-			cout << write_sfen_count << " / " << total_sfen_count << endl;
+//		if (((write_sfen_count % buffer_size) == 0) ||
+//			(write_sfen_count == total_sfen_count))
+//			cout << write_sfen_count << " / " << total_sfen_count << endl;
 	};
 
-
-	cout << endl <<  "write : " << output_file_name << endl;
+	cout << endl << "write : " << output_file_name << endl;
 
 	fstream fs(output_file_name, ios::out | ios::binary);
 

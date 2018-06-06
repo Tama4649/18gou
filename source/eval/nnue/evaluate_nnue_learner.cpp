@@ -201,7 +201,7 @@ void CheckHealth() {
 // 評価関数パラメーターをファイルに保存する
 void save_eval(std::string dir_name) {
   auto eval_dir = path_combine(Options["EvalSaveDir"], dir_name);
-  std::cout << "save_eval() start. folder = " << eval_dir << std::endl;
+//std::cout << "save_eval() start. folder = " << eval_dir << std::endl;
 
   // すでにこのフォルダがあるならmkdir()に失敗するが、
   // 別にそれは構わない。なければ作って欲しいだけ。
@@ -217,7 +217,7 @@ void save_eval(std::string dir_name) {
   const bool result = NNUE::WriteParameters(stream);
   ASSERT(result);
 
-  std::cout << "save_eval() finished. folder = " << eval_dir << std::endl;
+//std::cout << "save_eval() finished. folder = " << eval_dir << std::endl;
 }
 
 // 現在のetaを取得する

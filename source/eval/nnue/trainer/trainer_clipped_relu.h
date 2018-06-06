@@ -97,9 +97,9 @@ class Trainer<Layers::ClippedReLU<PreviousLayer>> {
         std::begin(min_activations_), std::end(min_activations_));
     const auto smallest_max_activation = *std::min_element(
         std::begin(max_activations_), std::end(max_activations_));
-    std::cout << "INFO: largest min activation = " << largest_min_activation
-              << ", smallest max activation = " << smallest_max_activation
-              << std::endl;
+//	std::cout << "INFO: largest min activation = " << largest_min_activation
+//		<< ", smallest max activation = " << smallest_max_activation
+//		<< std::endl;
 
     std::fill(std::begin(min_activations_), std::end(min_activations_),
               std::numeric_limits<LearnFloatType>::max());

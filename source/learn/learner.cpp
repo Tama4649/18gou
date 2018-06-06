@@ -1363,9 +1363,7 @@ struct SfenReader
 			cout << "open filename = " << filename << endl;
 			ASSERT(fs);
 			cout << endl;
-			cout << "date,sfens,epoch,eta,hirate eval,te,le,tw,lw,t,l" << endl;
-			ASSERT(fs);
-
+			cout << "date,sfens,epoch,eta,hirate eval,tce,lce,tcw,lcw,te,le,t,l,ma" << endl;
 			return true;
 		};
 
@@ -1611,10 +1609,10 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	TT.new_search();
 
 #if defined(EVAL_NNUE)
-	std::cout << "PROGRESS: " << now_string() << ", ";
-	std::cout << sr.total_done << " sfens";
-	std::cout << ", iteration " << epoch;
-	std::cout << ", eta = " << Eval::get_eta() << ", ";
+//	std::cout << "PROGRESS: " << now_string() << ", ";
+//	std::cout << sr.total_done << " sfens";
+//	std::cout << ", iteration " << epoch;
+//	std::cout << ", eta = " << Eval::get_eta() << ", ";
 #endif
 
 #if !defined(LOSS_FUNCTION_IS_ELMO_METHOD)
@@ -1784,19 +1782,11 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 		cout << learn_sum_cross_entropy_eval / done << ",";
 		cout << test_sum_cross_entropy_win / sr.sfen_for_mse.size() << ",";
 		cout << learn_sum_cross_entropy_win / done << ",";
-		cout << (test_sum_cross_entropy_eval + test_sum_cross_entropy_win) / sr.sfen_for_mse.size() << ",";
-		cout << (learn_sum_cross_entropy_eval + learn_sum_cross_entropy_win) / done << endl;
-		if (done != static_cast<u64>(-1))
-		{
-			cout
-				<< " , learn_cross_entropy_eval = " << learn_sum_cross_entropy_eval / done
-				<< " , learn_cross_entropy_win = "  << learn_sum_cross_entropy_win / done
-				<< " , learn_entropy_eval = "       << learn_sum_entropy_eval / done
-				<< " , learn_entropy_win = "        << learn_sum_entropy_win / done
-				<< " , learn_cross_entropy = "      << learn_sum_cross_entropy / done
-				<< " , learn_entropy = "            << learn_sum_entropy / done;
-		}
-		cout << endl;
+		cout << test_sum_cross_entropy / sr.sfen_for_mse.size() << ",";
+		cout << learn_sum_cross_entropy / done << ",";
+		cout << test_sum_entropy / sr.sfen_for_mse.size() << ",";
+		cout << learn_sum_entropy / done << ",";
+		cout << (move_accord_count * 100.0 / sr.sfen_for_mse.size()) << "%" << endl;
 	}
 	else {
 		cout << "Error! : sr.sfen_for_mse.size() = " << sr.sfen_for_mse.size() << " ,  done = " << done << endl;
@@ -1860,17 +1850,15 @@ void LearnerThink::thread_worker(size_t thread_id)
 					continue;
 				}
 
-#if !defined(EVAL_NNUE)
 				// 現在時刻を出力。毎回出力する。
-//				std::cout << sr.total_done << " sfens , at " << now_string() << std::endl;
 				std::cout << now_string() << "," << sr.total_done << ",";
 
+				// デバッグ用にepochと現在のetaを表示してやる。
+				std::cout << epoch << "," << Eval::get_eta() << ",";
+
+#if !defined(EVAL_NNUE)
 				// このタイミングで勾配をweight配列に反映。勾配の計算も1M局面ごとでmini-batch的にはちょうどいいのでは。
 				Eval::update_weights(epoch , freeze);
-
-				// デバッグ用にepochと現在のetaを表示してやる。
-//				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
-				std::cout << epoch << "," << Eval::get_eta() << ",";
 #else
 				{
 					// 更新中に評価関数を使わないようにロックする。

@@ -3,7 +3,7 @@
 #ifndef _NNUE_TRAINER_FEATURE_TRANSFORMER_H_
 #define _NNUE_TRAINER_FEATURE_TRANSFORMER_H_
 
-#include "../../../shogi.h"
+#include "../../../config.h"
 
 #if defined(EVAL_LEARN) && defined(EVAL_NNUE)
 
@@ -100,7 +100,7 @@ class Trainer<FeatureTransformer> {
         cblas_scopy(kHalfDimensions, biases_, 1, &output_[output_offset], 1);
         for (const auto& feature : batch[b].training_features[c]) {
           const IndexType weights_offset = kHalfDimensions * feature.GetIndex();
-          cblas_saxpy(kHalfDimensions, feature.GetCount(),
+          cblas_saxpy(kHalfDimensions, (float)feature.GetCount(),
                       &weights_[weights_offset], 1, &output_[output_offset], 1);
         }
 #else
@@ -297,24 +297,24 @@ class Trainer<FeatureTransformer> {
 
   // 学習に問題が生じていないかチェックする
   void CheckHealth() {
-//	std::cout << "INFO: observed " << observed_features.count()
-//		<< " (out of " << kInputDimensions << ") features" << std::endl;
+//  std::cout << "INFO: observed " << observed_features.count()
+//            << " (out of " << kInputDimensions << ") features" << std::endl;
 
     constexpr LearnFloatType kPreActivationLimit =
         std::numeric_limits<typename LayerType::WeightType>::max() /
         kWeightScale;
-//	std::cout << "INFO: (min, max) of pre-activations = "
-//		<< min_pre_activation_ << ", "
-//		<< max_pre_activation_ << " (limit = "
-//		<< kPreActivationLimit << ")" << std::endl;
+//  std::cout << "INFO: (min, max) of pre-activations = "
+//            << min_pre_activation_ << ", "
+//            << max_pre_activation_ << " (limit = "
+//            << kPreActivationLimit << ")" << std::endl;
 
     const auto largest_min_activation = *std::max_element(
         std::begin(min_activations_), std::end(min_activations_));
     const auto smallest_max_activation = *std::min_element(
         std::begin(max_activations_), std::end(max_activations_));
-//	std::cout << "INFO: largest min activation = " << largest_min_activation
-//		<< ", smallest max activation = " << smallest_max_activation
-//		<< std::endl;
+//  std::cout << "INFO: largest min activation = " << largest_min_activation
+//            << ", smallest max activation = " << smallest_max_activation
+//            << std::endl;
 
     std::fill(std::begin(min_activations_), std::end(min_activations_),
               std::numeric_limits<LearnFloatType>::max());

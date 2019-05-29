@@ -3,8 +3,9 @@
 
 // BonaPieceのmirror(左右反転)やinverse(盤上の180度回転)させた駒を得るためのツール類。
 
-#include "../shogi.h"
+#include "../types.h"
 #include "../evaluate.h"
+#include <functional>
 
 namespace Eval
 {

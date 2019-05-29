@@ -3,13 +3,13 @@
 #if defined(YANEURAOU_2017_EARLY_ENGINE)
 
 // -----------------------
-//   人造棋士18号設定部
+//   やねうら王2017(early)設定部
 // -----------------------
 
 // 開発方針
-// やねうら王2017(Early)からの改造。
+// やねうら王2016(late)からの改造。
 // 特徴)
-//   どんな特徴をつけたらいいのか……(+_+)
+//   探索のためのパラメーターの完全自動調整。
 
 // パラメーターを自動調整するのか
 // 自動調整が終われば、ファイルを固定してincludeしたほうが良い。
@@ -132,7 +132,7 @@ void USI::extra_option(USI::OptionsMap & o)
 }
 
 // -----------------------
-//   人造棋士18号探索部
+//   やねうら王2017(early)探索部
 // -----------------------
 
 namespace YaneuraOu2017Early
@@ -195,9 +195,7 @@ namespace YaneuraOu2017Early
 	// depthに基づく、historyとstatsのupdate bonus
 	int stat_bonus(Depth depth) {
 		int d = depth / ONE_PLY;
-		// 2017/12/27 by Tama
 		return d > 17 ? 0 : d * d + 2 * d - 2;
-//		return 0;
 	}
 
 	// -----------------------
@@ -2727,7 +2725,6 @@ void MainThread::think()
 	// 反復深化の終了。
 ID_END:;
 
-	// nodes as time(時間としてnodesを用いるモード)のときは、利用可能なノード数から探索したノード数を引>き算する。
 	// 最大depth深さに到達したときに、ここまで実行が到達するが、
 	// まだThreads.stopが生じていない。しかし、ponder中や、go infiniteによる探索の場合、
 	// USI(UCI)プロトコルでは、"stop"や"ponderhit"コマンドをGUIから送られてくるまでbest moveを出力してはならない。
@@ -2756,9 +2753,7 @@ ID_END:;
 	// nodes as time(時間としてnodesを用いるモード)のときは、利用可能なノード数から探索したノード数を引き算する。
 	// 時間切れの場合、負の数になりうる。
 	if (Limits.npmsec)
-	// 2017/10/13 Tama nodestimeが効かなくなってしまったので、ここだけ戻す。
-//		Time.availableNodes += Limits.inc[us] - Threads.nodes_searched();
-		Time.availableNodes = std::max(Time.availableNodes + Limits.inc[us] - (s64)Threads.nodes_searched(), (s64)0);
+		Time.availableNodes += Limits.inc[us] - Threads.nodes_searched();
 
 	// ---------------------
 	// Lazy SMPの結果を取り出す

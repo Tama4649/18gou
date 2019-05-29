@@ -1,5 +1,9 @@
 ﻿#include "evaluate_io.h"
 #include "../misc.h"
+#include "../usi.h"
+
+#include <fstream>
+#include <cstring>	// memset()
 
 namespace EvalIO
 {

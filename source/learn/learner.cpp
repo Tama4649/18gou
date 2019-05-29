@@ -1,4 +1,4 @@
-﻿#include "../shogi.h"
+﻿#include "../config.h"
 
 // 学習関係のルーチン
 //
@@ -53,6 +53,8 @@
 #include <unordered_set>
 #include <iomanip>
 #include <list>
+#include <cmath>	// std::exp(),std::pow(),std::log()
+#include <cstring>	// memcpy()
 
 #if defined (_OPENMP)
 #include <omp.h>
@@ -116,7 +118,7 @@ struct SfenWriter
 	// 書き出すファイル名と生成するスレッドの数
 	SfenWriter(string filename, int thread_num)
 	{
-		sfen_buffers_pool.reserve(thread_num * 10);
+		sfen_buffers_pool.reserve((size_t)thread_num * 10);
 		sfen_buffers.resize(thread_num);
 
 		// 追加学習するとき、評価関数の学習後も生成される教師の質はあまり変わらず、教師局面数を稼ぎたいので
@@ -368,7 +370,7 @@ void MultiThinkGenSfen::thread_worker(size_t thread_id)
 	const int MAX_PLY2 = write_maxply;
 
 	// StateInfoを最大手数分 + SearchのPVでleafにまで進めるbuffer
-	std::vector<StateInfo,AlignedAllocator<StateInfo>> states(MAX_PLY2 + 50 /* == search_depth + α */);
+	std::vector<StateInfo,AlignedAllocator<StateInfo>> states(MAX_PLY2 + MAX_PLY /* == search_depth + α */);
 	StateInfo si;
 
 	// 今回の指し手。この指し手で局面を進める。
@@ -394,7 +396,7 @@ void MultiThinkGenSfen::thread_worker(size_t thread_id)
 		// 1局分の局面を保存しておき、終局のときに勝敗を含めて書き出す。
 		// 書き出す関数は、この下にあるflush_psv()である。
 		PSVector a_psv;
-		a_psv.reserve(MAX_PLY2 + 50);
+		a_psv.reserve(MAX_PLY2 + MAX_PLY);
 
 		// a_psvに積まれている局面をファイルに書き出す。
 		// lastTurnIsWin : a_psvに積まれている最終局面の次の局面での勝敗
@@ -526,16 +528,6 @@ void MultiThinkGenSfen::thread_worker(size_t thread_id)
 			{
 				// search_depth～search_depth2 手読みの評価値とPV(最善応手列)
 				// 探索窓を狭めておいても問題ないはず。
-
-				// 置換表の世代カウンターを進めておかないと
-				// 初期局面周辺でhash衝突したTTEntryに当たり、変な評価値を拾ってきて、
-				// eval_limitが低いとそれをもって終了してしまうので、いつまでも教師局面が生成されなくなる。
-				// 置換表自体は、スレッドごとに保持しているので、ここでTT.new_search()を呼び出して問題ない。
-#if defined(USE_GLOBAL_OPTIONS)
-				TT.new_search(pos.this_thread()->thread_id());
-#else
-				TT.new_search();
-#endif
 
 				auto pv_value1 = search(pos, depth);
 
@@ -1360,12 +1352,13 @@ struct SfenReader
 			filenames.pop_back();
 
 			fs.open(filename, ios::in | ios::binary);
-			cout << "open filename = " << filename << endl;
+			//cout << "open filename = " << filename << endl;
 			ASSERT(fs);
-			cout << endl;
-			cout << "date,sfens,epoch,eta,hirate eval,tce,lce,tcw,lcw,te,le,t,l,ma" << endl;
+			//cout << endl;
 			return true;
 		};
+
+		cout << "date               ,      sfens,  epo,  eta,hirate,     tce,     lce,  cediff,     tcw,     lcw,  cwdiff,      te,      le,   ediff,       t,       l,    diff, ma" << endl;
 
 		while (true)
 		{
@@ -1392,7 +1385,7 @@ struct SfenReader
 					if (!open_next_file())
 					{
 						// 次のファイルもなかった。あぼーん。
-						cout << "..end of files." << endl;
+						//cout << "..end of files." << endl;
 						end_of_files = true;
 						return;
 					}
@@ -1608,12 +1601,15 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	// 置換表を無効にしているなら関係ないのだが。
 	TT.new_search();
 
-#if defined(EVAL_NNUE)
+//#if defined(EVAL_NNUE)
 //	std::cout << "PROGRESS: " << now_string() << ", ";
 //	std::cout << sr.total_done << " sfens";
 //	std::cout << ", iteration " << epoch;
 //	std::cout << ", eta = " << Eval::get_eta() << ", ";
-#endif
+	auto disp_sfens = (u64)sr.total_done;
+	auto disp_epoch = epoch;
+	auto disp_eta   = Eval::get_eta();
+//#endif
 
 #if !defined(LOSS_FUNCTION_IS_ELMO_METHOD)
 	double sum_error = 0;
@@ -1646,8 +1642,8 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	auto& pos = th->rootPos;
 	StateInfo si;
 	pos.set_hirate(&si,th);
-//	std::cout << "hirate eval = " << Eval::evaluate(pos) << endl;
-	std::cout << Eval::evaluate(pos) << ",";
+//	std::cout << "hirate eval = " << Eval::evaluate(pos);
+	auto hirateval = Eval::evaluate(pos);
 
 	//Eval::print_eval_stat(pos);
 
@@ -1778,15 +1774,57 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 
 	if (sr.sfen_for_mse.size() && done)
 	{
-		cout << test_sum_cross_entropy_eval / sr.sfen_for_mse.size() << ",";
-		cout << learn_sum_cross_entropy_eval / done << ",";
-		cout << test_sum_cross_entropy_win / sr.sfen_for_mse.size() << ",";
-		cout << learn_sum_cross_entropy_win / done << ",";
-		cout << test_sum_cross_entropy / sr.sfen_for_mse.size() << ",";
-		cout << learn_sum_cross_entropy / done << ",";
-		cout << test_sum_entropy / sr.sfen_for_mse.size() << ",";
-		cout << learn_sum_entropy / done << ",";
-		cout << (move_accord_count * 100.0 / sr.sfen_for_mse.size()) << "%" << endl;
+		// 整形して出力する。全て百分率で出すようにした。
+		auto tce    = test_sum_cross_entropy_eval  * 100 / sr.sfen_for_mse.size();
+		auto lce    = learn_sum_cross_entropy_eval * 100 / done;
+		auto tcw    = test_sum_cross_entropy_win   * 100 / sr.sfen_for_mse.size();
+		auto lcw    = learn_sum_cross_entropy_win  * 100 / done;
+		auto te     = test_sum_cross_entropy       * 100 / sr.sfen_for_mse.size();
+		auto le     = learn_sum_cross_entropy      * 100 / done;
+		auto ts     = test_sum_entropy             * 100 / sr.sfen_for_mse.size();
+		auto ls     = learn_sum_entropy            * 100 / done;
+		auto mc     = (move_accord_count           * 100 / sr.sfen_for_mse.size());
+		auto wktime = std::time(NULL);
+		auto wtp    = *std::localtime(&wktime);
+
+		ios::fmtflags flagsSaved = cout.flags();
+		std::cout << setw(19)                             << right << std::put_time(&wtp, "%Y-%m-%d %H:%M:%S");
+		std::cout << setw( 1) << ",";
+		std::cout << setw(11) << dec                      << right << disp_sfens;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 5) << dec                      << right << disp_epoch;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 5) << fixed << setprecision(2) << right << disp_eta;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 6) << dec                      << right << hirateval;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << lce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tce - lce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << lcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tcw - lcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << te;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << le;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << te - le;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ts;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ls;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ts - ls;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 3) << dec                      << right << mc;
+		std::cout << std::endl;
+		std::cout.flags(flagsSaved);
 	}
 	else {
 		cout << "Error! : sr.sfen_for_mse.size() = " << sr.sfen_for_mse.size() << " ,  done = " << done << endl;
@@ -1850,17 +1888,22 @@ void LearnerThink::thread_worker(size_t thread_id)
 					continue;
 				}
 
-				// 現在時刻を出力。毎回出力する。
-				std::cout << now_string() << "," << sr.total_done << ",";
-
-				// デバッグ用にepochと現在のetaを表示してやる。
-				std::cout << epoch << "," << Eval::get_eta() << ",";
-
 #if !defined(EVAL_NNUE)
+				// 現在時刻を出力。毎回出力する。
+//				std::cout << sr.total_done << " sfens , at " << now_string() << std::endl;
+
 				// このタイミングで勾配をweight配列に反映。勾配の計算も1M局面ごとでmini-batch的にはちょうどいいのでは。
 				Eval::update_weights(epoch , freeze);
+
+				// デバッグ用にepochと現在のetaを表示してやる。
+//				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
+				auto disp_sfens = (u64)sr.total_done;
+				auto disp_epoch = epoch;
+				auto disp_eta   = Eval::get_eta();
 #else
 				{
+					// パラメータの更新
+
 					// 更新中に評価関数を使わないようにロックする。
 					lock_guard<shared_timed_mutex> write_lock(nn_mutex);
 					Eval::NNUE::UpdateParameters(epoch);
@@ -1911,7 +1954,7 @@ void LearnerThink::thread_worker(size_t thread_id)
 				sr.next_update_weights += mini_batch_size;
 
 				// main thread以外は、このsr.next_update_weightsの更新を待っていたので
-				// この値が更新されると再度動き始める。
+				// この値が更新されると再度動き始める。				
 			}
 		}
 
@@ -1931,6 +1974,7 @@ void LearnerThink::thread_worker(size_t thread_id)
 		// この局面情報を無視する。
 		if (eval_limit < abs(ps.score) || abs(ps.score) == VALUE_SUPERIOR)
 			goto RetryRead;
+
 #if !defined (LEARN_GENSFEN_USE_DRAW_RESULT)
 		if (ps.game_result == 0)
 			goto RetryRead;
@@ -2131,32 +2175,33 @@ bool LearnerThink::save(bool is_final)
 			const double latest_loss = latest_loss_sum / latest_loss_count;
 			latest_loss_sum = 0.0;
 			latest_loss_count = 0;
-			cout << "loss: " << latest_loss;
+			std::cout << "loss: " << latest_loss;
 			if (latest_loss < best_loss) {
-				cout << " < best (" << best_loss << "), accepted" << endl;
+				std::cout << " < best (" << best_loss << "), accepted.";
 				best_loss = latest_loss;
-				best_nn_directory = path_combine((std::string)Options["EvalSaveDir"], dir_name);
+				best_nn_directory = Path::Combine((std::string)Options["EvalSaveDir"], dir_name);
 				trials = newbob_num_trials;
 			} else {
-				cout << " >= best (" << best_loss << "), rejected" << endl;
+				std::cout << " >= best (" << best_loss << "), rejected.";
 				if (best_nn_directory.empty()) {
-					cout << "WARNING: no improvement from initial model" << endl;
+					std::cout << " WARNING: no improvement from initial model.";
 				} else {
-					cout << "restoring parameters from " << best_nn_directory << endl;
+					std::cout << " restoring parameters from " << best_nn_directory << ".";
 					Eval::NNUE::RestoreParameters(best_nn_directory);
 				}
 				if (--trials > 0 && !is_final) {
-					cout << "reducing learning rate scale from " << newbob_scale
+					std::cout << " reducing learning rate scale from " << newbob_scale
 					     << " to " << (newbob_scale * newbob_decay)
-					     << " (" << trials << " more trials)" << endl;
+					     << " (" << trials << " more trials).";
 					newbob_scale *= newbob_decay;
 					Eval::NNUE::SetGlobalLearningRateScale(newbob_scale);
 				}
 			}
 			if (trials == 0) {
-				cout << "converged" << endl;
+				std::cout << "converged." << std::endl;
 				return true;
 			}
+			std::cout << std::endl;
 		}
 #endif
 	}
@@ -2189,7 +2234,7 @@ void shuffle_write(const string& output_file_name , PRNG& prng , vector<fstream>
 //			cout << write_sfen_count << " / " << total_sfen_count << endl;
 	};
 
-	cout << endl << "write : " << output_file_name << endl;
+	cout << endl <<  "write : " << output_file_name << endl;
 
 	fstream fs(output_file_name, ios::out | ios::binary);
 
@@ -2291,9 +2336,13 @@ void shuffle_files(const vector<string>& filenames , const string& output_file_n
 		while (fs.read((char*)&buf[buf_write_marker], sizeof(PackedSfenValue)))
 			if (++buf_write_marker == buffer_size)
 				write_buffer(buffer_size);
+
+		// sizeof(PackedSfenValue)単位で読み込んでいき、
+		// 最後に残っている端数は無視する。(fs.readで失敗するのでwhileを抜ける)
+		// (最後に残っている端数は、教師生成時に途中で停止させたために出来た中途半端なデータだと思われる。)
+
 	}
 
-	// バッファにまだ残っている分があるならそれも書き出す。
 	if (buf_write_marker != 0)
 		write_buffer(buf_write_marker);
 
@@ -2426,7 +2475,7 @@ void convert_bin(const vector<string>& filenames , const string& output_file_nam
 			}
 			else if (token == "move") {
 				ss >> value;
-				p.move = move_from_usi(value);
+				p.move = USI::to_move(value);
 			}
 			else if (token == "score") {
 				ss >> p.score;
@@ -2649,6 +2698,7 @@ void learn(Position&, istringstream& is)
 		else if (option == "win_cor")      is >> win_correct;
 		else if (option == "lose_cor")     is >> lose_correct;
 		else if (option == "draw_cor")     is >> draw_correct;
+
 #endif
 		else if (option == "reduction_gameply") is >> reduction_gameply;
 
@@ -2694,7 +2744,7 @@ void learn(Position&, istringstream& is)
 	// 学習棋譜ファイルの表示
 	if (target_dir != "")
 	{
-		string kif_base_dir = path_combine(base_dir, target_dir);
+		string kif_base_dir = Path::Combine(base_dir, target_dir);
 
 		// このフォルダを根こそぎ取る。base_dir相対にしておく。
 #if defined(_MSC_VER)
@@ -2708,7 +2758,7 @@ void learn(Position&, istringstream& is)
 		std::for_each(sys::directory_iterator(p), sys::directory_iterator(),
 			[&](const sys::path& p) {
 			if (sys::is_regular_file(p))
-				filenames.push_back(path_combine(target_dir, p.filename().generic_string()));
+				filenames.push_back(Path::Combine(target_dir, p.filename().generic_string()));
 		});
 		#pragma warning(pop)
 
@@ -2734,7 +2784,7 @@ void learn(Position&, istringstream& is)
 				if (entry != NULL  && ends_with(entry->d_name, ".bin")  )
 				{
 					//cout << entry->d_name << endl;
-					filenames.push_back(path_combine(target_dir, entry->d_name));
+					filenames.push_back(Path::Combine(target_dir, entry->d_name));
 				}
 			} while (entry != NULL);
 			closedir(dp);
@@ -2800,7 +2850,7 @@ void learn(Position&, istringstream& is)
 	for (int i = 0; i < loop; ++i)
 		// sfen reader、逆順で読むからここでreverseしておく。すまんな。
 		for (auto it = filenames.rbegin(); it != filenames.rend(); ++it)
-			sr.filenames.push_back(path_combine(base_dir, *it));
+			sr.filenames.push_back(Path::Combine(base_dir, *it));
 
 #if !defined(EVAL_NNUE)
 	cout << "Gradient Method   : " << LEARN_UPDATE      << endl;
@@ -2831,9 +2881,9 @@ void learn(Position&, istringstream& is)
 	cout << "LAMBDA            : " << ELMO_LAMBDA       << endl;
 	cout << "LAMBDA2           : " << ELMO_LAMBDA2      << endl;
 	cout << "LAMBDA_LIMIT      : " << ELMO_LAMBDA_LIMIT << endl;
-	cout << "win_correct       : " << win_correct       << endl;
-	cout << "lose_correct      : " << lose_correct      << endl;
-	cout << "draw_correct      : " << draw_correct      << endl;
+	cout << "win_correct         : " << win_correct       << endl;
+	cout << "lose_correct        : " << lose_correct      << endl;
+	cout << "draw_correct        : " << draw_correct      << endl;
 #endif
 	cout << "mirror_percentage : " << mirror_percentage << endl;
 	cout << "eval_save_interval  : " << eval_save_interval << " sfens" << endl;
@@ -2945,8 +2995,8 @@ void learn(Position&, istringstream& is)
 
 } // namespace Learner
 
-#if defined(USE_GENSFEN2018)
-#include "gensfen2018.cpp"
+#if defined(GENSFEN2019)
+#include "gensfen2019.cpp"
 #endif
 
 

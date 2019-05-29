@@ -3,13 +3,15 @@
 #ifndef _NNUE_FEATURE_TRANSFORMER_H_
 #define _NNUE_FEATURE_TRANSFORMER_H_
 
-#include "../../shogi.h"
+#include "../../config.h"
 
 #if defined(EVAL_NNUE)
 
 #include "nnue_common.h"
 #include "nnue_architecture.h"
 #include "features/index_list.h"
+
+#include <cstring> // std::memset()
 
 namespace Eval {
 

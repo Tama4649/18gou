@@ -1,4 +1,4 @@
-﻿#include "../../shogi.h"
+﻿#include "../../config.h"
 
 // KPP+KKPTの実験用コード。
 // ほとんどevaluate_kppt.cppと同じ。
@@ -12,6 +12,7 @@
 #include "../../evaluate.h"
 #include "../../position.h"
 #include "../../misc.h"
+#include "../../usi.h"
 #include "../../extra/bitop.h"
 #include "../evaluate_io.h"
 #include "evaluate_kpp_kkpt.h"
@@ -53,8 +54,7 @@ namespace Eval
 		// EvalIOを利用して評価関数ファイルを読み込む。
 		// ちなみに、inputのところにあるbasic_kppt32()をbasic_kppt16()に変更するとApery(WCSC27)の評価関数ファイルが読み込める。
 		// また、eval_convert()に渡している引数のinputとoutputを入れ替えるとファイルに書き出すことが出来る。EvalIOマジ、っょぃ。
-		auto make_name = [&](std::string filename) { return path_combine((string)Options["EvalDir"], filename); };
-
+		auto make_name = [&](std::string filename) { return Path::Combine((string)Options["EvalDir"], filename); };
 		// 2018/1/3 Tama
 		// KK_synthesized.binとKKP_synthesized.binを読み込まず、KPP_synthesized.binのみ読み込むようにして、動作時のメモリ確保量を
 		// 減らす。それに伴ってEvalIOもKPPだけ読み込むように修正。
@@ -140,11 +140,11 @@ namespace Eval
 			kk_ = nullptr;
 		}
 #else
-		if (kpp_ != nullptr)
-		{
-			aligned_free((void*)kpp_);
-			kpp_ = nullptr;
-		}
+                if (kpp_ != nullptr)
+                {
+                        aligned_free((void*)kpp_);
+                        kpp_ = nullptr;
+                }
 #endif
 
 		// メモリ確保は一回にして、連続性のある確保にする。
@@ -317,7 +317,7 @@ namespace Eval
 #if !defined(USE_ONLY_KPPT)
 		sum.p[2] = kk[sq_bk][sq_wk];
 #else
-		sum.p[2][0] = sum.p[2][1] = 0;
+                sum.p[2][0] = sum.p[2][1] = 0;
 #endif
 
 		for (i = 0; i < length; ++i)
@@ -416,7 +416,7 @@ namespace Eval
 #if !defined(USE_ONLY_KPPT)
 		sum.p[2] = kkp[sq_bk][sq_wk][ebp.fb];
 #else
-		sum.p[2][0] = sum.p[2][1] = 0;
+                sum.p[2][0] = sum.p[2][1] = 0;
 #endif
 
 		const auto* pkppb = kpp[sq_bk][ebp.fb];
@@ -576,7 +576,7 @@ namespace Eval
 #if !defined(USE_ONLY_KPPT)
 			diff.p[2] = kk[sq_bk][sq_wk];
 #else
-			diff.p[2][0] = diff.p[2][1] = 0;
+                        diff.p[2][0] = diff.p[2][1] = 0;
 #endif
 			diff.p[2][0] += now->materialValue * FV_SCALE;
 
@@ -1198,6 +1198,7 @@ namespace Eval
 			}
 		}
 #endif
+
 		// KPP
 		if (type == -1 || type == 2)
 		{

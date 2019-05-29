@@ -8,13 +8,14 @@
 #include <iostream>
 #include <fstream>
 
-#include "../shogi.h"
+#include "../types.h"
 #include "../bitboard.h"
 #include "../position.h"
 #include "../search.h"
 #include "../thread.h"
 #include "../misc.h"
 #include "../tt.h"
+#include "../usi.h"
 #include "long_effect.h"
 #include "book/book.h"
 #include "../learn/learn.h"

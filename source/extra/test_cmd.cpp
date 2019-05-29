@@ -1,13 +1,11 @@
-﻿#include "../shogi.h"
+﻿#include "../types.h"
 
 // USI拡張コマンドのうち、開発上のテスト関係のコマンド。
 // 思考エンジンの実行には関係しない。GitHubにはcommitしないかも。
 
 #if defined(ENABLE_TEST_CMD)
 
-#include "all.h"
 #include "../eval/evaluate_io.h"
-#include <unordered_set>
 #include <iomanip>
 
 #if defined(EVAL_LEARN)
@@ -21,178 +19,9 @@ using namespace EvalLearningTools;
 #include "../eval/nnue/nnue_test_command.h"
 #endif
 
-// ----------------------------------
-//  USI拡張コマンド "perft"(パフォーマンステスト)
-// ----------------------------------
-
-// perft()で用いるsolver
-// cf. http://qiita.com/ak11/items/8bd5f2bb0f5b014143c8
-
-// 通常のPERFTと、置換表を用いる高速なPERFTと選択できる。
-// 後者を用いる場合は、hash keyの衝突を避けるためにHASH_KEY_BITSを128にしておくこと。
-// ※　あと、後者は以下のところで置換表を15GBほど固定で確保しているので、動作環境に応じて修正すること。
-// >  entryCount = 256 * 1024 * 1024; // * sizeof(PerftSolverResult) == 15GBほど
-
-#define NORMAL_PERFT
-
-// perftのときにeval値も加算していくモード。評価関数のテスト用。
-//#define EVAL_PERFT
-
-
-struct PerftSolverResult {
-	uint64_t nodes, captures, promotions, checks, mates;
-#ifdef EVAL_PERFT
-	int64_t eval;
-#endif
-
-	void operator+=(const PerftSolverResult& other) {
-		nodes += other.nodes;
-		captures += other.captures;
-		promotions += other.promotions;
-		checks += other.checks;
-		mates += other.mates;
-#ifdef EVAL_PERFT
-		eval += other.eval;
-#endif
-	}
-};
-
-#ifndef NORMAL_PERFT
-// perftで用いる置換表
-namespace Perft {
-	struct TTEntry {
-		void save(HASH_KEY key_, PerftSolverResult& result_)
-		{
-			key = key_;
-			result = result_;
-		}
-		HASH_KEY key;
-		PerftSolverResult result;
-	};
-
-	struct TranspositionTable {
-		TranspositionTable() {
-			entryCount = 256*1024*1024; // * sizeof(PerftSolverResult) == 15GBほど
-			table = (TTEntry*)calloc( entryCount * sizeof(TTEntry) , 1);
-		}
-		~TranspositionTable() { free(table); }
-
-		TTEntry* probe(const HASH_KEY key_,int depth,bool& found)
-		{
-			auto key = key_ ^ DepthHash(depth); // depthの分だけhash keyを変更しておく。
-			auto& tte = table[key /*.p(0)*/ & (entryCount - 1)];
-			found = (tte.key == key_); // 変更前のhash keyが書かれているはず
-			return &tte;
-		}
-	private:
-		TTEntry* table;
-		size_t entryCount; // TTEntryの数
-	};
-	TranspositionTable TT;
-}
-
-#endif
-
-#ifdef NORMAL_PERFT
-struct PerftSolver {
-	template <bool Root>
-	PerftSolverResult Perft(Position& pos, int depth) {
-		StateInfo st;
-		PerftSolverResult result = {};
-		if (depth == 0) {
-			result.nodes++;
-			if (pos.captured_piece() != NO_PIECE) result.captures++;
-#ifdef KEEP_LAST_MOVE
-			if (is_promote(pos.state()->lastMove)) result.promotions++;
-#endif
-#ifdef EVAL_PERFT
-//			cout << pos.sfen() << " , eval = " << Eval::evaluate(pos) << endl;
-			/*
-			if (pos.sfen() == "1nsgkgsnl/lr5b1/pppppp+Bpp/9/9/2P6/PP1PPPPPP/7R1/LNSGKGSNL w P 4")
-			{
-//				cout << Eval::evaluate(pos);
-				Eval::print_eval_stat(pos);
-			}
-			*/
-			result.eval += Eval::evaluate(pos);
-#endif
-			if (pos.checkers()) {
-				result.checks++;
-				if (pos.is_mated()) result.mates++;
-			}
-		} else {
-			for (auto m : MoveList<LEGAL_ALL>(pos)) {
-				if (Root)
-					cout << ".";
-				pos.do_move(m, st);
-				result += Perft<false>(pos, depth - 1);
-				pos.undo_move(m);
-			}
-		}
-		return result;
-	}
-};
-#else // 置換表を用いる高速なperft
-struct PerftSolver {
-	template <bool Root>
-	PerftSolverResult Perft(Position& pos, int depth) {
-		HASH_KEY key = pos.state()->long_key();
-		bool found;
-
-		PerftSolverResult result = {};
-
-		auto tt = Perft::TT.probe(key, depth, found); // 置換表に登録されているか。
-		if (found)
-			return tt->result;
-
-		StateInfo st;
-		for (auto m : MoveList<LEGAL_ALL>(pos)) {
-			if (Root)
-				cout << ".";
-
-			pos.do_move(m.move, st);
-			if (depth > 1)
-				result += Perft<false>(pos, depth - 1);
-			else {
-				result.nodes++;
-				if (pos.state()->capturedType != NO_PIECE) result.captures++;
-				#ifdef        KEEP_LAST_MOVE
-				if (is_promote(pos.state()->lastMove)) result.promotions++;
-				#endif
-				if (pos.checkers()) {
-					result.checks++;
-					if (pos.is_mated()) result.mates++;
-				}
-			}
-			pos.undo_move(m.move);
-		}
-		tt->save(key, result); // 登録されていなかったので置換表に保存する
-
-		return result;
-	}
-};
-#endif
-
-// N手で到達できる局面数を計算する。成る手、取る手、詰んだ局面がどれくらい含まれているかも計算する。
-void perft(Position& pos, istringstream& is)
-{
-	int depth = 5 ;
-	is >> depth;
-	cout << "perft depth = " << depth << endl;
-	PerftSolver solver;
-	// 局面コピーして並列的に呼び出してやるだけであとはなんとかなる。
-
-	auto result = solver.Perft<true>(pos, depth);
-
-	cout << endl << "nodes = " << result.nodes << " , captures = " << result.captures <<
-#ifdef KEEP_LAST_MOVE
-		" , promotion = " << result.promotions <<
-#endif
-#ifdef EVAL_PERFT
-		" , eval(sum) = " << result.eval <<
-#endif
-		" , checks = " << result.checks << " , checkmates = " << result.mates << endl;
-}
+#include <unordered_set>
+#include <cmath>               // sqrt() , fabs()
+#include "all.h"
 
 // ----------------------------------
 //      USI拡張コマンド "test"
@@ -540,7 +369,7 @@ void test_genchecks(Position& pos, istringstream& is)
 void cooperation_mate(Position& pos, int depth)
 {
 	// moves_from_start_pretty()がKEEP_LAST_MOVEを要求する。
-#ifdef  KEEP_LAST_MOVE
+#if defined(KEEP_LAST_MOVE)
 
 	StateInfo st;
 	for (auto m : MoveList<LEGAL_ALL>(pos))
@@ -792,7 +621,7 @@ void test_timeman()
 
 		Timer time;
 
-		int remain = limits.time[BLACK];
+		TimePoint remain = limits.time[BLACK];
 
 		for (int ply = 1; ply <= limits.max_game_ply; ply += 2)
 		{
@@ -805,7 +634,7 @@ void test_timeman()
 				;
 
 			// 4回に1回はtime.minimum()ぶんだけ使ったとみなす。残り3回はtime.optimum()だけ使ったとみなす。
-			int used_time = ((ply % 8) == 1) ?  time.minimum() : time.optimum();
+			TimePoint used_time = ((ply % 8) == 1) ?  time.minimum() : time.optimum();
 			// 1秒未満繰り上げ。ただし、2秒は計測1秒扱い。
 			used_time = ((used_time + delay + 999) / 1000) * 1000;
 			if (used_time <= 2000)
@@ -979,26 +808,6 @@ void unit_test(Position& pos, istringstream& is)
 		check( pos.state()->key() == UINT64_C(0x75a12070b8bd438a));
 	}
 
-	// perft
-	{
-		// 最多合法手局面
-		const string POS593 = "R8/2K1S1SSk/4B4/9/9/9/9/9/1L1L1L3 b RBGSNLP3g3n17p 1";
-		cout << "> genmove sfen = " << POS593;
-		pos.set(POS593,&si,th);
-		auto mg = MoveList<LEGAL_ALL>(pos);
-		cout << " , moves = " << mg.size();
-		check( mg.size() == 593);
-
-		cout << "> perft depth 6 ";
-		pos.set_hirate(&si,th);
-		auto result = PerftSolver().Perft<true>(pos,6);
-		check(  result.nodes == 547581517 && result.captures == 3387051
-#ifdef      KEEP_LAST_MOVE
-			&& result.promotions == 1588324
-#endif
-			&& result.checks == 1730177 && result.mates == 0);
-	}
-
 	// random pleyer
 	{
 		cout << "> random player 100000 ";
@@ -1069,7 +878,7 @@ void exam_book(Position& pos)
 			else if (token == "moves")
 				continue; // 読み飛ばす
 
-			Move move = move_from_usi(pos, token);
+			Move move = USI::to_move(pos, token);
 			// illigal moveであるとMOVE_NONEが返る。
 			if (move == MOVE_NONE)
 			{
@@ -1330,8 +1139,7 @@ void test_search(Position& pos, istringstream& is)
 }
 #endif
 
-#if defined (EVAL_KPPT) || defined(EVAL_KPP_KKPT) || defined (EVAL_KPPPT) || defined(EVAL_KPPP_KKPT) || defined(EVAL_KKPP_KKPT) || defined(EVAL_KKPPT) || \
-	defined(EVAL_KPP_KKPT_FV_VAR) || defined(EVAL_HELICES) || defined(EVAL_NABLA)
+#if defined (EVAL_KPPT) || defined(EVAL_KPP_KKPT)
 #include "../eval/evaluate_common.h"
 
 // 現在の評価関数のパラメーターについて調査して出力する。(分析用)
@@ -1341,7 +1149,7 @@ void eval_exam(istringstream& is)
 	ios::fmtflags flagsSaved = cout.flags();
 
 	const char* feature_type[4] = {"ALL", "KK", "KKP", "KPP"};
-	for (int i = 0; i < 3; ++i)
+	for (int i = -1; i < 3; ++i)
 	{
 		cout << left << "FeatureType      : " << feature_type[i+1] << endl;
 
@@ -2049,15 +1857,16 @@ struct KPPT_reader
 
 	void read(string dir)
 	{
-		auto make_name = [&](std::string filename) { return path_combine(dir, filename); };
+		auto make_name = [&](std::string filename) { return Path::Combine(dir, filename); };
 #if defined(EVAL_KPP_KKPT)
-		auto input = EvalIO::EvalInfo::build_kpp_kkpt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
-		auto output = EvalIO::EvalInfo::build_kpp_kkpt32((void*)kk_, (void*)kkp_, (void*)kpp_);
+		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
+		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk_, (void*)kkp_, (void*)kpp_);
 #endif
 #if defined(EVAL_KPPT)
 		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk_, (void*)kkp_, (void*)kpp_);
 #endif
+
 		// 評価関数の実験のためにfe_endをKPPT32から変更しているかも知れないので現在のfe_endの値をもとに読み込む。
 		input.fe_end = output.fe_end = Eval::fe_end;
 
@@ -2074,7 +1883,7 @@ struct KPPT_reader
 	{
 		// read()のときとinputとoutputを入れ替えると書き出せる。EvalIOマジ天使。
 
-		auto make_name = [&](std::string filename) { return path_combine(dir, filename); };
+		auto make_name = [&](std::string filename) { return Path::Combine(dir, filename); };
 #if defined(EVAL_KPP_KKPT)
 		auto input = EvalIO::EvalInfo::build_kpp_kkpt32((void*)kk_, (void*)kkp_, (void*)kpp_);
 		auto output = EvalIO::EvalInfo::build_kpp_kkpt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
@@ -2391,15 +2200,28 @@ TOESC:
 	}
 
 	// 指定範囲の評価値の増減
-	// 範囲の基準は共通側の評価値。
-	void apply_func_eq(const KPPT_reader& eval1, s32 r1, s32 r2, double percent, string feature) {
+	// 範囲の基準は共通側の評価値。（そうでないとその手に対する評価が狂ってしまうため）
+	void apply_func_eq(const KPPT_reader& eval1, s32 r1, s32 r2, double percent, string feature, s16 teban) {
 		auto p = percent / 100.0;
 		if (feature == "KK" || feature == "ALL") {
 			for (auto k1 : SQ)
 				for (auto k2 : SQ) {
-					if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
-						(*kk_)[k1][k2][0] *= p;
-						(*kk_)[k1][k2][1] *= p;
+					switch (teban) {
+					case 0:
+						if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+							(*kk_)[k1][k2][0] *= p;
+						}
+						break;
+					case 1:
+						if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+							(*kk_)[k1][k2][1] *= p;
+						}
+						break;
+					default:
+						if ((*kk_)[k1][k2][0] >= r1 && (*kk_)[k1][k2][0] <= r2) {
+							(*kk_)[k1][k2][0] *= p;
+							(*kk_)[k1][k2][1] *= p;
+						}
 					}
 			}
 		}
@@ -2407,9 +2229,22 @@ TOESC:
 			for (auto k1 : SQ)
 				for (auto k2 : SQ)
 					for (int p1 = 0; p1 < fe_end; ++p1) {
-						if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
-							(*kkp_)[k1][k2][p1][0] *= p;
-							(*kkp_)[k1][k2][p1][1] *= p;
+						switch (teban) {
+						case 0:
+							if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+								(*kkp_)[k1][k2][p1][0] *= p;
+							}
+							break;
+						case 1:
+							if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+								(*kkp_)[k1][k2][p1][1] *= p;
+							}
+							break;
+						default:
+							if ((*kkp_)[k1][k2][p1][0] >= r1 && (*kkp_)[k1][k2][p1][0] <= r2) {
+								(*kkp_)[k1][k2][p1][0] *= p;
+								(*kkp_)[k1][k2][p1][1] *= p;
+							}
 						}
 			}
 		}
@@ -2417,41 +2252,185 @@ TOESC:
 			for (auto k1 : SQ)
 				for (int p1 = 0; p1<fe_end; ++p1)
 					for (int p2 = 0; p2 < fe_end; ++p2) {
-						if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
-							(*kpp_)[k1][p1][p2][0] *= p;
+						switch (teban) {
+						case 0:
+							if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+								(*kpp_)[k1][p1][p2][0] *= p;
+							}
+							break;
+						case 1:
 #if defined(EVAL_KPPT)
-							(*kpp_)[k1][p1][p2][1] *= p;
+							if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+								(*kpp_)[k1][p1][p2][1] *= p;
+							}
 #endif
+							break;
+						default:
+							if ((*kpp_)[k1][p1][p2][0] >= r1 && (*kpp_)[k1][p1][p2][0] <= r2) {
+								(*kpp_)[k1][p1][p2][0] *= p;
+#if defined(EVAL_KPPT)
+								(*kpp_)[k1][p1][p2][1] *= p;
+#endif
+							}
 						}
 			}
 		}
 	}
 
 	// 指定範囲の評価値の正則化
-	// 範囲の基準は共通側の評価値。
-	void apply_func_reg(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature) {
+	// 範囲の基準は共通側の評価値。（そうでないとその手に対する評価が狂ってしまうため）
+	void apply_func_reg(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature, s16 teban, u8 mp) {
 		auto p = percent / 100.0;
 		auto nr = 1.0;
 		if (feature == "KK" || feature == "ALL") {
 			for (auto k1 : SQ)
 				for (auto k2 : SQ) {
 					if (abs((*kk_)[k1][k2][0]) > r1) {
-						nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
-						(*kk_)[k1][k2][0] *= nr;
-						nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
-						(*kk_)[k1][k2][1] *= nr;
+						switch (teban) {
+						case 0:
+							switch (mp) {
+							case 1:
+								if ((*kk_)[k1][k2][0] > 0) {
+									nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][0] *= nr;
+								}
+								break;
+							case 2:
+								if ((*kk_)[k1][k2][0] < 0) {
+									nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][0] *= nr;
+								}
+								break;
+							default:
+								nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+								(*kk_)[k1][k2][0] *= nr;
+							}
+							break;
+						case 1:
+							switch (mp) {
+							case 1:
+								if ((*kk_)[k1][k2][1] > 0) {
+									nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][1] *= nr;
+								}
+								break;
+							case 2:
+								if ((*kk_)[k1][k2][1] < 0) {
+									nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][1] *= nr;
+								}
+								break;
+							default:
+								nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+								(*kk_)[k1][k2][1] *= nr;
+							}
+							break;
+						default:
+							switch (mp) {
+							case 1:
+								if ((*kk_)[k1][k2][0] > 0) {
+									nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][0] *= nr;
+								}
+								if ((*kk_)[k1][k2][1] > 0) {
+									nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][1] *= nr;
+								}
+								break;
+							case 2:
+								if ((*kk_)[k1][k2][0] < 0) {
+									nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][0] *= nr;
+								}
+								if ((*kk_)[k1][k2][1] < 0) {
+									nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+									(*kk_)[k1][k2][1] *= nr;
+								}
+								break;
+							default:
+								nr = exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p + 1 - p;
+								(*kk_)[k1][k2][0] *= nr;
+								nr = exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p + 1 - p;
+								(*kk_)[k1][k2][1] *= nr;
+							}
+						}
 					}
 			}
+
 		}
 		if (feature == "KKP" || feature == "KKPP" || feature == "ALL") {
 			for (auto k1 : SQ)
 				for (auto k2 : SQ)
 					for (int p1 = 0; p1 < fe_end; ++p1) {
 						if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
-							nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
-							(*kkp_)[k1][k2][p1][0] *= nr;
-							nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
-							(*kkp_)[k1][k2][p1][1] *= nr;
+							switch (teban) {
+							case 0:
+								switch (mp) {
+								case 1:
+									if ((*kkp_)[k1][k2][p1][0] > 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][0] *= nr;
+									}
+									break;
+								case 2:
+									if ((*kkp_)[k1][k2][p1][0] < 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][0] *= nr;
+									}
+									break;
+								default:
+									nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+									(*kkp_)[k1][k2][p1][0] *= nr;
+								}
+								break;	
+							case 1:
+								switch (mp) {
+								case 1:
+									if ((*kkp_)[k1][k2][p1][1] > 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][1] *= nr;
+									}
+									break;
+								case 2:
+									if ((*kkp_)[k1][k2][p1][1] < 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][1] *= nr;
+									}
+									break;
+								default:
+									nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+									(*kkp_)[k1][k2][p1][1] *= nr;
+								}
+								break;
+							default:
+								switch (mp) {
+								case 1:
+									if ((*kkp_)[k1][k2][p1][0] > 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][0] *= nr;
+									}
+									if ((*kkp_)[k1][k2][p1][1] > 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][1] *= nr;
+									}
+									break;
+								case 2:
+									if ((*kkp_)[k1][k2][p1][0] < 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][0] *= nr;
+									}
+									if ((*kkp_)[k1][k2][p1][1] < 0) {
+										nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+										(*kkp_)[k1][k2][p1][1] *= nr;
+									}
+									break;
+								default:
+									nr = exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p + 1 - p;
+									(*kkp_)[k1][k2][p1][0] *= nr;
+									nr = exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p + 1 - p;
+									(*kkp_)[k1][k2][p1][1] *= nr;
+								}
+							}
 						}
 			}
 		}
@@ -2460,34 +2439,123 @@ TOESC:
 				for (int p1 = 0; p1 < fe_end; ++p1)
 					for (int p2 = 0; p2 < fe_end; ++p2) {
 						if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
-							nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
-							(*kpp_)[k1][p1][p2][0] *= nr;
+							switch (teban) {
+							case 0:
+								switch (mp) {
+								case 1:
+									if ((*kpp_)[k1][p1][p2][0] > 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][0] *= nr;
+									}
+									break;
+								case 2:
+									if ((*kpp_)[k1][p1][p2][0] < 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][0] *= nr;
+									}
+									break;
+								default:
+									nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+									(*kpp_)[k1][p1][p2][0] *= nr;
+								}
+								break;
+							case 1:
 #if defined(EVAL_KPPT)
-							nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
-							(*kpp_)[k1][p1][p2][1] *= nr;
+								switch (mp) {
+								case 1:
+									if ((*kpp_)[k1][p1][p2][1] > 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][1] *= nr;
+									}
+									break;
+								case 2:
+									if ((*kpp_)[k1][p1][p2][1] < 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][1] *= nr;
+									}
+									break;
+								default:
+									nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+									(*kpp_)[k1][p1][p2][1] *= nr;
+								}
 #endif
+								break;
+							default:
+								switch (mp) {
+								case 1:
+									if ((*kpp_)[k1][p1][p2][0] > 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][0] *= nr;
+									}
+#if defined(EVAL_KPPT)
+									if ((*kpp_)[k1][p1][p2][1] > 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][1] *= nr;
+									}
+#endif
+									break;
+								case 2:
+									if ((*kpp_)[k1][p1][p2][0] < 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][0] *= nr;
+									}
+#if defined(EVAL_KPPT)
+									if ((*kpp_)[k1][p1][p2][1] < 0) {
+										nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+										(*kpp_)[k1][p1][p2][1] *= nr;
+									}
+#endif
+									break;
+								default:
+									nr = exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p + 1 - p;
+									(*kpp_)[k1][p1][p2][0] *= nr;
+#if defined(EVAL_KPPT)
+									nr = exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p + 1 - p;
+									(*kpp_)[k1][p1][p2][1] *= nr;
+#endif
+								}
+							}
 						}
 			}
 		}
 	}
 
 	// 指定範囲の評価値の正則化
-	// 範囲の基準は共通側の評価値。
-	void apply_func_reg2(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature) {
+	// 範囲の基準は共通側の評価値。（そうでないとその手に対する評価が狂ってしまうため）
+	void apply_func_reg2(const KPPT_reader& eval1, s32 r1, double percent, u16 pona, string feature, s16 teban) {
 		auto p = percent / 100.0;
 		auto nr = 1.0;
 		if (feature == "KK" || feature == "ALL") {
 			for (auto k1 : SQ)
 				for (auto k2 : SQ) {
-					if (abs((*kk_)[k1][k2][0]) > r1) {
-						nr = -(exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p) + 1;
+					switch (teban) {
+					case 0:
+						if (abs((*kk_)[k1][k2][0]) > r1) {
+							nr = -(exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p) + 1;
+						} else {
+							nr = 1 - p;
+						}
 						(*kk_)[k1][k2][0] *= nr;
-						nr = -(exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p) + 1;
+						break;
+					case 1:
+						if (abs((*kk_)[k1][k2][0]) > r1) {
+							nr = -(exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p) + 1;
+						} else {
+							nr = 1 - p;
+						}
 						(*kk_)[k1][k2][1] *= nr;
-					} else {
-						nr = 1 - p;
-						(*kk_)[k1][k2][0] *= nr;
-						(*kk_)[k1][k2][1] *= nr;
+						break;
+					default:
+						if (abs((*kk_)[k1][k2][0]) > r1) {
+							nr = -(exp((-abs((*kk_)[k1][k2][0]) + r1) / pona) * p) + 1;
+							(*kk_)[k1][k2][0] *= nr;
+							nr = -(exp((-abs((*kk_)[k1][k2][1]) + r1) / pona) * p) + 1;
+							(*kk_)[k1][k2][1] *= nr;
+						} else {
+							nr = 1 - p;
+							(*kk_)[k1][k2][0] *= nr;
+							(*kk_)[k1][k2][1] *= nr;
+						}
 					}
 			}
 		}
@@ -2495,15 +2563,34 @@ TOESC:
 			for (auto k1 : SQ)
 				for (auto k2 : SQ)
 					for (int p1 = 0; p1 < fe_end; ++p1) {
-						if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
-							nr = -(exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p) + 1;
+						switch (teban) {
+						case 0:
+							if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
+								nr = -(exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p) + 1;
+							} else {
+								nr = 1 - p;
+							}
 							(*kkp_)[k1][k2][p1][0] *= nr;
-							nr = -(exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p) + 1;
+							break;
+						case 1:
+							if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
+								nr = -(exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p) + 1;
+							} else {
+								nr = 1 - p;
+							}
 							(*kkp_)[k1][k2][p1][1] *= nr;
-						} else {
-							nr = 1 - p;
-							(*kkp_)[k1][k2][p1][0] *= nr;
-							(*kkp_)[k1][k2][p1][1] *= nr;
+							break;
+						default:
+							if (abs((*kkp_)[k1][k2][p1][0]) > r1) {
+								nr = -(exp((-abs((*kkp_)[k1][k2][p1][0]) + r1) / pona) * p) + 1;
+								(*kkp_)[k1][k2][p1][0] *= nr;
+								nr = -(exp((-abs((*kkp_)[k1][k2][p1][1]) + r1) / pona) * p) + 1;
+								(*kkp_)[k1][k2][p1][1] *= nr;
+							} else {
+								nr = 1 - p;
+								(*kkp_)[k1][k2][p1][0] *= nr;
+								(*kkp_)[k1][k2][p1][1] *= nr;
+							}
 						}
 			}
 		}
@@ -2511,23 +2598,45 @@ TOESC:
 			for (auto k1 : SQ)
 				for (int p1 = 0; p1 < fe_end; ++p1)
 					for (int p2 = 0; p2 < fe_end; ++p2) {
-						if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
-							nr = -(exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p) + 1;
+						switch (teban) {
+						case 0:
+							if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
+								nr = -(exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p) + 1;
+							} else {
+								nr = 1 - p;
+							}
 							(*kpp_)[k1][p1][p2][0] *= nr;
+							break;
+						case 1:
 #if defined(EVAL_KPPT)
-							nr = -(exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p) + 1;
+							if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
+								nr = -(exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p) + 1;
+							} else {
+								nr = 1 - p;
+							}
 							(*kpp_)[k1][p1][p2][1] *= nr;
 #endif
-						} else {
-							nr = 1 - p;
-							(*kpp_)[k1][p1][p2][0] *= nr;
+							break;
+						default:
+							if (abs((*kpp_)[k1][p1][p2][0]) > r1) {
+								nr = -(exp((-abs((*kpp_)[k1][p1][p2][0]) + r1) / pona) * p) + 1;
+								(*kpp_)[k1][p1][p2][0] *= nr;
 #if defined(EVAL_KPPT)
-							(*kpp_)[k1][p1][p2][1] *= nr;
+								nr = -(exp((-abs((*kpp_)[k1][p1][p2][1]) + r1) / pona) * p) + 1;
+								(*kpp_)[k1][p1][p2][1] *= nr;
 #endif
+							} else {
+								nr = 1 - p;
+								(*kpp_)[k1][p1][p2][0] *= nr;
+#if defined(EVAL_KPPT)
+								(*kpp_)[k1][p1][p2][1] *= nr;
+#endif
+							}
 						}
 			}
 		}
 	}
+
 };
 
 // "test evalrev dir1 dir2"
@@ -2611,16 +2720,19 @@ void eval_dump(istringstream& is) {
 	cout << "..done" << endl;
 }
 
-// "test evaleq dir1 dir2 rangefrom rangeto percent feature"
+// "test evaleq dir1 dir2 rangefrom rangeto percent feature teban"
 // feature : KK,KKP,KPP,KKPP,ALL
+// teban   : 0,1,2
 void eval_eq(istringstream& is) {
 	string dir1, dir2, feature;
+	s16 teban;
 	s32 r1, r2;
 	double perc;
 
 	// デフォルト設定
 	feature = "ALL";
-	is >> dir1 >> dir2 >> r1 >> r2 >> perc >> feature;
+	teban   = 2;
+	is >> dir1 >> dir2 >> r1 >> r2 >> perc >> feature >> teban;
 
 	cout << "eval equalizer for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のeq専用。
 	cout << "InDir   : " << dir1 << endl;
@@ -2628,74 +2740,86 @@ void eval_eq(istringstream& is) {
 	cout << "Range   : " << r1 << " - " << r2 << endl;
 	cout << "Percent : " << perc << endl;
 	cout << "Feature : " << feature << endl;
+	cout << "Teban   : " << teban << endl;
 
 	MKDIR(dir2);
 
 	KPPT_reader eval1;
 	eval1.read(dir1);
-	eval1.apply_func_eq(eval1,r1,r2,perc,feature);
+	eval1.apply_func_eq(eval1,r1,r2,perc,feature,teban);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
 }
 
-// "test evalreg dir1 range percent ponanza feature"
+// "test evalreg dir1 dir2 range percent ponanza feature teban"
 // feature : KK,KKP,KPP,KKPP,ALL
+// teban   : 0,1,2
 void eval_reg(istringstream& is) {
 	string dir1, dir2, feature;
+	s16 teban;
 	s32 r1;
 	u16 pona;
+	u8  mp;
 	double perc;
 
 	// デフォルト設定
-	pona = 600;
+	pona    = 600;
 	feature = "ALL";
-	is >> dir1 >> dir2 >> r1 >> perc >> pona >> feature;
+	teban   = 2;
+	mp      = 0;
+	is >> dir1 >> dir2 >> r1 >> perc >> feature >> teban >> mp >> pona;
 
 	cout << "eval regularizer for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreg専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
 	cout << "Range   : " << r1 << endl;
 	cout << "Percent : " << perc << endl;
-	cout << "Ponanza : " << pona << endl;
 	cout << "Feature : " << feature << endl;
+	cout << "Teban   : " << teban << endl;
+	cout << "+/-     : " << mp << endl;
+	cout << "Ponanza : " << pona << endl;
 
 	MKDIR(dir2);
 
 	KPPT_reader eval1;
 	eval1.read(dir1);
-	eval1.apply_func_reg(eval1,r1,perc,pona,feature);
+	eval1.apply_func_reg(eval1,r1,perc,pona,feature,teban,mp);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
 }
 
-// "test evalreg2 dir1 range percent ponanza feature"
+// "test evalreg2 dir1 dir2 range percent ponanza feature teban"
 // feature : KK,KKP,KPP,KKPP,ALL
+// teban   : 0,1,2
 void eval_reg2(istringstream& is) {
 	string dir1, dir2, feature;
+	s16 teban;
 	s32 r1;
 	u16 pona;
 	double perc;
 
 	// デフォルト設定
-	pona = 600;
+	pona    = 600;
 	feature = "ALL";
-	is >> dir1 >> dir2 >> r1 >> perc >> pona >> feature;
+	teban   = 2;
+	is >> dir1 >> dir2 >> r1 >> perc >> feature >> teban >> pona;
 
 	cout << "eval regularizer2 for KPPT or KKPT" << endl; // とりあえずKPPTかKKPT型評価関数のreg専用。
 	cout << "InDir   : " << dir1 << endl;
 	cout << "OutDir  : " << dir2 << endl;
 	cout << "Range   : " << r1 << endl;
 	cout << "Percent : " << perc << endl;
-	cout << "Ponanza : " << pona << endl;
 	cout << "Feature : " << feature << endl;
+	cout << "Teban   : " << teban << endl;
+	cout << "Ponanza : " << pona << endl;
 
 	MKDIR(dir2);
 
 	KPPT_reader eval1;
 	eval1.read(dir1);
-	eval1.apply_func_reg2(eval1,r1,perc,pona,feature);
+	eval1.apply_func_reg2(eval1,r1,perc,pona,feature,teban);
 	eval1.write(dir2);
 
 	cout << "..done" << endl;
@@ -2745,8 +2869,8 @@ void eval_merge(istringstream& is)
 	// 右側の評価値を指定%分上乗せする隠しコマンド。
 	bool select_add = opt == "add";
 
-//	// KPPの手番をやめてPPの手番のみに変更するオプション
-//	bool select_kkpt = opt == "kkpt";
+	// KPPの手番をやめてPPの手番のみに変更するオプション
+	bool select_kkpt = opt == "kkpt";
 
 	// 適用する関数
 	function<s32(s32, s32)> f;
@@ -2758,7 +2882,13 @@ void eval_merge(istringstream& is)
 	if (select_absmax)
 	{
 		f = [](s32 a, s32 b) { return (abs(a) > abs(b)) ? a : b; };
-		cout << "mode    : absmax mode " << endl;
+		cout << "mode   : absmax mode " << endl;
+		is >> opt;
+	}
+	else if (select_absmin)
+	{
+		f = [](s32 a, s32 b) { return (abs(a) < abs(b)) ? a : b; };
+		cout << "mode   : absmin mode " << endl;
 		is >> opt;
 	}
 	else if (select_absmin)
@@ -2888,6 +3018,8 @@ void eval_merge(istringstream& is)
 	eval1.read(dir1);
 	eval2.read(dir2);
 	eval1.apply_func(eval2,f,merge_features);
+	if (select_kkpt)
+		eval1.to_kkpt();
 	eval1.write(dir3);
 
 	cout << "..done" << endl;
@@ -3039,7 +3171,7 @@ void eval_convert(istringstream& is)
 	// EvalIOを使うとマジで簡単に変換できる。
 	auto get_info = [](std::string path , std::string format)
 	{
-		auto make_name = [&](std::string filename) { return path_combine(path, filename); };
+		auto make_name = [&](std::string filename) { return Path::Combine(path, filename); };
 		if (format == "kppt32")
 			return EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		else if (format == "kppt16")
@@ -3343,7 +3475,7 @@ void test_cmd(Position& pos, istringstream& is)
 	else if (param == "evalreg") eval_reg(is);                       // 評価関数の正則化コマンド
 	else if (param == "evalreg2") eval_reg2(is);                     // 評価関数の正則化コマンド
 #if defined(EVAL_LEARN)
-	else if (param == "regkk") regularize_kk_cmd(is);		 // 評価関数のKKの正規化
+	else if (param == "regkk") regularize_kk_cmd(is);				 // 評価関数のKKの正規化
 #endif
 #endif
 #ifdef USE_KIF_CONVERT_TOOLS

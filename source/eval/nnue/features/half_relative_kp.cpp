@@ -1,6 +1,6 @@
 ﻿// NNUE評価関数の入力特徴量HalfRelativeKPの定義
 
-#include "../../../shogi.h"
+#include "../../../config.h"
 
 #if defined(EVAL_NNUE)
 

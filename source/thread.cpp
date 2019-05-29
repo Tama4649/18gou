@@ -1,4 +1,5 @@
 ﻿#include "thread.h"
+#include "usi.h"
 
 ThreadPool Threads;		// Global object
 
@@ -9,10 +10,6 @@ Thread::Thread(size_t n) : idx(n) , stdThread(&Thread::idle_loop, this)
 {
 	// スレッドはsearching == trueで開始するので、このままworkerのほう待機状態にさせておく
 	wait_for_search_finished();
-
-	// historyなどをゼロクリアする。
-	// このタイミングでやらないとgccで変数が未初期化扱いされてしまう。
-	clear();
 }
 
 // std::threadの終了を待つ
@@ -36,16 +33,17 @@ void Thread::clear()
 
 	// ここは、未初期化のときに[SQ_ZERO][NO_PIECE]を指すので、ここを-1で初期化しておくことによって、
 	// history > 0 を条件にすれば自ずと未初期化のときは除外されるようになる。
-	for (auto& to : contHistory)
+	for (auto& to : continuationHistory)
 		for (auto& h : to)
-			h.get()->fill(0);
+			h->fill(0);
 
-	contHistory[SQ_ZERO][NO_PIECE].get()->fill(Search::CounterMovePruneThreshold - 1);
+	continuationHistory[SQ_ZERO][NO_PIECE]->fill(Search::CounterMovePruneThreshold - 1);
 }
 
+// 待機していたスレッドを起こして探索を開始させる
 void Thread::start_searching()
 {
-	std::unique_lock<Mutex> lk(mutex);
+	std::lock_guard<Mutex> lk(mutex);
 	searching = true;
 	cv.notify_one(); // idle_loop()で回っているスレッドを起こす。(次の処理をさせる)
 }
@@ -105,6 +103,12 @@ void ThreadPool::set(size_t requested)
 		while (size() < requested)
 			push_back(new Thread(size()));
 		clear();
+
+		// Reallocate the hash with the new threadpool size
+		//TT.resize(Options["Hash"]);
+
+		// →　新しいthreadpoolのサイズで置換表用のメモリを確保しなおしたほうが
+		//  良いらしいのだが、大きなメモリの置換表だと確保に時間がかかるのでやりたくない。
 	}
 }
 
@@ -116,12 +120,11 @@ void ThreadPool::clear() {
 
 	main()->callsCnt = 0;
 	main()->previousScore = VALUE_INFINITE;
-
-	// Stockfish 9から導入されたが、やねうら王では未使用。
-	//main()->previousTimeReduction = 1.0;
+	main()->previousTimeReduction = 1.0;
 }
 
-
+// ilde_loop()で待機しているmain threadを起こして即座にreturnする。
+// main threadは他のスレッドを起こして、探索を開始する。
 void ThreadPool::start_thinking(const Position& pos, StateListPtr& states ,
 								const Search::LimitsType& limits , bool ponderMode)
 {
@@ -129,8 +132,8 @@ void ThreadPool::start_thinking(const Position& pos, StateListPtr& states ,
 	main()->wait_for_search_finished();
 
 	// ponderに関して、StockfishではstopOnPonderhitというのがあるが、やねうら王にはこのフラグはない。
-	/* stopOnPonderhit = */ stop = false;
-	ponder = ponderMode;
+	/* main()->stopOnPonderhit = */ stop = false;
+	main()->ponder = ponderMode;
 	Search::Limits = limits;
 	Search::RootMoves rootMoves;
 
@@ -146,10 +149,22 @@ void ThreadPool::start_thinking(const Position& pos, StateListPtr& states ,
 		rootMoves.emplace_back(MOVE_WIN);
 #endif
 
-	for (auto m : MoveList<LEGAL>(pos))
-		if (limits.searchmoves.empty()
-			|| std::count(limits.searchmoves.begin(), limits.searchmoves.end(), m))
-			rootMoves.emplace_back(m);
+#if !defined(MATE_ENGINE) && !defined(FOR_TOURNAMENT) 
+	// 全合法手を生成するオプションが有効ならば。
+	if (limits.generate_all_legal_moves)
+	{
+		for (auto m : MoveList<LEGAL_ALL>(pos))
+			if (limits.searchmoves.empty()
+				|| std::count(limits.searchmoves.begin(), limits.searchmoves.end(), m))
+				rootMoves.emplace_back(m);
+	} else
+#endif
+	{   // トーナメントモードなら、歩の不成は生成しない。
+		for (auto m : MoveList<LEGAL>(pos))
+			if (limits.searchmoves.empty()
+				|| std::count(limits.searchmoves.begin(), limits.searchmoves.end(), m))
+				rootMoves.emplace_back(m);
+	}
 
 	// 所有権の移動後、statesが空になるので、探索を停止させ、
 	// "go"をstate.get() == NULLである新しいpositionをセットせずに再度呼び出す。
@@ -166,9 +181,9 @@ void ThreadPool::start_thinking(const Position& pos, StateListPtr& states ,
 	StateInfo tmp = setupStates->back();
 
 	auto sfen = pos.sfen();
-	for (auto th : *this)
+	for (Thread* th : *this)
 	{
-		th->nodes = 0;
+		th->nodes = /* th->tbHits = */ th->nmpMinPly = 0;
 		th->rootDepth = th->completedDepth = DEPTH_ZERO;
 		th->rootMoves = rootMoves;
 

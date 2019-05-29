@@ -1,4 +1,5 @@
-﻿#include "../shogi.h"
+﻿#include "../config.h"
+
 #if defined (USE_ENTERING_KING_WIN)
 // 入玉判定ルーチン
 

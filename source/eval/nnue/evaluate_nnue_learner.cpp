@@ -1,15 +1,17 @@
 ﻿// NNUE評価関数の学習時用のコード
 
-#include "../../shogi.h"
+#include "../../config.h"
 
 #if defined(EVAL_LEARN) && defined(EVAL_NNUE)
 
 #include <random>
+#include <fstream>
 
 #include "../../learn/learn.h"
 #include "../../learn/learning_tools.h"
 
 #include "../../position.h"
+#include "../../usi.h"
 #include "../../misc.h"
 
 #include "../evaluate_common.h"
@@ -109,7 +111,7 @@ void SetOptions(const std::string& options) {
 
 // 学習用評価関数パラメータをファイルから読み直す
 void RestoreParameters(const std::string& dir_name) {
-  const std::string file_name = path_combine(dir_name, NNUE::kFileName);
+  const std::string file_name = Path::Combine(dir_name, NNUE::kFileName);
   std::ifstream stream(file_name, std::ios::binary);
   bool result = ReadParameters(stream);
   ASSERT(result);
@@ -200,8 +202,8 @@ void CheckHealth() {
 
 // 評価関数パラメーターをファイルに保存する
 void save_eval(std::string dir_name) {
-  auto eval_dir = path_combine(Options["EvalSaveDir"], dir_name);
-//std::cout << "save_eval() start. folder = " << eval_dir << std::endl;
+  auto eval_dir = Path::Combine(Options["EvalSaveDir"], dir_name);
+  std::cout << "save_eval() start. folder = " << eval_dir << std::endl;
 
   // すでにこのフォルダがあるならmkdir()に失敗するが、
   // 別にそれは構わない。なければ作って欲しいだけ。
@@ -212,7 +214,7 @@ void save_eval(std::string dir_name) {
     NNUE::SendMessages({{"clear_unobserved_feature_weights"}});
   }
 
-  const std::string file_name = path_combine(eval_dir, NNUE::kFileName);
+  const std::string file_name = Path::Combine(eval_dir, NNUE::kFileName);
   std::ofstream stream(file_name, std::ios::binary);
   const bool result = NNUE::WriteParameters(stream);
   ASSERT(result);

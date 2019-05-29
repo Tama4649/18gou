@@ -1,9 +1,10 @@
-﻿#include "../shogi.h"
+﻿#include "../types.h"
 
 #include <sstream>
 #include "../tt.h"
 #include "../search.h"
 #include "../thread.h"
+#include "../usi.h"
 
 using namespace std;
 
@@ -73,15 +74,13 @@ void bench_cmd(Position& current, istringstream& is)
 	Options["Hash"] = ttSize;
 	Options["Threads"] = threads;
 
-#if defined(YANEURAOU_2018_OTAFUKU_ENGINE) || defined(YANEURAOU_2018_GOKU_ENGINE)
+#if defined(YANEURAOU_2018_OTAFUKU_ENGINE)
 	// 定跡にhitされるとベンチマークにならない。
-	Options["BookFile"] = "no_book";
+	Options["BookFile"] = string("no_book");
 #endif
 
 	// ベンチマークモードにしておかないとPVの出力のときに置換表を漁られて探索に影響がある。
 	limits.bench = true;
-
-	TT.clear();
 
 	// Optionsの影響を受けると嫌なので、その他の条件を固定しておく。
 	limits.enteringKingRule = EKR_NONE;
@@ -97,6 +96,9 @@ void bench_cmd(Position& current, istringstream& is)
 
 	// 評価関数の読み込み等
 	is_ready();
+
+//	TT.clear();
+	// → is_ready()のなかでsearch::clear()が呼び出されて、そのなかでTT.clear()しているのでこの初期化は不要。
 
 	// トータルの探索したノード数
 	int64_t nodes = 0;

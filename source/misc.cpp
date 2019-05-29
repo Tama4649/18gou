@@ -5,6 +5,16 @@
 #undef  _WIN32_WINNT
 #define _WIN32_WINNT 0x0601 // Force to include needed API prototypes
 #endif
+
+// windows.hのなかでmin,maxを定義してあって、C++のstd::min,maxと衝突して困る。
+// #undef max
+// #undef min
+// としても良いが、以下のようにdefineすることでこれを回避できるらしい。
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <windows.h>
 // The needed Windows API for processor groups could be missed from old Windows
 // versions, so instead of calling them directly (forcing the linker to resolve
@@ -17,72 +27,90 @@ extern "C" {
 	typedef bool(*fun3_t)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
 }
 
-// このheaderのなかでmin,maxを定義してあって、C++のstd::min,maxと衝突して困る。
-#undef max
-#undef min
-
 #endif
 
 #include <fstream>
 #include <iomanip>
-#include <iostream>
+//#include <iostream>
 #include <sstream>
-#include <ctime>    // std::ctime()
+//#include <vector>
+#include <ctime>	// std::ctime()
+#include <cstring>	// std::memset()
+#include <cmath>	// std::exp()
 
 #include "misc.h"
 #include "thread.h"
+#include "usi.h"
 
 using namespace std;
 
-// --------------------
-//  統計情報
-// --------------------
+namespace {
 
-static int64_t hits[2], means[2];
+	// --------------------
+	//  logger
+	// --------------------
 
-void dbg_hit_on(bool b) { ++hits[0]; if (b) ++hits[1]; }
-void dbg_mean_of(int v) { ++means[0]; means[1] += v; }
+	// logging用のhack。streambufをこれでhookしてしまえば追加コードなしで普通に
+	// cinからの入力とcoutへの出力をファイルにリダイレクトできる。
+	// cf. http://groups.google.com/group/comp.lang.c++/msg/1d941c0f26ea0d81
+	struct Tie : public streambuf
+	{
+		Tie(streambuf* buf_, streambuf* log_) : buf(buf_), log(log_) {}
 
-void dbg_print() {
+		int sync() override { return log->pubsync(), buf->pubsync(); }
+		int overflow(int c) override { return write(buf->sputc((char)c), "<< "); }
+		int underflow() override { return buf->sgetc(); }
+		int uflow() override { return write(buf->sbumpc(), ">> "); }
 
-	if (hits[0])
-		cerr << "Total " << hits[0] << " Hits " << hits[1]
-		<< " hit rate (%) " << fixed << setprecision(3) << (100.0f * hits[1] / hits[0]) << endl;
+		int write(int c, const char* prefix) {
+			static int last = '\n';
+			if (last == '\n')
+				log->sputn(prefix, 3);
+			return last = log->sputc((char)c);
+		}
 
-	if (means[0])
-		cerr << "Total " << means[0] << " Mean "
-		<< (double)means[1] / means[0] << endl;
-}
+		streambuf *buf, *log; // 標準入出力 , ログファイル
+	};
 
-// --------------------
-//  Timer
-// --------------------
+	struct Logger {
+		static void start(bool b)
+		{
+			static Logger log;
 
-Timer Time;
+			if (b && !log.file.is_open())
+			{
+				log.file.open("io_log.txt", ifstream::out);
+				cin.rdbuf(&log.in);
+				cout.rdbuf(&log.out);
+				cout << "start logger" << endl;
+			}
+			else if (!b && log.file.is_open())
+			{
+				cout << "end logger" << endl;
+				cout.rdbuf(log.out.buf);
+				cin.rdbuf(log.in.buf);
+				log.file.close();
+			}
+		}
 
-int Timer::elapsed() const { return int(Search::Limits.npmsec ? Threads.nodes_searched() : now() - startTime); }
-int Timer::elapsed_from_ponderhit() const { return int(Search::Limits.npmsec ? Threads.nodes_searched()/*これ正しくないがこのモードでponder使わないからいいや*/ : now() - startTimeFromPonderhit); }
+	private:
+		Tie in, out;   // 標準入力とファイル、標準出力とファイルのひも付け
+		ofstream file; // ログを書き出すファイル
 
-// 現在時刻を文字列化したもを返す。(評価関数の学習時などに用いる)
-std::string now_string()
-{
-	// std::ctime(), localtime()を使うと、MSVCでセキュアでないという警告が出る。
-	// C++標準的にはそんなことないはずなのだが…。
+		// clangだとここ警告が出るので一時的に警告を抑制する。
+#pragma warning (disable : 4068) // MSVC用の不明なpragmaの抑制
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wuninitialized"
+		Logger() : in(cin.rdbuf(), file.rdbuf()), out(cout.rdbuf(), file.rdbuf()) {}
+#pragma clang diagnostic pop
 
-#if defined(_MSC_VER)
-	// C4996 : 'ctime' : This function or variable may be unsafe.Consider using ctime_s instead.
-#pragma warning(disable : 4996)
-#endif
+		~Logger() { start(false); }
+	};
 
-	auto now = std::chrono::system_clock::now();
-	auto tp = std::chrono::system_clock::to_time_t(now);
-	auto result = string(std::ctime(&tp));
+} // 無名namespace
 
-	// 末尾に改行コードが含まれているならこれを除去する
-	while (*result.rbegin() == '\n' || (*result.rbegin() == '\r'))
-		result.pop_back();
-	return result;
-}
+// Trampoline helper to avoid moving Logger to misc.h
+void start_logger(bool b) { Logger::start(b); }
 
 // --------------------
 //  engine info
@@ -108,7 +136,7 @@ const string engine_info() {
 	}
 	else
 	{
-		ss  << "id name " << ENGINE_NAME << ' '
+		ss << "id name " << ENGINE_NAME << ' '
 			<< EVAL_TYPE_NAME << ' '
 			<< ENGINE_VERSION << setfill('0')
 			<< (Is64Bit ? " 64" : " 32")
@@ -116,7 +144,7 @@ const string engine_info() {
 #if defined(FOR_TOURNAMENT)
 			<< " TOURNAMENT"
 #endif
-			<< endl 
+			<< endl
 			<< "id author by yaneurao" << endl;
 	}
 
@@ -124,173 +152,41 @@ const string engine_info() {
 }
 
 // --------------------
+//  統計情報
+// --------------------
+
+static int64_t hits[2], means[2];
+
+void dbg_hit_on(bool b) { ++hits[0]; if (b) ++hits[1]; }
+void dbg_hit_on(bool c, bool b) { if (c) dbg_hit_on(b); }
+void dbg_mean_of(int v) { ++means[0]; means[1] += v; }
+
+void dbg_print() {
+
+	if (hits[0])
+		cerr << "Total " << hits[0] << " Hits " << hits[1]
+		<< " hit rate (%) " << fixed << setprecision(3) << (100.0f * hits[1] / hits[0]) << endl;
+
+	if (means[0])
+		cerr << "Total " << means[0] << " Mean "
+		<< (double)means[1] / means[0] << endl;
+}
+
+// --------------------
 //  sync_out/sync_endl
 // --------------------
 
 std::ostream& operator<<(std::ostream& os, SyncCout sc) {
-  static Mutex m;
-  if (sc == IO_LOCK)    m.lock();
-  if (sc == IO_UNLOCK)  m.unlock();
-  return os;
-}
 
-// --------------------
-//  logger
-// --------------------
+	static Mutex m;
 
-// logging用のhack。streambufをこれでhookしてしまえば追加コードなしで普通に
-// cinからの入力とcoutへの出力をファイルにリダイレクトできる。
-// cf. http://groups.google.com/group/comp.lang.c++/msg/1d941c0f26ea0d81
-struct Tie : public streambuf
-{
-  Tie(streambuf* buf_ , streambuf* log_) : buf(buf_) , log(log_) {}
+	if (sc == IO_LOCK)
+		m.lock();
 
-  int sync() { return log->pubsync(), buf->pubsync(); }
-  int overflow(int c) { return write(buf->sputc((char)c), "<< "); }
-  int underflow() { return buf->sgetc(); }
-  int uflow() { return write(buf->sbumpc(), ">> "); }
+	if (sc == IO_UNLOCK)
+		m.unlock();
 
-  int write(int c, const char* prefix) {
-    static int last = '\n';
-    if (last == '\n')
-      log->sputn(prefix, 3);
-    return last = log->sputc((char)c);
-  }
-
-  streambuf *buf, *log; // 標準入出力 , ログファイル
-};
-
-struct Logger {
-	static void start(bool b)
-	{
-		static Logger log;
-
-		if (b && !log.file.is_open())
-		{
-			log.file.open("io_log.txt", ifstream::out);
-			cin.rdbuf(&log.in);
-			cout.rdbuf(&log.out);
-			cout << "start logger" << endl;
-		}
-		else if (!b && log.file.is_open())
-		{
-			cout << "end logger" << endl;
-			cout.rdbuf(log.out.buf);
-			cin.rdbuf(log.in.buf);
-			log.file.close();
-		}
-	}
-
-private:
-	Tie in, out;   // 標準入力とファイル、標準出力とファイルのひも付け
-	ofstream file; // ログを書き出すファイル
-
-	// clangだとここ警告が出るので一時的に警告を抑制する。
-#pragma warning (disable : 4068) // MSVC用の不明なpragmaの抑制
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wuninitialized"
-	Logger() : in(cin.rdbuf(), file.rdbuf()), out(cout.rdbuf(), file.rdbuf()) {}
-#pragma clang diagnostic pop
-
-	~Logger() { start(false); }
-};
-
-void start_logger(bool b) { Logger::start(b); }
-
-// --------------------
-//  ファイルの丸読み
-// --------------------
-
-// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。
-int read_all_lines(std::string filename, std::vector<std::string>& lines)
-{
-	fstream fs(filename, ios::in);
-	if (fs.fail())
-		return 1; // 読み込み失敗
-
-	while (!fs.fail() && !fs.eof())
-	{
-		std::string line;
-		getline(fs, line);
-		if (line.length())
-			lines.push_back(line);
-	}
-	fs.close();
-	return 0;
-}
-
-int read_file_to_memory(std::string filename, std::function<void*(u64)> callback_func)
-{
-	fstream fs(filename, ios::in | ios::binary);
-	if (fs.fail())
-		return 1;
-
-	fs.seekg(0, fstream::end);
-	u64 eofPos = (u64)fs.tellg();
-	fs.clear(); // これをしないと次のseekに失敗することがある。
-	fs.seekg(0, fstream::beg);
-	u64 begPos = (u64)fs.tellg();
-	u64 file_size = eofPos - begPos;
-	//std::cout << "filename = " << filename << " , file_size = " << file_size << endl;
-
-	// ファイルサイズがわかったのでcallback_funcを呼び出してこの分のバッファを確保してもらい、
-	// そのポインターをもらう。
-	void* ptr = callback_func(file_size);
-
-	// バッファが確保できなかった場合や、想定していたファイルサイズと異なった場合は、
-	// nullptrを返すことになっている。このとき、読み込みを中断し、エラーリターンする。
-	if (ptr == nullptr)
-		return 2;
-
-	// 細切れに読み込む
-
-	const u64 block_size = 1024*1024*1024; // 1回のreadで読み込む要素の数(1GB)
-	for (u64 pos = 0; pos < file_size; pos += block_size)
-	{
-		// 今回読み込むサイズ
-		u64 read_size = (pos + block_size < file_size) ? block_size : (file_size - pos);
-		fs.read((char*)ptr + pos, read_size);
-
-		// ファイルの途中で読み込みエラーに至った。
-		if (fs.fail())
-			return 2;
-
-		//cout << ".";
-	}
-	fs.close();
-
-	return 0;
-}
-
-
-int write_memory_to_file(std::string filename, void *ptr, u64 size)
-{
-	fstream fs(filename, ios::out | ios::binary);
-	if (fs.fail())
-		return 1;
-
-	const u64 block_size = 1024*1024*1024; // 1回のwriteで書き出す要素の数(1GB)
-	for (u64 pos = 0; pos < size ; pos += block_size)
-	{
-		// 今回書き出すメモリサイズ
-		u64 write_size = (pos + block_size < size) ? block_size : (size - pos);
-		fs.write((char*)ptr + pos, write_size);
-		//cout << ".";
-	}
-	fs.close();
-	return 0;
-}
-
-// --------------------
-//       Math
-// --------------------
-
-double Math::sigmoid(double x) {
-	return 1.0 / (1.0 + std::exp(-x));
-}
-
-double Math::dsigmoid(double x) {
-	return sigmoid(x) * (1.0 - sigmoid(x));
+	return os;
 }
 
 // --------------------
@@ -324,7 +220,7 @@ void prefetch(void* addr) {
 
 #  if defined(__INTEL_COMPILER) || defined(_MSC_VER)
 	_mm_prefetch((char*)addr, _MM_HINT_T0);
-//	cout << hex << (u64)addr << endl;
+	//	cout << hex << (u64)addr << endl;
 #  else
 	__builtin_prefetch(addr);
 #  endif
@@ -356,11 +252,11 @@ namespace WinProcGroup {
 #else
 
 
-	/// get_group() retrieves logical processor information using Windows specific
+	/// best_group() retrieves logical processor information using Windows specific
 	/// API and returns the best group id for the thread with index idx. Original
 	/// code from Texel by Peter Österlund.
 
-	int get_group(size_t idx) {
+	int best_group(size_t idx) {
 
 		int threads = 0;
 		int nodes = 0;
@@ -370,7 +266,7 @@ namespace WinProcGroup {
 
 		// Early exit if the needed API is not available at runtime
 		HMODULE k32 = GetModuleHandle(L"Kernel32.dll");
-		auto fun1 = (fun1_t)GetProcAddress(k32, "GetLogicalProcessorInformationEx");
+		auto fun1 = (fun1_t)(void(*)())GetProcAddress(k32, "GetLogicalProcessorInformationEx");
 		if (!fun1)
 			return -1;
 
@@ -389,7 +285,7 @@ namespace WinProcGroup {
 			return -1;
 		}
 
-		while (ptr->Size > 0 && byteOffset + ptr->Size <= returnLength)
+		while (byteOffset < returnLength)
 		{
 			if (ptr->Relationship == RelationNumaNode)
 				nodes++;
@@ -400,9 +296,10 @@ namespace WinProcGroup {
 				threads += (ptr->Processor.Flags == LTP_PC_SMT) ? 2 : 1;
 			}
 
+			ASSERT_LV3(ptr->Size);
 			byteOffset += ptr->Size;
 			ptr = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*)(((char*)ptr) + ptr->Size);
-	}
+		}
 
 		free(buffer);
 
@@ -463,15 +360,15 @@ namespace WinProcGroup {
 	void bindThisThread(size_t idx) {
 
 		// Use only local variables to be thread-safe
-		int group = get_group(idx);
+		int group = best_group(idx);
 
 		if (group == -1)
 			return;
 
 		// Early exit if the needed API are not available at runtime
 		HMODULE k32 = GetModuleHandle(L"Kernel32.dll");
-		auto fun2 = (fun2_t)GetProcAddress(k32, "GetNumaNodeProcessorMaskEx");
-		auto fun3 = (fun3_t)GetProcAddress(k32, "SetThreadGroupAffinity");
+		auto fun2 = (fun2_t)(void(*)())GetProcAddress(k32, "GetNumaNodeProcessorMaskEx");
+		auto fun3 = (fun3_t)(void(*)())GetProcAddress(k32, "SetThreadGroupAffinity");
 
 		if (!fun2 || !fun3)
 			return;
@@ -484,3 +381,331 @@ namespace WinProcGroup {
 #endif
 
 } // namespace WinProcGroup
+
+
+// --------------------
+//    memclear
+// --------------------
+
+// 進捗を表示しながら並列化してゼロクリア
+// ※ Stockfishのtt.cppのTranspositionTable::clear()にあるコードと同等のコード。
+void memclear(void* table, size_t size)
+{
+	// Windows10では、このゼロクリアには非常に時間がかかる。
+	// malloc()時点ではメモリを実メモリに割り当てられておらず、
+	// 初回にアクセスするときにその割当てがなされるため。
+	// ゆえに、分割してゼロクリアして、一定時間ごとに進捗を出力する。
+
+	// memset(table, 0, size);
+
+	//sync_cout << "info string Hash Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
+
+	// マルチスレッドで並列化してクリアする。
+
+	std::vector<std::thread> threads;
+
+	auto thread_num = (size_t)Options["Threads"];
+
+	for (size_t idx = 0; idx < thread_num; idx++)
+	{
+		threads.push_back(std::thread([table, size, thread_num, idx]() {
+
+			// NUMA環境では、bindThisThread()を呼び出しておいたほうが速くなるらしい。
+
+			// Thread binding gives faster search on systems with a first-touch policy
+			if (Options["Threads"] > 8)
+				WinProcGroup::bindThisThread(idx);
+
+			// それぞれのスレッドがhash tableの各パートをゼロ初期化する。
+			const size_t stride = size / thread_num,
+				start = stride * idx,
+				len = idx != thread_num - 1 ?
+				stride : size - start;
+
+			std::memset((uint8_t*)table + start, 0, len);
+		}));
+	}
+
+	for (std::thread& th : threads)
+		th.join();
+
+	//sync_cout << "info string Hash Clear done." << sync_endl;
+
+}
+
+// --- 以下、やねうら王で独自追加したコード
+
+// --------------------
+//  ファイルの丸読み
+// --------------------
+
+// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。
+int read_all_lines(std::string filename, std::vector<std::string>& lines)
+{
+	fstream fs(filename, ios::in);
+	if (fs.fail())
+		return 1; // 読み込み失敗
+
+	while (!fs.fail() && !fs.eof())
+	{
+		std::string line;
+		getline(fs, line);
+		if (line.length())
+			lines.push_back(line);
+	}
+	fs.close();
+	return 0;
+}
+
+int read_file_to_memory(std::string filename, std::function<void*(u64)> callback_func)
+{
+	fstream fs(filename, ios::in | ios::binary);
+	if (fs.fail())
+		return 1;
+
+	fs.seekg(0, fstream::end);
+	u64 eofPos = (u64)fs.tellg();
+	fs.clear(); // これをしないと次のseekに失敗することがある。
+	fs.seekg(0, fstream::beg);
+	u64 begPos = (u64)fs.tellg();
+	u64 file_size = eofPos - begPos;
+	//std::cout << "filename = " << filename << " , file_size = " << file_size << endl;
+
+	// ファイルサイズがわかったのでcallback_funcを呼び出してこの分のバッファを確保してもらい、
+	// そのポインターをもらう。
+	void* ptr = callback_func(file_size);
+
+	// バッファが確保できなかった場合や、想定していたファイルサイズと異なった場合は、
+	// nullptrを返すことになっている。このとき、読み込みを中断し、エラーリターンする。
+	if (ptr == nullptr)
+		return 2;
+
+	// 細切れに読み込む
+
+	const u64 block_size = 1024 * 1024 * 1024; // 1回のreadで読み込む要素の数(1GB)
+	for (u64 pos = 0; pos < file_size; pos += block_size)
+	{
+		// 今回読み込むサイズ
+		u64 read_size = (pos + block_size < file_size) ? block_size : (file_size - pos);
+		fs.read((char*)ptr + pos, read_size);
+
+		// ファイルの途中で読み込みエラーに至った。
+		if (fs.fail())
+			return 2;
+
+		//cout << ".";
+	}
+	fs.close();
+
+	return 0;
+}
+
+
+int write_memory_to_file(std::string filename, void *ptr, u64 size)
+{
+	fstream fs(filename, ios::out | ios::binary);
+	if (fs.fail())
+		return 1;
+
+	const u64 block_size = 1024 * 1024 * 1024; // 1回のwriteで書き出す要素の数(1GB)
+	for (u64 pos = 0; pos < size; pos += block_size)
+	{
+		// 今回書き出すメモリサイズ
+		u64 write_size = (pos + block_size < size) ? block_size : (size - pos);
+		fs.write((char*)ptr + pos, write_size);
+		//cout << ".";
+	}
+	fs.close();
+	return 0;
+}
+
+// --------------------
+//       Math
+// --------------------
+
+double Math::sigmoid(double x) {
+	return 1.0 / (1.0 + std::exp(-x));
+}
+
+double Math::dsigmoid(double x) {
+	return sigmoid(x) * (1.0 - sigmoid(x));
+}
+
+// --------------------
+//       Parser
+// --------------------
+
+/*
+	LineScanner parser("AAA BBB CCC DDD");
+	auto token = parser.peek_text();
+	cout << token << endl;
+	token = parser.get_text();
+	cout << token << endl;
+	token = parser.get_text();
+	cout << token << endl;
+	token = parser.get_text();
+	cout << token << endl;
+	token = parser.get_text();
+	cout << token << endl;
+*/
+
+// 次のtokenを先読みして返す。get_token()するまで解析位置は進まない。
+std::string LineScanner::peek_text()
+{
+	// 二重にpeek_text()を呼び出すのは合法であるものとする。
+	if (!token.empty())
+		return token;
+
+	// assert(token.empty());
+
+	while (!raw_eof())
+	{
+		char c = line[pos++];
+		if (c == ' ')
+			break;
+		token += c;
+	}
+	return token;
+}
+
+// 次のtokenを返す。
+std::string LineScanner::get_text()
+{
+	auto result = (!token.empty() ? token : peek_text());
+	token.clear();
+	return result;
+}
+
+// --------------------
+//  Timer
+// --------------------
+
+Timer Time;
+
+TimePoint Timer::elapsed() const { return TimePoint(Search::Limits.npmsec ? Threads.nodes_searched() : now() - startTime); }
+TimePoint Timer::elapsed_from_ponderhit() const { return TimePoint(Search::Limits.npmsec ? Threads.nodes_searched()/*これ正しくないがこのモードでponder使わないからいいや*/ : now() - startTimeFromPonderhit); }
+
+// 現在時刻を文字列化したもを返す。(評価関数の学習時などに用いる)
+std::string now_string()
+{
+	// std::ctime(), localtime()を使うと、MSVCでセキュアでないという警告が出る。
+	// C++標準的にはそんなことないはずなのだが…。
+
+#if defined(_MSC_VER)
+	// C4996 : 'ctime' : This function or variable may be unsafe.Consider using ctime_s instead.
+#pragma warning(disable : 4996)
+#endif
+
+	auto now = std::chrono::system_clock::now();
+	auto tp = std::chrono::system_clock::to_time_t(now);
+	auto result = string(std::ctime(&tp));
+
+	// 末尾に改行コードが含まれているならこれを除去する
+	while (*result.rbegin() == '\n' || (*result.rbegin() == '\r'))
+		result.pop_back();
+	return result;
+}
+
+void sleep(int ms)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
+uint64_t get_thread_id()
+{
+	auto id = std::this_thread::get_id();
+	if (sizeof(id) >= 8)
+		return *(uint64_t*)(&id);
+	else if (sizeof(id) >= 4)
+		return *(uint32_t*)(&id);
+	else
+		return 0; // give up
+}
+
+// --------------------
+//  Dependency Wrapper
+// --------------------
+
+bool getline(std::fstream& fs, std::string& s)
+{
+	bool b = (bool)std::getline(fs, s);
+#if !defined(_MSC_VER)
+	if (s.size() && s[s.size() - 1] == '\r')
+		s.erase(s.size() - 1);
+#endif
+	return b;
+}
+
+// ----------------------------
+//     mkdir wrapper
+// ----------------------------
+
+// カレントフォルダ相対で指定する。成功すれば0、失敗すれば非0が返る。
+// フォルダを作成する。日本語は使っていないものとする。
+// どうもmsys2環境下のgccだと_wmkdir()だとフォルダの作成に失敗する。原因不明。
+// 仕方ないので_mkdir()を用いる。
+
+#if defined(_WIN32)
+// Windows用
+
+#if defined(_MSC_VER)
+#include <codecvt>	// mkdirするのにwstringが欲しいのでこれが必要
+#include <locale>   // wstring_convertにこれが必要。
+int MKDIR(std::string dir_name)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> cv;
+	return _wmkdir(cv.from_bytes(dir_name).c_str());
+	//	::CreateDirectory(cv.from_bytes(dir_name).c_str(),NULL);
+}
+#elif defined(__GNUC__) 
+#include <direct.h>
+int MKDIR(std::string dir_name)
+{
+	return _mkdir(dir_name.c_str());
+}
+#endif
+#elif defined(_LINUX)
+// linux環境において、この_LINUXというシンボルはmakefileにて定義されるものとする。
+
+// Linux用のmkdir実装。
+#include "sys/stat.h"
+
+int MKDIR(std::string dir_name)
+{
+	return ::mkdir(dir_name.c_str(), 0777);
+}
+
+#else
+
+// Linux環境かどうかを判定するためにはmakefileを分けないといけなくなってくるな..
+// linuxでフォルダ掘る機能は、とりあえずナシでいいや..。評価関数ファイルの保存にしか使ってないし…。
+int MKDIR(std::string dir_name)
+{
+	return 0;
+}
+
+#endif
+
+
+namespace {
+	// 文字列を大文字化する
+	string to_upper(const string source)
+	{
+		std::string destination;
+		destination.resize(source.size());
+		std::transform(source.cbegin(), source.cend(), destination.begin(), /*toupper*/[](char c){ return (char)toupper(c); });
+		return destination;
+	}
+}
+
+// 大文字・小文字を無視して文字列の比較を行う。
+// string-case insensitive-compareの略？
+// s1==s2のとき0(false)を返す。
+bool stricmp(const string& s1, const string& s2)
+{
+	// Windowsだと_stricmp() , Linuxだとstrcasecmp()を使うのだが、
+	// 後者がどうも動作が怪しい。自前実装しておいたほうが無難。
+
+	return to_upper(s1) != to_upper(s2);
+}
+

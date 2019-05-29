@@ -114,189 +114,189 @@
     <ProjectGuid>{28C8605A-4E8E-4F59-99B5-96F545BC7D5E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>YaneuraOu</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-2018-Otafuku|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-Otafuku|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-OtafukuLearn|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-TNK|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-2018-Otafuku|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-Otafuku|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-OtafukuLearn|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-Otafuku-sse2|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-Otafuku-sse41|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-Otafuku-sse42|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-TNK|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018-TNK-sse42|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-2018Goku|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate-sse42|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate-sse41|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate-sse2|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse41|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse2|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
@@ -619,21 +619,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="bitboard.h" />
+    <ClInclude Include="config.h" />
     <ClInclude Include="engine\2018-otafuku-engine\2018-otafuku-param.h" />
-    <ClInclude Include="engine\help-mate-engine\help-mate-search.h" />
-    <ClInclude Include="engine\mate-engine\mate-search.h" />
     <ClInclude Include="evaluate.h" />
     <ClInclude Include="eval\evaluate_io.h" />
     <ClInclude Include="eval\evaluate_common.h" />
     <ClInclude Include="eval\evalsum.h" />
     <ClInclude Include="eval\evaluate_mir_inv_tools.h" />
-    <ClInclude Include="eval\kkppt\evaluate_kkppt.h" />
-    <ClInclude Include="eval\kkpp_kkpt\evaluate_kkpp_kkpt.h" />
-    <ClInclude Include="eval\kpppt\evaluate_kpppt.h" />
-    <ClInclude Include="eval\kppp_kkpt\evaluate_kppp_kkpt.h" />
     <ClInclude Include="eval\kppt\evaluate_kppt.h" />
     <ClInclude Include="eval\kpp_kkpt\evaluate_kpp_kkpt.h" />
-    <ClInclude Include="eval\kpp_kkpt_fv_var\evaluate_kpp_kkpt_fv_var.h" />
     <ClInclude Include="eval\nnue\architectures\halfkp_256x2-32-32.h" />
     <ClInclude Include="eval\nnue\architectures\k-p_256x2-32-32.h" />
     <ClInclude Include="eval\nnue\evaluate_nnue.h" />
@@ -668,7 +662,6 @@
     <ClInclude Include="extra\book\apery_book.h" />
     <ClInclude Include="extra\book\book.h" />
     <ClInclude Include="extra\book\mt64bit.h" />
-    <ClInclude Include="extra\config.h" />
     <ClInclude Include="extra\key128.h" />
     <ClInclude Include="extra\kif_converter\kif_convert_consts.h" />
     <ClInclude Include="extra\kif_converter\kif_convert_tools.h" />
@@ -681,38 +674,28 @@
     <ClInclude Include="learn\learning_tools.h" />
     <ClInclude Include="learn\multi_think.h" />
     <ClInclude Include="misc.h" />
-    <ClInclude Include="move_picker.h" />
+    <ClInclude Include="movepick.h" />
     <ClInclude Include="search.h" />
-    <ClInclude Include="shogi.h" />
+    <ClInclude Include="thread_win32.h" />
+    <ClInclude Include="types.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="thread.h" />
     <ClInclude Include="tt.h" />
+    <ClInclude Include="usi.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bitboard.cpp" />
     <ClCompile Include="engine\2018-otafuku-engine\2018-otafuku-search.cpp" />
-    <ClCompile Include="engine\help-mate-engine\help-mate-search.cpp" />
-    <ClCompile Include="engine\local-game-server\local-game-server.cpp" />
     <ClCompile Include="engine\mate-engine\mate-search.cpp" />
     <ClCompile Include="engine\user-engine\user-search.cpp" />
     <ClCompile Include="eval\evaluate_bona_piece.cpp" />
     <ClCompile Include="eval\evaluate_io.cpp" />
     <ClCompile Include="eval\evaluate.cpp" />
     <ClCompile Include="eval\evaluate_mir_inv_tools.cpp" />
-    <ClCompile Include="eval\kkppt\evaluate_kkppt.cpp" />
-    <ClCompile Include="eval\kkppt\evaluate_kkppt_learner.cpp" />
-    <ClCompile Include="eval\kkpp_kkpt\evaluate_kkpp_kkpt.cpp" />
-    <ClCompile Include="eval\kkpp_kkpt\evaluate_kkpp_kkpt_learner.cpp" />
-    <ClCompile Include="eval\kpppt\evaluate_kpppt.cpp" />
-    <ClCompile Include="eval\kpppt\evaluate_kpppt_learner.cpp" />
-    <ClCompile Include="eval\kppp_kkpt\evaluate_kppp_kkpt.cpp" />
-    <ClCompile Include="eval\kppp_kkpt\evaluate_kppp_kkpt_learner.cpp" />
     <ClCompile Include="eval\kppt\evaluate_kppt.cpp" />
     <ClCompile Include="eval\kppt\evaluate_kppt_learner.cpp" />
     <ClCompile Include="eval\kpp_kkpt\evaluate_kpp_kkpt.cpp" />
     <ClCompile Include="eval\kpp_kkpt\evaluate_kpp_kkpt_learner.cpp" />
-    <ClCompile Include="eval\kpp_kkpt_fv_var\evaluate_kpp_kkpt_fv_var.cpp" />
-    <ClCompile Include="eval\kpp_kkpt_fv_var\evaluate_kpp_kkpt_fv_var_learner.cpp" />
     <ClCompile Include="eval\nnue\evaluate_nnue.cpp" />
     <ClCompile Include="eval\nnue\evaluate_nnue_learner.cpp" />
     <ClCompile Include="eval\nnue\features\half_kp.cpp" />
@@ -724,6 +707,7 @@
     <ClCompile Include="extra\bitop.cpp" />
     <ClCompile Include="extra\book\apery_book.cpp" />
     <ClCompile Include="extra\book\book.cpp" />
+    <ClCompile Include="extra\book\makebook2019.cpp" />
     <ClCompile Include="extra\entering_king_win.cpp" />
     <ClCompile Include="extra\kif_converter\kif_convert_tools.cpp" />
     <ClCompile Include="extra\long_effect.cpp" />
@@ -733,18 +717,20 @@
     <ClCompile Include="extra\see.cpp" />
     <ClCompile Include="extra\sfen_packer.cpp" />
     <ClCompile Include="extra\test_cmd.cpp" />
-    <ClCompile Include="extra\timeman.cpp" />
     <ClCompile Include="learn\learner.cpp" />
     <ClCompile Include="learn\learning_tools.cpp" />
     <ClCompile Include="learn\multi_think.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="misc.cpp" />
     <ClCompile Include="movegen.cpp" />
-    <ClCompile Include="move_picker.cpp" />
-    <ClCompile Include="shogi.cpp" />
+    <ClCompile Include="movepick.cpp" />
+    <ClCompile Include="timeman.cpp" />
+    <ClCompile Include="types.cpp" />
     <ClCompile Include="position.cpp" />
     <ClCompile Include="thread.cpp" />
     <ClCompile Include="tt.cpp" />
     <ClCompile Include="usi.cpp" />
+    <ClCompile Include="usi_option.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\docs\USI拡張コマンド.txt" />

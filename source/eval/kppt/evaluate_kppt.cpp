@@ -1,4 +1,4 @@
-﻿#include "../../shogi.h"
+﻿#include "../../config.h"
 
 //
 // Apery WCSC26の評価関数バイナリを読み込むための仕組み。
@@ -22,6 +22,7 @@
 #include "../../evaluate.h"
 #include "../../position.h"
 #include "../../misc.h"
+#include "../../usi.h"
 #include "../../extra/bitop.h"
 
 // 実験中の評価関数を読み込む。(現状非公開)
@@ -61,7 +62,7 @@ namespace Eval
 		// EvalIOを利用して評価関数ファイルを読み込む。
 		// ちなみに、inputのところにあるbasic_kppt32()をbasic_kppt16()に変更するとApery(WCSC27)の評価関数ファイルが読み込める。
 		// また、eval_convert()に渡している引数のinputとoutputを入れ替えるとファイルに書き出すことが出来る。EvalIOマジ、っょぃ。
-		auto make_name = [&](std::string filename) { return path_combine((string)Options["EvalDir"], filename); };
+		auto make_name = [&](std::string filename) { return Path::Combine((string)Options["EvalDir"], filename); };
 #if !defined (USE_ONLY_KPPT)
 		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk, (void*)kkp, (void*)kpp);
@@ -323,8 +324,6 @@ namespace Eval
 		// 初期化してからしかcompute_eval()を呼び出すことは出来ない。
 #if !defined (USE_ONLY_KPPT)
 		ASSERT_LV1(&(kk) != nullptr);
-#else
-		ASSERT_LV1(&(kpp) != nullptr);
 #endif
 		// →　32bit環境だとこの変数、単なるポインタなのでこのassertは意味がないのだが、
 		// とりあえず開発時に早期に気づくようにこのassertを入れておく。
@@ -1134,8 +1133,8 @@ namespace Eval
 		sum.p[0][0] = sum.p[0][1] = sum.p[1][0] = sum.p[1][1] = 0;
 #endif
 
-#if !defined (USE_ONLY_KPPT)
 		// KK
+#if !defined (USE_ONLY_KPPT)
 		sum.p[2] = kk[sq_bk][sq_wk];
 		cout << "KKC : " << sq_bk << " " << sq_wk << " = " << kk[sq_bk][sq_wk][0] << " + " << kk[sq_bk][sq_wk][1] << endl;
 #endif
@@ -1284,7 +1283,6 @@ namespace Eval
 	// パラメーターの分析などに用いる。
 	void foreach_eval_param(std::function<void(s32,s32)>f , int type)
 	{
-#if !defined (USE_ONLY_KPPT)
 		// KK
 		if (type == -1 || type == 0)
 		{
@@ -1307,7 +1305,6 @@ namespace Eval
 				f(v[0], v[1]);
 			}
 		}
-#endif
 
 		// KPP
 		if (type == -1 || type == 2)

@@ -1,13 +1,13 @@
 ﻿#ifndef _MULTI_THINK_
 #define _MULTI_THINK_
 
-#include "../shogi.h"
+#include "../config.h"
 
-#if defined(EVAL_LEARN) && \
-	(defined(YANEURAOU_2018_OTAFUKU_ENGINE) || defined(YANEURAOU_2018_GOKU_ENGINE))
+#if defined(EVAL_LEARN) && defined(YANEURAOU_2018_OTAFUKU_ENGINE)
 
 #include "../misc.h"
 #include "../learn/learn.h"
+
 #include <atomic>
 
 // 棋譜からの学習や、自ら思考させて定跡を生成するときなど、
@@ -33,6 +33,11 @@ struct MultiThink
 	// 3) 定期的にcallbackされる関数を設定する(必要なら)
 	//   callback_funcとcallback_interval
 	void go_think();
+
+	// 派生クラス側で初期化したいものがあればこれをoverrideしておけば、
+	// go_think()で初期化が終わったタイミングで呼び出される。
+	// 定跡の読み込みなどはそのタイミングで行うと良い。
+	virtual void init() {}
 
 	// go_think()したときにスレッドを生成して呼び出されるthread worker
 	// これをoverrideして用いる。
@@ -140,6 +145,6 @@ protected:
 	Mutex task_mutex;
 };
 
-#endif // defined(EVAL_LEARN) && ( defined(YANEURAOU_2018_OTAFUKU_ENGINE) || defined(YANEURAOU_2018_GOKU_ENGINE))
+#endif // defined(EVAL_LEARN) && defined(YANEURAOU_2018_OTAFUKU_ENGINE)
 
 #endif

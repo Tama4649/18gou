@@ -1,9 +1,7 @@
 # > Select YaneuraOu edition below.
 
 #YANEURAOU_EDITION = YANEURAOU_2018_OTAFUKU_ENGINE
-#YANEURAOU_EDITION = HELP_MATE_ENGINE
 #YANEURAOU_EDITION = MATE_ENGINE
-#YANEURAOU_EDITION = YANEURAOU_2018_GOKU_ENGINE
 YANEURAOU_EDITION = YANEURAOU_2018_TNK_ENGINE
 
 
@@ -20,31 +18,31 @@ INCLUDE  = # -I../include
 
 # clang用にCFLAGSなどを変更
 ifeq ($(findstring clang++,$(COMPILER)),clang++)
-  # stdlib
-  CFLAGS += -stdlib=libstdc++
+	# stdlib
+	CFLAGS += -stdlib=libstdc++
 
-  # 関数の引数が関数本体で使われていないときに警告出るのうざすぎるので抑制。
-  CFLAGS += -Wno-unused-parameter -Wno-long-long
+	# 関数の引数が関数本体で使われていないときに警告出るのうざすぎるので抑制。
+	CFLAGS += -Wno-unused-parameter
 
-  # static リンクを行う際に __cxa_guard_acquire __cxa_guard_release の生成を抑止
-  #   undefined reference to `__imp___cxa_guard_acquire'
-  #   undefined reference to `__imp___cxa_guard_release'
-  # static 変数を初期化したかを pthread_mutex_t でロックを取って確認し、
-  # 最初の実行なら初期化するスレッドセーフなコードを生成するためのもの。
-  # → 本当に消してしまっても大丈夫か？
-  WCFLAGS += -fno-threadsafe-statics -I/mingw64/include/OpenBLAS
+	# static リンクを行う際に __cxa_guard_acquire __cxa_guard_release の生成を抑止
+	#   undefined reference to `__imp___cxa_guard_acquire'
+	#   undefined reference to `__imp___cxa_guard_release'
+	# static 変数を初期化したかを pthread_mutex_t でロックを取って確認し、
+	# 最初の実行なら初期化するスレッドセーフなコードを生成するためのもの。
+	# → 本当に消してしまっても大丈夫か？
+	WCFLAGS += -fno-threadsafe-statics
 
-  # msys2用のclangでは、OpenMP使えない？インスコ仕方がわからん。
+	# msys2用のclangでは、OpenMP使えない？インスコ仕方がわからん。
 
 endif
 
 ifeq ($(OS),Windows_NT)
-  CFLAGS += $(WCFLAGS)
-  LDFLAGS += -static -Wl,--stack,100000000
-  TARGET = 18gou.exe
+	CFLAGS += $(WCFLAGS)
+	LDFLAGS += -static -Wl,--stack,25000000
+	TARGET = Kristallweizen.exe
 else
-  CFLAGS += -D_LINUX
-  TARGET = 18gou-by-gcc
+	CFLAGS += -D_LINUX
+	TARGET = Kristallweizen
 endif
 
 # リンク時最適化。これをつけるとmsys2環境だとセグフォで落ちる。
@@ -75,35 +73,52 @@ LDFLAGS += -Wl,-s
 # clangでOPENMPを有効にしてビルドする方法については、解説.txtを参照のこと。
 
 ifeq ($(findstring g++,$(COMPILER)),g++)
-        OPENMP   = -fopenmp
-        OPENMP_LDFLAGS =
+	OPENMP   = -fopenmp
+	OPENMP_LDFLAGS =
+	ifeq ($(YANEURAOU_EDITION),YANEURAOU_2018_TNK_ENGINE)
+		BLAS = -DUSE_BLAS
+		BLAS_LDFLAGS = -lopenblas
+		ifeq ($(MSYSTEM),MINGW64)
+			BLAS += -I$(shell cygpath -aw /mingw64/include/OpenBLAS)
+		endif
+	endif
 endif
 ifeq ($(findstring clang++,$(COMPILER)),clang++)
-        OPENMP   = -fopenmp
-        OPENMP_LDFLAGS = -lomp
-#        OPENMP_LDFLAGS = 
+	OPENMP   = -fopenmp
+	OPENMP_LDFLAGS = -lomp
+	ifeq ($(YANEURAOU_EDITION),YANEURAOU_2018_TNK_ENGINE)
+		BLAS = -DUSE_BLAS
+		BLAS_LDFLAGS = -lopenblas
+		ifeq ($(MSYSTEM),MINGW64)
+			BLAS += -I$(shell cygpath -aw /mingw64/include/OpenBLAS)
+		endif
+	endif
 endif
 
-CFLAGS  += -DNO_EXCEPTIONS -DUSE_BLAS
-LDFLAGS += -lpthread -lopenblas
+CFLAGS += -DNO_EXCEPTIONS
+LDFLAGS += -lpthread
 LDFLAGS += -v
 
 OBJDIR   = ../obj
 ifeq "$(strip $(OBJDIR))" ""
-  OBJDIR = ..
+	OBJDIR = ..
 endif
 #SOURCES  = $(wildcard *.cpp)
-SOURCES  = shogi.cpp                                                               \
+SOURCES  = main.cpp                                                                \
+	types.cpp                                                                  \
 	bitboard.cpp                                                               \
 	misc.cpp                                                                   \
 	movegen.cpp                                                                \
 	position.cpp                                                               \
 	usi.cpp                                                                    \
+	usi_option.cpp                                                             \
 	thread.cpp                                                                 \
 	tt.cpp                                                                     \
-	move_picker.cpp                                                            \
+	movepick.cpp                                                               \
+	timeman.cpp                                                                \
 	extra/book/apery_book.cpp                                                  \
 	extra/book/book.cpp                                                        \
+	extra/book/makebook2019.cpp                                                \
 	extra/bitop.cpp                                                            \
 	extra/entering_king_win.cpp                                                \
 	extra/long_effect.cpp                                                      \
@@ -112,7 +127,6 @@ SOURCES  = shogi.cpp                                                            
 	extra/mate/mate_n_ply.cpp                                                  \
 	extra/benchmark.cpp                                                        \
 	extra/test_cmd.cpp                                                         \
-	extra/timeman.cpp                                                          \
 	extra/see.cpp                                                              \
 	extra/sfen_packer.cpp                                                      \
 	extra/kif_converter/kif_convert_tools.cpp                                  \
@@ -121,21 +135,10 @@ SOURCES  = shogi.cpp                                                            
 	eval/kppt/evaluate_kppt_learner.cpp                                        \
 	eval/kpp_kkpt/evaluate_kpp_kkpt.cpp                                        \
 	eval/kpp_kkpt/evaluate_kpp_kkpt_learner.cpp                                \
-	eval/kpppt/evaluate_kpppt.cpp                                              \
-	eval/kpppt/evaluate_kpppt_learner.cpp                                      \
-	eval/kppp_kkpt/evaluate_kppp_kkpt.cpp                                      \
-	eval/kppp_kkpt/evaluate_kppp_kkpt_learner.cpp                              \
-	eval/kkpp_kkpt/evaluate_kkpp_kkpt.cpp                                      \
-	eval/kkpp_kkpt/evaluate_kkpp_kkpt_learner.cpp                              \
-	eval/kkppt/evaluate_kkppt.cpp                                              \
-	eval/kkppt/evaluate_kkppt_learner.cpp                                      \
-	eval/kpp_kkpt_fv_var/evaluate_kpp_kkpt_fv_var.cpp                          \
-	eval/kpp_kkpt_fv_var/evaluate_kpp_kkpt_fv_var_learner.cpp                  \
 	eval/evaluate.cpp                                                          \
 	eval/evaluate_io.cpp                                                       \
 	eval/evaluate_mir_inv_tools.cpp                                            \
 	engine/user-engine/user-search.cpp                                         \
-	engine/help-mate-engine/help-mate-search.cpp                               \
 	engine/2018-otafuku-engine/2018-otafuku-search.cpp                         \
 	learn/learner.cpp                                                          \
 	learn/learning_tools.cpp                                                   \
@@ -169,9 +172,13 @@ all: clean $(TARGET)
 
 # 学習用バイナリのときは、openmpを有効にする。
 evallearn:
-	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) $(BLAS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 evallearn-sse42:
-	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_SSE42 -msse4.2 -march=corei7' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) $(BLAS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_SSE42 -msse4.2 -march=corei7' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+
+# 教師棋譜生成用
+gensfen:
+	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) $(BLAS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -DGENSFEN2019 -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 tournament:
 	$(MAKE) CFLAGS='$(CFLAGS) -DNDEBUG -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DUSE_AVX2 -mbmi -mbmi2 -mavx2 -DFOR_TOURNAMENT -march=corei7-avx' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)

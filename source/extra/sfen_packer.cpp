@@ -1,12 +1,13 @@
-﻿#include "../shogi.h"
+﻿#include "../config.h"
 
-#ifdef USE_SFEN_PACKER
-
-#include <sstream>
-#include <fstream>
+#if defined (USE_SFEN_PACKER)
 
 #include "../misc.h"
 #include "../position.h"
+
+#include <sstream>
+#include <fstream>
+#include <cstring>	// std::memset()
 
 using namespace std;
 
@@ -342,7 +343,7 @@ struct SfenPacker
 // 高速化のために直接unpackする関数を追加。かなりしんどい。
 // packer::unpack()とPosition::set()とを合体させて書く。
 // 渡された局面に問題があって、エラーのときは非0を返す。
-int Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, Thread* th, bool mirror)
+int Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, Thread* th, bool mirror , int gamePly_ /* = 0 */)
 {
 	SfenPacker packer;
 	auto& stream = packer.stream;
@@ -475,7 +476,7 @@ int Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, Thre
 		return 2;
 	}
 
-	gamePly = 0;
+	gamePly = gamePly_;
 
 	// put_piece()したのでこのタイミングでupdate
 	// set_state()で駒種別のbitboardを参照するのでそれまでにこの関数を呼び出す必要がある。
@@ -484,17 +485,17 @@ int Position::set_from_packed_sfen(const PackedSfen& sfen , StateInfo * si, Thre
 
 	set_state(st);
 
-	// --- evaluate
-
-	st->materialValue = Eval::material(*this);
-	Eval::compute_eval(*this);
-
 	// --- effect
 
 #ifdef LONG_EFFECT_LIBRARY
 	// 利きの全計算による更新
 	LongEffect::calc_effect(*this);
 #endif
+
+	// --- evaluate
+
+	st->materialValue = Eval::material(*this);
+	Eval::compute_eval(*this);
 
 //	sync_cout << sfen() << *this << pieces(BLACK) << pieces(WHITE) << pieces() << sync_endl;
 

@@ -758,8 +758,8 @@ bool Position::legal_drop(const Square to) const
   // ここでは玉は除外されるし、香が利いていることもないし、そういう意味では、特化した関数が必要。
   Bitboard b = attackers_to_pawn(~us, to);
 
-  // このpinnedは敵のpinned pieces
-  Bitboard pinned = pinned_pieces(~us);
+	// 敵玉に対するpinしている駒(自駒も含むが、bが敵駒なので問題ない。)
+	Bitboard pinned = blockers_for_king(~us);
 
   // pinされていない駒が1つでもあるなら、相手はその駒で取って何事もない。
   if (b & (~pinned | FILE_BB[file_of(to)]))
@@ -827,7 +827,7 @@ bool Position::legal_drop(const Square to) const
   // いまから打つ歩による遮断される升の利きが2以上でなければそこに逃げられるはず。
   auto a8_long_effect_to = long_effect.directions_of(us, to);
   auto to_dir = (us == BLACK) ? DIRECT_D : DIRECT_U;  // 王から見た歩の方角
-  auto a8_cutoff_dir = Effect8::cutoff_directions(to_dir,a8_long_effect_to);
+	auto a8_cutoff_dir = Effect8::cutoff_directions(to_dir, a8_long_effect_to);
   auto a8_target = a8_cutoff_dir & a8_them_movable & ~board_effect[us].around8_greater_than_one(sq_king);
 
   return a8_target != 0;
@@ -1014,6 +1014,32 @@ bool Position::pseudo_legal_s(const Move m) const {
 	return true;
 }
 
+// 生成した指し手(CAPTUREとかNON_CAPTUREとか)が、合法であるかどうかをテストする。
+bool Position::legal(Move m) const
+{
+	if (is_drop(m))
+		// 打ち歩詰めは指し手生成で除外されている。
+		return true;
+	else
+	{
+		Color us = sideToMove;
+		Square from = move_from(m);
+
+		ASSERT_LV5(color_of(piece_on(from_sq(m))) == us);
+		ASSERT_LV5(piece_on(square<KING>(us)) == make_piece(us, KING));
+
+		// もし移動させる駒が玉であるなら、行き先の升に相手側の利きがないかをチェックする。
+		if (type_of(piece_on(from)) == KING)
+			return !effected_to(~us, move_to(m), from);
+
+		// blockers_for_king()は、pinされている駒(自駒・敵駒)を表現するが、fromにある駒は自駒であることは
+		// わかっているのでこれで良い。
+		return   !(blockers_for_king(us) & from)
+			|| aligned(from, to_sq(m), square<KING>(us));
+	}
+}
+
+
 // 置換表から取り出したMoveを32bit化する。
 Move Position::move16_to_move(Move m) const
 {
@@ -1082,12 +1108,6 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 	// std::memcpy(&new_st, st, offsetof(StateInfo, checkersBB));
 	// 将棋ではこの処理、要らないのでは…。
 
-	// ここ、もう少し汎用的な記述手段をあとで考える。
-#if defined(EVAL_NABLA)
-	// 前のnodeの値をコピーする。
-	std::memcpy(&new_st.nabla_work , &st->nabla_work , sizeof(StateInfo::nabla_work));
-#endif
-
 	// StateInfoを遡れるようにpreviousを設定しておいてやる。
 	StateInfo* prev;
 	new_st.previous = prev = st;
@@ -1103,8 +1123,7 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 
 	// 評価値の差分計算用の初期化
 
-#if defined(EVAL_KPPT) || defined(EVAL_KPP_KKPT) || defined(EVAL_KPPPT) || defined(EVAL_KPPP_KKPT) || defined(EVAL_KKPP_KKPT) || defined(EVAL_KKPPT) || \
-	defined(EVAL_KPP_KKPT_FV_VAR) || defined(EVAL_EXPERIMENTAL) || defined(EVAL_HELICES) || defined(EVAL_NABLA)
+#if defined(EVAL_KPPT) || defined(EVAL_KPP_KKPT)
 	st->sum.p[0][0] = VALUE_NOT_EVALUATED;
 #endif
 #if defined(EVAL_NNUE)
@@ -1728,7 +1747,7 @@ void Position::undo_null_move()
 // ----------------------------------
 
 // 連続王手の千日手等で引き分けかどうかを返す
-RepetitionState Position::is_repetition(int ply) const
+RepetitionState Position::is_repetition(int ply , int repPly_ /* = 32 */) const
 {
 	// repPlyまで遡る
 	// rootより遡るのであれば2度同一局面が出現する必要があるので16の倍にしておく。
@@ -1736,7 +1755,7 @@ RepetitionState Position::is_repetition(int ply) const
 	//
 	// これ16から32に変更したことで1%ぐらい速度低下するようだ。
 	// 16手目までに1度も同一局面が出現しなければリタイアしたいが、この処理を綺麗に書くのは難しい…。
-	const int repPly = 16 * 2;
+	const int repPly = repPly_;
 
 	// 現在の局面と同じhash keyを持つ局面があれば、それは千日手局面であると判定する。
 

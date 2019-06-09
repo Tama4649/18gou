@@ -3,22 +3,19 @@
 #if defined (YANEURAOU_ENGINE)
 
 // -----------------------
-//   やねうら王2018(otafuku)設定部
+//   やねうら王 標準探索部
 // -----------------------
 
-// パラメーターを自動調整するのか
-// 自動調整が終われば、ファイルを固定してincludeしたほうが良い。
+// 計測資料置き場 : https://github.com/yaneurao/YaneuraOu/blob/master/docs/%E8%A8%88%E6%B8%AC%E8%B3%87%E6%96%99.txt
+
+
+// パラメーターを自動調整するのか(パラメーターを調整するフレームワーク等を利用する場合)
+// 自動調整が終われば、値を固定して、パラメーターファイルをincludeしたほうが良い。
 //#define USE_AUTO_TUNE_PARAMETERS
 
 // 探索パラメーターにstep分のランダム値を加えて対戦させるとき用。
 // 試合が終わったときに勝敗と、そのときに用いたパラメーター一覧をファイルに出力する。
 //#define USE_RANDOM_PARAMETERS
-
-// 試合が終わったときに勝敗と、そのときに用いたパラメーター一覧をファイルに出力する。
-// パラメーターのランダム化は行わない。
-// USE_RANDOM_PARAMETERSと同時にdefineしてはならない。
-//#define ENABLE_OUTPUT_GAME_RESULT
-
 
 // -----------------------
 //   includes
@@ -44,8 +41,17 @@
 // やねうら王独自追加
 // -------------------
 
+#if defined (USE_AUTO_TUNE_PARAMETERS) || defined(USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
+#define INCLUDE_PARAMETERS
+// 試合が終わったときに勝敗と、そのときに用いたパラメーター一覧をファイルに出力する。
+// パラメーターのランダム化は行わない。
+#undef ENABLE_OUTPUT_GAME_RESULT
+#define ENABLE_OUTPUT_GAME_RESULT
+#endif
+
+
 // ハイパーパラメーターを自動調整するときはstatic変数にしておいて変更できるようにする。
-#if defined (USE_AUTO_TUNE_PARAMETERS) || defined(USE_RANDOM_PARAMETERS)
+#if defined(INCLUDE_PARAMETERS)
 #define PARAM_DEFINE static int
 #else
 #define PARAM_DEFINE constexpr int
@@ -58,7 +64,7 @@
 // 定跡の指し手を選択するモジュール
 Book::BookMoveSelector book;
 
-#if defined (USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
+#if defined(ENABLE_OUTPUT_GAME_RESULT)
 // 変更したパラメーター一覧と、リザルト(勝敗)を書き出すためのファイルハンドル
 static std::fstream result_log;
 #endif
@@ -94,13 +100,13 @@ void USI::extra_option(USI::OptionsMap & o)
 	o["EvalSaveDir"] << Option("evalsave");
 #endif
 
-#if defined (USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
-
-#if defined(USE_RANDOM_PARAMETERS)
-	sync_cout << "info string warning!! USE_RANDOM_PARAMETERS." << sync_endl;
-#endif
-
 #if defined(ENABLE_OUTPUT_GAME_RESULT)
+
+#if defined(USE_AUTO_TUNE_PARAMETERS)
+	sync_cout << "info string warning!! USE_AUTO_TUNE_PARAMETERS." << sync_endl;
+#elif defined(USE_RANDOM_PARAMETERS)
+	sync_cout << "info string warning!! USE_RANDOM_PARAMETERS." << sync_endl;
+#else
 	sync_cout << "info string warning!! ENABLE_OUTPUT_GAME_RESULT." << sync_endl;
 #endif
 
@@ -119,7 +125,7 @@ void USI::extra_option(USI::OptionsMap & o)
 // USIの"gameover"コマンドに対して、それをログに書き出す。
 void gameover_handler(const std::string& cmd)
 {
-#if defined (USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
+#if defined(ENABLE_OUTPUT_GAME_RESULT)
 	result_log << cmd << std::endl << std::flush;
 #endif
 }
@@ -1079,20 +1085,24 @@ namespace {
 		// root nodeであるか
 		const bool rootNode = PvNode && ss->ply == 0;
 
+		// 【計測資料 34.】cuckooコード Stockfishの2倍のサイズのcuckoo配列で実験
+
+#if defined(CUCKOO)
 		// この局面から数手前の局面に到達させる指し手があるなら、それによって千日手になるので
 		// このnodeで千日手スコアを即座に返すことで早期枝刈りを実施することができるらしい。
 		
-		//	// Check if we have an upcoming move which draws by repetition, or
-		//	// if the opponent had an alternative move earlier to this position.
-		//	if (pos.rule50_count() >= 3
-		//		&& alpha < VALUE_DRAW
-		//		&& !rootNode
-		//		&& pos.has_game_cycle(ss->ply))
-		//	{
-		//		alpha = value_draw(depth, pos.this_thread());
-		//		if (alpha >= beta)
-		//			return alpha;
-		//	}
+		Value ValueDraw = draw_value(REPETITION_DRAW, pos.side_to_move());
+		if (/* pos.rule50_count() >= 3
+			&&*/ alpha < ValueDraw
+			&& !rootNode
+			&& pos.has_game_cycle(ss->ply))
+		{
+			//alpha = value_draw(depth, pos.this_thread());
+			alpha = ValueDraw;
+			if (alpha >= beta)
+				return alpha;
+		}
+#endif
 
 			// 残り探索深さが1手未満であるなら静止探索を呼び出す
 		if (depth < ONE_PLY)
@@ -2994,7 +3004,8 @@ void init_param()
 	// -----------------------
 	//   parameters.hの動的な読み込み
 	// -----------------------
-#if defined (USE_AUTO_TUNE_PARAMETERS) || defined(USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
+
+#if defined (INCLUDE_PARAMETERS)
 	{
 		std::vector<std::string> param_names = {
 			"PARAM_FUTILITY_MARGIN_ALPHA1" ,"PARAM_FUTILITY_MARGIN_ALPHA2" , 
@@ -3028,7 +3039,7 @@ void init_param()
 			"PARAM_EVAL_TEMPO",
 		};
 
-#if defined(ENABLE_OUTPUT_GAME_RESULT) || defined(USE_RANDOM_PARAMETERS)
+#if defined(INCLUDE_PARAMETERS)
 		std::vector<int*> param_vars = {
 #else
 		std::vector<const int*> param_vars = {
@@ -3096,14 +3107,12 @@ void init_param()
 						count++;
 
 						// "="の右側にある数値を読む。
-#ifndef ENABLE_OUTPUT_GAME_RESULT
 						*param_vars[i] = get_num(line, "=");
-#endif
 
 						// 見つかった
 						founds[i] = true;
 
-#ifdef USE_RANDOM_PARAMETERS
+#if defined(USE_RANDOM_PARAMETERS)
 						// PARAM_DEFINEの一つ前の行には次のように書いてあるはずなので、
 						// USE_RANDOM_PARAMETERSのときは、このstepをプラスかマイナス方向に加算してやる。
 						// ただし、fixedと書いてあるパラメーターに関しては除外する。
@@ -3172,7 +3181,7 @@ void init_param()
 					std::cout << "Error : param not found in " << PARAM_FILE << " -> " << param_names[i] << std::endl;
 		}
 
-#if defined (USE_RANDOM_PARAMETERS) || defined(ENABLE_OUTPUT_GAME_RESULT)
+#if defined(ENABLE_OUTPUT_GAME_RESULT)
 		{
 			if (!result_log.is_open())
 				result_log.open(Options["PARAMETERS_LOG_FILE_PATH"], std::ios::app);

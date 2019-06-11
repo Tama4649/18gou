@@ -63,7 +63,7 @@
 
 // Makefileを使ってbuildするときは、
 // $ make avx2
-// のようにしてビルドすれば自動的にAVX2用がビルドされます。
+// のようにしてビルドすれば自動的にAVX2用実行ファイルがビルドされます。
 
 #endif
 
@@ -257,6 +257,7 @@
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
 #define ENGINE_NAME "Kristallweizen"
+
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE
 
@@ -277,6 +278,7 @@
 // デバッグ絡み
 //#define ASSERT_LV 3
 //#define USE_DEBUG_ASSERT
+
 
 #define ENABLE_TEST_CMD
 // 学習絡みのオプション
@@ -412,6 +414,9 @@ extern GlobalOptions_ GlobalOptions;
 #if !defined (USE_DEBUG_ASSERT)
 #define ASSERT(X) { if (!(X)) *(int*)1 = 0; }
 #else
+#include <iostream>
+#include <chrono>
+#include <thread>
 #define ASSERT(X) { if (!(X)) { std::cout << "\nError : ASSERT(" << #X << "), " << __FILE__ << "(" << __LINE__ << "): " << __func__ << std::endl; \
  std::this_thread::sleep_for(std::chrono::microseconds(3000)); *(int*)1 =0;} }
 #endif

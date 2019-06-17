@@ -229,7 +229,7 @@ void load_eval() {
     std::ifstream stream(file_name, std::ios::binary);
     const bool result = NNUE::ReadParameters(stream);
 
-	sync_cout << "info string loading eval file : " << file_name << sync_endl;
+	//sync_cout << "info string loading eval file : " << file_name << sync_endl;
 
 //    ASSERT(result);
 	if (!result)

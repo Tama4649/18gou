@@ -193,7 +193,7 @@ namespace Book
 			}
 
 			// 定跡ファイル名
-			// Option["book_file"]ではなく、ここで指定したものが処理対象である。
+			// Option["BookFile"]ではなく、ここで指定したものが処理対象である。
 			string book_name;
 			is >> book_name;
 
@@ -699,8 +699,12 @@ namespace Book
 		// 　今回はtrueになった場合、本来ならメモリにすでに読み込まれているのだから読み直しは必要ないが、
 		//　 何らかの目的で変更したのであろうから、この場合もきちんと反映しないとまずい。)
 		bool ignore_book_ply_ = Options["IgnoreBookPly"];
-		if (book_name == filename && this->on_the_fly == on_the_fly_ && this->ignoreBookPly == ignore_book_ply_)
+		if (this->book_name == filename && this->on_the_fly == on_the_fly_ && this->ignoreBookPly == ignore_book_ply_)
 			return 0;
+
+		// 一度このクラスのメンバーが保持しているファイル名はクリアする。(何も読み込んでいない状態になるので)
+		this->book_name = "";
+		this->pure_book_name = "";
 
 		// 別のファイルを開こうとしているので前回メモリに丸読みした定跡をクリアしておかないといけない。
 		book_body.clear();
@@ -713,8 +717,8 @@ namespace Book
 		// 読み込み済み、もしくは定跡を用いない(no_book)であるなら正常終了。
 		if (pure_filename == "no_book")
 		{
-			book_name = filename;
-			pure_book_name = pure_filename;
+			this->book_name = filename;
+			this->pure_book_name = pure_filename;
 			return 0;
 		}
 
@@ -736,21 +740,22 @@ namespace Book
 				fs.open(filename, ios::in);
 				if (fs.fail())
 				{
-					cout << "info string Error! : can't read " + filename << endl;
+					sync_cout << "info string Error! : can't read file : " + filename << sync_endl;
 					return 1;
 				}
 
 				// 定跡ファイルのopenにも成功したし、on the flyできそう。
 				// このときに限りこのフラグをtrueにする。
 				this->on_the_fly = true;
-				book_name = filename;
+				this->book_name = filename;
 				return 0;
 			}
 
+			sync_cout << "info string read book file : " << filename << sync_endl;
 			vector<string> lines;
 			if (read_all_lines(filename, lines))
 			{
-				cout << "info string Error! : can't read " + filename << endl;
+				sync_cout << "info string Error! : can't read file : " + filename << sync_endl;
 				//      exit(EXIT_FAILURE);
 				return 1; // 読み込み失敗
 			}
@@ -868,8 +873,10 @@ namespace Book
 		}
 
 		// 読み込んだファイル名を保存しておく。二度目のread_book()はskipする。
-		book_name = filename;
-		pure_book_name = pure_filename;
+		this->book_name = filename;
+		this->pure_book_name = pure_filename;
+
+		sync_cout << "info string read book done." << sync_endl;
 
 		return 0;
 	}
@@ -1365,8 +1372,7 @@ namespace Book
 			, "yaneura_book1.db" , "yaneura_book2.db" , "yaneura_book3.db", "yaneura_book4.db"
 			, "user_book1.db", "user_book2.db", "user_book3.db", "book.bin" };
 
-		o["BookFile"] << Option(book_list, book_list[1], [&](const Option& o){ this->book_name = string(o); });
-		book_name = book_list[1];
+		o["BookFile"] << Option(book_list, book_list[1]);
 
 		o["BookDir"] << Option("book");
 
@@ -1491,7 +1497,15 @@ namespace Book
 				sync_cout << "info pv " << pv_string
 					<< " (" << fixed << std::setprecision(2) << (100 * it.prob) << "%)" // 採択確率
 					<< " score cp " << it.value << " depth " << it.depth
-					<< " multipv " << (i+1) << sync_endl;
+#if !defined(NICONICO)
+					<< " multipv " << (i+1)
+#endif					
+					<< sync_endl;
+
+				// 電王盤はMultiPV非対応なので1番目の読み筋だけを"multipv"をつけずに送信する。
+#if defined(NICONICO)
+				break;
+#endif
 			}
 		}
 
@@ -1556,6 +1570,11 @@ namespace Book
 				// 評価値がvalue_limitを下回るものを削除
 				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookPos & m) { return m.value < value_limit; });
 				move_list.erase(it_end, move_list.end());
+
+				// これを出力するとShogiGUIの棋譜解析で読み筋として表示されてしまう…。
+				// 棋譜解析でinfo stringの文字列を拾う実装になっているのがおかしいのだが。
+				// ShogiGUIの作者に要望を出す。[2019/06/20]
+				// →　対応してもらえるらしい。[2019/06/22]
 
 				// 候補手が1手でも減ったなら減った理由を出力
 				if (!silent && n != move_list.size())

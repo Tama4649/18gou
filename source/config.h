@@ -8,7 +8,7 @@
 
 // 思考エンジンのバージョンとしてUSIプロトコルの"usi"コマンドに応答するときの文字列。
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
-#define ENGINE_VERSION "4.87"
+#define ENGINE_VERSION "4.88"
 
 // --------------------
 //  思考エンジンの種類
@@ -20,7 +20,7 @@
 
 #if !defined (USE_MAKEFILE)
 
-#define YANEURAOU_2018_OTAFUKU_ENGINE    // やねうら王2018 with お多福Lab。(開発中2018/01/01～)
+#define YANEURAOU_ENGINE_NNUE    // やねうら王2018 with お多福Lab。(開発中2018/01/01～)
 //#define MATE_ENGINE                      // 詰め将棋solverとしてリリースする場合。(開発中2017/05/06～)
 //#define USER_ENGINE                      // ユーザーの思考エンジン
 
@@ -509,7 +509,7 @@ constexpr bool Is64Bit = false;
 #endif
 
 #if defined(USE_AVX512)
-#define TARGET_CPU "AVX-512"
+#define TARGET_CPU "AVX512"
 #elif defined(USE_AVX2)
 #define TARGET_CPU "AVX2"
 #elif defined(USE_SSE42)

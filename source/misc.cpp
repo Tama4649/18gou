@@ -168,7 +168,7 @@ const string engine_info() {
 //  統計情報
 // --------------------
 
-static int64_t hits[2], means[2];
+static std::atomic<int64_t> hits[2], means[2];
 
 void dbg_hit_on(bool b) { ++hits[0]; if (b) ++hits[1]; }
 void dbg_hit_on(bool c, bool b) { if (c) dbg_hit_on(b); }
@@ -715,6 +715,16 @@ namespace StringExtension
 		return result;
 	}
 
+	// スペース、タブなど空白に相当する文字で分割して返す。
+	std::vector<std::string> split(const std::string& input)
+	{
+		auto result = std::vector<string>();
+		LineScanner scanner(input);
+		while (!scanner.eof())
+			result.push_back(scanner.get_text());
+
+		return result;
+	}
 };
 
 // --------------------

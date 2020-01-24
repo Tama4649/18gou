@@ -63,7 +63,7 @@ typedef std::chrono::milliseconds::rep TimePoint;
 static_assert(sizeof(TimePoint) == sizeof(int64_t), "TimePoint should be 64 bits");
 
 // ms単位で現在時刻を返す
-inline TimePoint now() {
+static TimePoint now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>
 		(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
@@ -137,7 +137,7 @@ private:
 };
 
 // 乱数のseedを表示する。(デバッグ用)
-inline std::ostream& operator<<(std::ostream& os, PRNG& prng)
+static std::ostream& operator<<(std::ostream& os, PRNG& prng)
 {
 	os << "PRNG::seed = " << std::hex << prng.get_seed() << std::dec;
 	return os;
@@ -233,12 +233,17 @@ struct Timer
 	// reset()されてからreset_for_ponderhit()までの時間
 	TimePoint elapsed_from_start_to_ponderhit() const { return (TimePoint)(startTimeFromPonderhit - startTime); }
 
+#if 0
 	// 探索node数を経過時間の代わりに使う。(こうするとタイマーに左右されない思考が出来るので、思考に再現性を持たせることが出来る)
 	// node数を指定して探索するとき、探索できる残りnode数。
-	int64_t availableNodes;
+	// ※　StockfishでここintになっているのはTimePointにするのが正しいと思う。[2020/01/20]
+	TimePoint availableNodes;
+	// →　NetworkDelayやMinimumThinkingTimeなどの影響を考慮するのが難しく、将棋の場合、
+	// 　相性があまりよろしくないのでこの機能はやねうら王ではサポートしないことにする。
+#endif
 
 	// このシンボルが定義されていると、今回の思考時間を計算する機能が有効になる。
-#ifdef  USE_TIME_MANAGEMENT
+#if defined(USE_TIME_MANAGEMENT)
 
   // 今回の思考時間を計算して、optimum(),maximum()が値をきちんと返せるようにする。
 	void init(Search::LimitsType& limits, Color us, int ply);
@@ -333,7 +338,7 @@ protected:
 };
 
 // 乱数のseedを表示する。(デバッグ用)
-inline std::ostream& operator<<(std::ostream& os, AsyncPRNG& prng)
+static std::ostream& operator<<(std::ostream& os, AsyncPRNG& prng)
 {
 	os << "AsyncPRNG::seed = " << std::hex << prng.get_seed() << std::dec;
 	return os;
@@ -464,7 +469,39 @@ namespace StringExtension
 
 	// スペース、タブなど空白に相当する文字で分割して返す。
 	extern std::vector<std::string> split(const std::string& input);
+
+	// --- 以下、C#のstringクラスにあるやつ。
+
+	// 文字列valueが、文字列endingで終了していればtrueを返す。
+	extern bool StartsWith(std::string const& value, std::string const& starting);
+
+	// 文字列valueが、文字列endingで終了していればtrueを返す。
+	extern bool EndsWith(std::string const& value, std::string const& ending);
+
 };
+
+// --------------------
+//  FileSystem
+// --------------------
+
+// ディレクトリに存在するファイルの列挙用
+// C#のDirectoryクラスっぽい何か
+namespace Directory
+{
+	// 指定されたフォルダに存在するファイルをすべて列挙する。
+	// 列挙するときに引数extensionで列挙したいファイル名の拡張子を指定できる。(例 : ".bin")
+	// 拡張子として""を指定すればすべて列挙される。
+	extern std::vector<std::string> EnumerateFiles(const std::string& sourceDirectory, const std::string& extension);
+
+	// フォルダを作成する。
+	// カレントフォルダ相対で指定する。dir_nameに日本語は使っていないものとする。
+	// 成功すれば0、失敗すれば非0が返る。
+	// ※　Windows環境だと、この関数名、WinAPIのCreateDirectoryというマクロがあって…。
+	// 　ゆえに、CreateDirectory()をやめて、CreateFolder()に変更する。
+	extern int CreateFolder(const std::string& dir_name);
+
+}
+
 
 // --------------------
 //  Tools
@@ -494,10 +531,6 @@ namespace Dependency
 	// std::getline()ではなく単にgetline()と書いて、この関数を使うべき。
 	extern bool getline(std::ifstream& fs, std::string& s);
 
-	// フォルダを作成する。
-	// カレントフォルダ相対で指定する。dir_nameに日本語は使っていないものとする。
-	// 成功すれば0、失敗すれば非0が返る。
-	extern int mkdir(std::string dir_name);
 }
 
 

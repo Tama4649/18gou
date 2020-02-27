@@ -130,6 +130,8 @@ namespace USI
 
 
 			// PV配列からPVを出力する。
+			// ※　USIの"info"で読み筋を出力するときは"pv"サブコマンドはサブコマンドの一番最後にしなければならない。
+
 			auto out_array_pv = [&]()
 			{
 				for (Move m : rootMoves[i].pv)
@@ -575,7 +577,7 @@ void USI::loop(int argc, char* argv[])
 	if (argc >= 3 && string(argv[1]) == "file")
 	{
 		vector<string> cmds0;
-		read_all_lines(argv[2], cmds0);
+		FileOperator::ReadAllLines(argv[2], cmds0);
 
 		// queueに変換する。
 		for (auto c : cmds0)

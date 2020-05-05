@@ -246,7 +246,7 @@
 
 // ニコニコ生放送の電王盤用
 // 電王盤はMultiPV非対応なので定跡を送るとき、"multipv"をつけずに1番目の候補手を送信する必要がある。
-#define NICONICO
+//#define NICONICO
 
 // --------------------
 // release configurations
@@ -256,7 +256,7 @@
 
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
-#define ENGINE_NAME "Kristallweizen"
+#define ENGINE_NAME "Hefeweizen"
 
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE

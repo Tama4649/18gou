@@ -112,7 +112,7 @@ namespace Book
 			{
 				std::unique_lock<Mutex> lk(io_mutex);
 				// 前のエントリーは上書きされる。
-				book.book_body[sfen] = move_list;
+				book.append(sfen,move_list);
 
 				// 新たなエントリーを追加したのでフラグを立てておく。
 				appended = true;
@@ -155,7 +155,15 @@ namespace Book
 		// ただし、このときに定跡ファイルを読み込まれると読み込みに時間がかかって嫌なので一時的にno_bookに変更しておく。
 		auto original_book_file = Options["BookFile"];
 		Options["BookFile"] = string("no_book");
-		SCOPE_EXIT( Options["BookFile"] = original_book_file; );
+
+		// IgnoreBookPlyオプションがtrue(デフォルトでtrue)のときは、定跡書き出し時にply(手数)のところを無視(0)にしてしまうので、
+		// これで書き出されるとちょっと嫌なので一時的にfalseにしておく。
+		auto original_ignore_book_ply = (bool)Options["IgnoreBookPly"];
+		Options["IgnoreBookPly"] = false;
+
+		SCOPE_EXIT(Options["BookFile"] = original_book_file; Options["IgnoreBookPly"] = original_ignore_book_ply; );
+
+		// ↑ SCOPE_EXIT()により、この関数を抜けるときには復旧する。
 
 		is_ready();
 
@@ -243,8 +251,18 @@ namespace Book
 
 			// 処理対象ファイル名の出力
 			cout << "makebook think.." << endl;
+
+			if (bw_files)
+			{
+				// 先後、個別の定跡ファイルを用いる場合
 			cout << "sfen_file_name[BLACK] = " << sfen_file_name[BLACK] << endl;
 			cout << "sfen_file_name[WHITE] = " << sfen_file_name[WHITE] << endl;
+			}
+			else {
+				// 先後、同一の定跡ファイルを用いる場合
+				cout << "sfen_file_name        = " << sfen_file_name[BLACK] << endl;
+			}
+
 			cout << "book_name             = " << book_name << endl;
 
 			if (from_sfen)
@@ -298,7 +316,7 @@ namespace Book
 
 			if (from_thinking)
 			{
-				cout << "read book..";
+				cout << "read book.." << endl;
 				// 初回はファイルがないので読み込みに失敗するが無視して続行。
 				if (book.read_book(book_name).is_not_ok())
 				{
@@ -476,6 +494,9 @@ namespace Book
 				// スレッド数(これは、USIのsetoptionで与えられる)
 				size_t multi_pv = (size_t)Options["MultiPV"];
 
+				// 手数無視なら、定跡読み込み時にsfen文字列の"ply"を削って読み込まれているはずなので、
+				// 比較するときにそこを削ってやる必要がある。
+
 				// 思考する局面をsfensに突っ込んで、この局面数をg_loop_maxに代入しておき、この回数だけ思考する。
 				MultiThinkBook multi_think(book , depth, nodes);
 
@@ -483,13 +504,13 @@ namespace Book
 				for (auto& s : thinking_sfens)
 				{
 					// この局面のいま格納されているデータを比較して、この局面を再考すべきか判断する。
-					auto it = book.book_body.find(s);
+					auto it = book.find(s);
 
 					// →　手数違いの同一局面がある場合、こちらのほうが手数が大きいなら思考しても無駄なのだが…。
 					// その局面の情報は、write_book()で書き出されないのでまあいいか…。
 
 					// MemoryBookにエントリーが存在しないなら無条件で、この局面について思考して良い。
-					if (it == book.book_body.end())
+					if (book.is_not_found(it))
 						sfens_.push_back(s);
 					else
 					{
@@ -597,13 +618,13 @@ namespace Book
 
 			// 1) 探索が深いほうを採用。
 			// 2) 同じ探索深さであれば、MultiPVの大きいほうを採用。
-			for (auto& it0 : book[0].book_body)
+			for (auto& it0 : *book[0].get_body())
 			{
 				auto sfen = it0.first;
 				// このエントリーがbook1のほうにないかを調べる。
-				auto it1_ = book[1].book_body.find(sfen);
+				auto it1_ = book[1].find(sfen);
 				auto& it1 = *it1_;
-				if (it1_ != book[1].book_body.end())
+				if ( book[1].is_found(it1_))
 				{
 					same_nodes++;
 
@@ -612,30 +633,30 @@ namespace Book
 					// 2) depthが深いほう
 					// 3) depthが同じならmulti pvが大きいほう(登録されている候補手が多いほう)
 					if (it0.second->size() == 0)
-						book[2].book_body.insert(it1);
+						book[2].insert(it1);
 					else if (it1.second->size() == 0)
-						book[2].book_body.insert(it0);
+						book[2].insert(it0);
 					else if (it0.second->at(0).depth > it1.second->at(0).depth)
-						book[2].book_body.insert(it0);
+						book[2].insert(it0);
 					else if (it0.second->at(0).depth < it1.second->at(0).depth)
-						book[2].book_body.insert(it1);
+						book[2].insert(it1);
 					else if (it0.second->size() >= it1.second->size())
-						book[2].book_body.insert(it0);
+						book[2].insert(it0);
 					else
-						book[2].book_body.insert(it1);
+						book[2].insert(it1);
 				}
 				else {
 					// なかったので無条件でbook2に突っ込む。
-					book[2].book_body.insert(it0);
+					book[2].insert(it0);
 					diffrent_nodes1++;
 				}
 			}
 			// book0の精査が終わったので、book1側で、まだ突っ込んでいないnodeを探して、それをbook2に突っ込む
-			for (auto& it1 : book[1].book_body)
+			for (auto& it1 : *book[1].get_body())
 			{
-				if (book[2].book_body.find(it1.first) == book[2].book_body.end())
+				if (book[2].is_not_found(book[2].find(it1.first)))
 				{
-					book[2].book_body.insert(it1);
+					book[2].insert(it1);
 					diffrent_nodes2++;
 				}
 			}
@@ -759,6 +780,10 @@ namespace Book
 			sync_cout << "info string read book file : " << filename << sync_endl;
 
 			TextFileReader reader;
+			// ReadLine()の時に行の末尾のスペース、タブを自動トリム。空行は自動スキップ。
+			reader.SetTrim(true);
+			reader.SkipEmptyLine(true);
+
 			auto result = reader.Open(filename);
 			if (result.is_not_ok())
 			{
@@ -801,9 +826,9 @@ namespace Book
 			// (これがtrueならばsfenから手数を除去しておく)
 			bool ignoreBookPly = Options["IgnoreBookPly"];
 
-			while(!reader.Eof())
+			std::string line;
+			while(reader.ReadLine(line).is_ok())
 			{
-				auto line = reader.ReadLine(/* trim = */true);
 
 				// バージョン識別文字列(とりあえず読み飛ばす)
 				if (line.length() >= 1 && line[0] == '#')
@@ -1042,7 +1067,14 @@ namespace Book
 		return Tools::Result::Ok();
 	}
 
-	void MemoryBook::insert(const std::string sfen, const BookPos& bp , bool overwrite)
+	// book_body.find()のwrapper。book_body.find()ではなく、こちらのfindを呼び出して用いること。
+	// sfen : sfen文字列(末尾にplyまで書かれているものとする)
+	BookType::iterator MemoryBook::find(const std::string& sfen)
+	{
+		return book_body.find(trim(sfen));
+	}
+
+	void MemoryBook::insert(const std::string& sfen, const BookPos& bp , bool overwrite)
 	{
 		auto it = book_body.find(sfen);
 		if (it == book_body.end())

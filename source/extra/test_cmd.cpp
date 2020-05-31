@@ -72,7 +72,7 @@ void effect_check(Position& pos)
 
 void random_player(Position& pos,uint64_t loop_max)
 {
-#ifdef MATE1PLY_CHECK
+#if defined (MATE1PLY_CHECK)
 	uint64_t mate_found = 0;    // 1手詰め判定で見つけた1手詰め局面の数
 	uint64_t mate_missed = 0;   // 1手詰め判定で見逃した1手詰め局面の数
 #endif
@@ -101,7 +101,7 @@ void random_player(Position& pos,uint64_t loop_max)
 			// 局面がおかしくなっていないかをテストする
 			ASSERT_LV3(is_ok(pos));
 
-#ifdef EVAL_VALUE_CHECK
+#if defined (EVAL_VALUE_CHECK)
 			{
 				// 評価値の差分計算等がsfen文字列をセットしての全計算と一致するかのテスト(すこぶる遅い)
 				auto value = Eval::eval(pos);
@@ -1850,9 +1850,24 @@ struct KPPT_reader
 
 	KPPT_reader()
 	{
+		/*
 		kk_ = (ValueKk(*)[SQ_NB][SQ_NB])new ValueKk[int(SQ_NB)*int(SQ_NB)];
 		kpp_ = (ValueKpp(*)[SQ_NB][fe_end][fe_end])new ValueKpp[int(SQ_NB)*int(fe_end)*int(fe_end)];
 		kkp_ = (ValueKkp(*)[SQ_NB][SQ_NB][fe_end])new ValueKkp[int(SQ_NB)*int(SQ_NB)*int(fe_end)];
+		*/
+		// newでstd::arrayに関して巨大メモリを確保しようとすると、Clang10.0.0でのコンパイル時に
+		// メモリを20GB以上持っていかれる(´ω｀) Clangのbugの何らかの最適化が悪さをしている可能性が…。
+
+		kk_ = (ValueKk(*)[SQ_NB][SQ_NB])(malloc(sizeof(ValueKk) * int(SQ_NB) * int(SQ_NB)));
+		kpp_ = (ValueKpp(*)[SQ_NB][fe_end][fe_end])(malloc(sizeof(ValueKpp) * int(SQ_NB) * int(fe_end) * int(fe_end)));
+		kkp_ = (ValueKkp(*)[SQ_NB][SQ_NB][fe_end])(malloc(sizeof(ValueKkp) * int(SQ_NB) * int(SQ_NB) * int(fe_end)));
+	}
+
+	~KPPT_reader()
+	{
+		free(kk_);
+		free(kpp_);
+		free(kkp_);
 	}
 
 	void read(string dir)
@@ -3325,7 +3340,7 @@ void dump_sfen(Position& pos, istringstream& is)
 }
 #endif // EVAL_LEARN
 
-#ifdef USE_KIF_CONVERT_TOOLS
+#if defined (USE_KIF_CONVERT_TOOLS)
 void test_kif_convert_tools(Position& pos, istringstream& is)
 {
 	is_ready();
@@ -3436,7 +3451,7 @@ void test_kif_convert_tools(Position& pos, istringstream& is)
 	}
 
 }
-#endif // #ifdef USE_KIF_CONVERT_TOOLS
+#endif // #if defined (USE_KIF_CONVERT_TOOLS)
 
 void test_cmd(Position& pos, istringstream& is)
 {
@@ -3478,7 +3493,7 @@ void test_cmd(Position& pos, istringstream& is)
 	else if (param == "regkk") regularize_kk_cmd(is);				 // 評価関数のKKの正規化
 #endif
 #endif
-#ifdef USE_KIF_CONVERT_TOOLS
+#if defined (USE_KIF_CONVERT_TOOLS)
 	else if (param == "kifconvert") test_kif_convert_tools(pos, is); // 現局面からの全合法手を各種形式で出力チェック
 #endif
 #if defined(EVAL_NNUE)
@@ -3500,7 +3515,7 @@ void test_cmd(Position& pos, istringstream& is)
 	}
 }
 
-#ifdef MATE_ENGINE
+#if defined (MATE_ENGINE)
 // ----------------------------------
 //  USI拡張コマンド "test_mate_engine"
 // ----------------------------------

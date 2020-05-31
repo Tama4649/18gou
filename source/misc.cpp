@@ -43,6 +43,9 @@ extern "C" {
 #include "thread.h"
 #include "usi.h"
 
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <sys/mman.h>
+#endif
 using namespace std;
 
 namespace {
@@ -156,7 +159,7 @@ const string engine_info() {
 //			<< (Is64Bit ? " 64" : " 32")
 //			<< TARGET_CPU
 #if defined(FOR_TOURNAMENT)
-			<< " TOURNAMENT"
+			<< " Tournament"
 #endif
 			<< endl
 			<< "id author by Tama" << endl;
@@ -208,7 +211,7 @@ std::ostream& operator<<(std::ostream& os, SyncCout sc) {
 // --------------------
 
 // prefetch命令を使わない。
-#ifdef NO_PREFETCH
+#if defined (NO_PREFETCH)
 
 void prefetch(void*) {}
 
@@ -217,7 +220,7 @@ void prefetch(void*) {}
 void prefetch(void* addr) {
 
 	// SSEの命令なのでSSE2が使える状況でのみ使用する。
-#ifdef USE_SSE2
+#if defined (USE_SSE2)
 
 	// 下位5bitが0でないような中途半端なアドレスのprefetchは、
 	// そもそも構造体がalignされていない可能性があり、バグに違いない。
@@ -244,13 +247,186 @@ void prefetch(void* addr) {
 
 #endif
 
-void prefetch2(void* addr)
-{
-	// Stockfishのコードはこうなっている。
-	// cache lineが32byteなら、あと2回やる必要があるように思うのだが…。
+// --------------------
+//  Large Page確保
+// --------------------
 
-	prefetch(addr);
-	prefetch((uint8_t*)addr + 64);
+/// aligned_ttmem_alloc will return suitably aligned memory, and if possible use large pages.
+/// The returned pointer is the aligned one, while the mem argument is the one that needs to be passed to free.
+/// With c++17 some of this functionality can be simplified.
+#if defined(__linux__) && !defined(__ANDROID__)
+
+void* aligned_ttmem_alloc(size_t allocSize, void*& mem , size_t align /* ignore */ ) {
+
+	constexpr size_t alignment = 2 * 1024 * 1024; // assumed 2MB page sizes
+	size_t size = ((allocSize + alignment - 1) / alignment) * alignment; // multiple of alignment
+	if (posix_memalign(&mem, alignment, size))
+		mem = nullptr;
+	madvise(mem, allocSize, MADV_HUGEPAGE);
+	return mem;
+}
+
+#elif defined(_WIN64)
+
+static void* aligned_ttmem_alloc_large_pages(size_t allocSize) {
+
+	HANDLE hProcessToken{ };
+	LUID luid{ };
+	void* mem = nullptr;
+
+	const size_t largePageSize = GetLargePageMinimum();
+
+	// 普通、最小のLarge Pageサイズは、2MBである。
+	// Large Pageが使えるなら、ここでは 2097152 が返ってきているはず。
+
+	if (!largePageSize)
+		return nullptr;
+
+	// Large Pageを使うには、SeLockMemory権限が必要。
+	// cf. http://awesomeprojectsxyz.blogspot.com/2017/11/windows-10-home-how-to-enable-lock.html
+
+	// We need SeLockMemoryPrivilege, so try to enable it for the process
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hProcessToken))
+		return nullptr;
+
+	if (LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid))
+	{
+		TOKEN_PRIVILEGES tp{ };
+		TOKEN_PRIVILEGES prevTp{ };
+		DWORD prevTpLen = 0;
+
+		tp.PrivilegeCount = 1;
+		tp.Privileges[0].Luid = luid;
+		tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+		// Try to enable SeLockMemoryPrivilege. Note that even if AdjustTokenPrivileges() succeeds,
+		// we still need to query GetLastError() to ensure that the privileges were actually obtained...
+		if (AdjustTokenPrivileges(
+			hProcessToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), &prevTp, &prevTpLen) &&
+			GetLastError() == ERROR_SUCCESS)
+		{
+			// round up size to full pages and allocate
+			allocSize = (allocSize + largePageSize - 1) & ~size_t(largePageSize - 1);
+			mem = VirtualAlloc(
+				NULL, allocSize, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
+
+			// privilege no longer needed, restore previous state
+			AdjustTokenPrivileges(hProcessToken, FALSE, &prevTp, 0, NULL, NULL);
+		}
+	}
+
+	CloseHandle(hProcessToken);
+
+	return mem;
+}
+
+void* aligned_ttmem_alloc(size_t allocSize , void*& mem , size_t align /* ignore */) {
+
+	static bool firstCall = true;
+
+	// try to allocate large pages
+	mem = aligned_ttmem_alloc_large_pages(allocSize);
+
+	// Suppress info strings on the first call. The first call occurs before 'uci'
+	// is received and in that case this output confuses some GUIs.
+
+	// uciが送られてくる前に"info string"で余計な文字を出力するとGUI側が誤動作する可能性があるので
+	// 初回は出力を抑制するコードが入っているが、やねうら王ではisreadyでメモリ初期化を行うので
+	// これは気にしなくて良い。
+	// 逆に、評価関数用のメモリもこれで確保するので、何度もこのメッセージが表示されると
+	// 煩わしいので、このメッセージは初回のみの出力と変更する。
+
+//	if (!firstCall)
+	if (firstCall)
+	{
+		if (mem)
+			sync_cout << "info string Hash table allocation: Windows large pages used." << sync_endl;
+		else
+			sync_cout << "info string Hash table allocation: Windows large pages not used." << sync_endl;
+	}
+	firstCall = false;
+
+	// fall back to regular, page aligned, allocation if necessary
+	// 4KB単位であることは保証されているはず..
+	if (!mem)
+		mem = VirtualAlloc(NULL, allocSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+	// VirtualAlloc()はpage size(4KB)でalignされていること自体は保証されているはず。
+
+	return mem;
+}
+
+#else
+
+void* aligned_ttmem_alloc(size_t allocSize, void*& mem , size_t align) {
+
+	//constexpr size_t alignment = 64; // assumed cache line size
+	
+	// 引数で指定された値でalignmentされていて欲しい。
+	const size_t alignment = align;
+
+	size_t size = allocSize + alignment - 1; // allocate some extra space
+	mem = malloc(size);
+	void* ret = reinterpret_cast<void*>((uintptr_t(mem) + alignment - 1) & ~uintptr_t(alignment - 1));
+	return ret;
+}
+
+#endif
+
+/// aligned_ttmem_free will free the previously allocated ttmem
+#if defined(_WIN64)
+
+void aligned_ttmem_free(void* mem) {
+
+	if (mem && !VirtualFree(mem, 0, MEM_RELEASE))
+	{
+		DWORD err = GetLastError();
+		std::cerr << "Failed to free transposition table. Error code: 0x" <<
+			std::hex << err << std::dec << std::endl;
+		Tools::exit();
+	}
+}
+
+#else
+
+void aligned_ttmem_free(void* mem) {
+	free(mem);
+}
+
+#endif
+
+// メモリを確保する。Large Pageに確保できるなら、そこにする。
+// aligned_ttmem_alloc()を内部的に呼び出すので、アドレスは少なくとも2MBでalignされていることは保証されるが、
+// 気になる人のためにalignmentを明示的に指定できるようになっている。
+// メモリ確保に失敗するか、引数のalignで指定したalignmentになっていなければ、
+// エラーメッセージを出力してプログラムを終了させる。
+void* LargeMemory::alloc(size_t size, size_t align)
+{
+	free();
+	void* ptr = aligned_ttmem_alloc(size, mem , align);
+
+	auto error_exit = [&](std::string mes){
+		sync_cout << "info string Error! : " << mes << " in LargeMemory::alloc(" << size << "," << align << ")" << sync_endl;
+		Tools::exit();
+	};
+
+	// メモリが正常に確保されていることを保証する
+	if (ptr == nullptr)
+		error_exit("can't alloc enough memory.");
+		
+	// ptrがalignmentされていることを保証する
+	if ((reinterpret_cast<size_t>(ptr) % align) != 0)
+		error_exit("can't alloc algined memory.");
+
+	return ptr;
+}
+
+// alloc()で確保したメモリを開放する。
+// このクラスのデストラクタからも自動でこの関数が呼び出されるので明示的に呼び出す必要はない(かも)
+void LargeMemory::free()
+{
+	aligned_ttmem_free(mem);
+	mem = nullptr;
 }
 
 // --------------------
@@ -496,22 +672,22 @@ namespace Tools
 	// 現在時刻を文字列化したもを返す。(評価関数の学習時などに用いる)
 	std::string now_string()
 	{
-	// std::ctime(), localtime()を使うと、MSVCでセキュアでないという警告が出る。
-	// C++標準的にはそんなことないはずなのだが…。
+		// std::ctime(), localtime()を使うと、MSVCでセキュアでないという警告が出る。
+		// C++標準的にはそんなことないはずなのだが…。
 
 #if defined(_MSC_VER)
-	// C4996 : 'ctime' : This function or variable may be unsafe.Consider using ctime_s instead.
+		// C4996 : 'ctime' : This function or variable may be unsafe.Consider using ctime_s instead.
 #pragma warning(disable : 4996)
 #endif
 
-	auto now = std::chrono::system_clock::now();
-	auto tp = std::chrono::system_clock::to_time_t(now);
-	auto result = string(std::ctime(&tp));
-
-	// 末尾に改行コードが含まれているならこれを除去する
-	while (*result.rbegin() == '\n' || (*result.rbegin() == '\r'))
-		result.pop_back();
-	return result;
+		auto now = std::chrono::system_clock::now();
+		auto tp = std::chrono::system_clock::to_time_t(now);
+		auto result = string(std::ctime(&tp));
+	
+		// 末尾に改行コードが含まれているならこれを除去する
+		while (*result.rbegin() == '\n' || (*result.rbegin() == '\r'))
+			result.pop_back();
+		return result;
 	}
 
 	// Linux環境ではgetline()したときにテキストファイルが'\r\n'だと

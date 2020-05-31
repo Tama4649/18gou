@@ -2,6 +2,7 @@
 #define EVALHASH_H_INCLUDED
 
 #include "../types.h"
+#include "../misc.h"
 
 // シンプルなHashTableの実装。Sizeは2のべき乗。
 // 評価値のcacheに用いる。
@@ -18,10 +19,19 @@ struct HashTable
 		{
 			release();
 			size = newClusterCount;
-			entries_ = (T*)aligned_malloc(size * sizeof(T), alignof(T));
+			entries_ = (T*)largeMemory.alloc(size * sizeof(T),alignof(T));
 		}
 	}
-	void release() { if (entries_) { aligned_free(entries_); entries_ = nullptr; } }
+
+	void release()
+	{
+		if (entries_)
+	{
+			largeMemory.free();
+			entries_ = nullptr;
+		}
+	}
+
 	~HashTable() { release(); }
 
 	T* operator[] (const Key k) { return entries_ + (static_cast<size_t>(k) & (size - 1)); }
@@ -31,6 +41,7 @@ private:
 
 	size_t size = 0;
 	T* entries_ = nullptr;
+	LargeMemory largeMemory;
 };
 
 #endif // EVALHASH_H_INCLUDED

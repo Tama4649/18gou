@@ -9,6 +9,7 @@
 
 #include "nnue_feature_transformer.h"
 #include "nnue_architecture.h"
+#include "../../misc.h"
 
 #include <memory>
 
@@ -23,11 +24,21 @@ constexpr std::uint32_t kHashValue =
 // メモリ領域の解放を自動化するためのデリータ
 template <typename T>
 struct AlignedDeleter {
-  void operator()(T* ptr) const {
-    ptr->~T();
-    aligned_free(ptr);
-  }
+
+    void operator()(T* ptr) const {
+        // Tクラスのデストラクタ
+        ptr->~T();
+
+        // LargeMemoryの開放
+        const_cast<AlignedDeleter*>(this)->memory.free();
+    }
+
+    LargeMemory* large_memory() { return &memory; }
+
+private:
+    LargeMemory memory;
 };
+
 template <typename T>
 using AlignedPtr = std::unique_ptr<T, AlignedDeleter<T>>;
 

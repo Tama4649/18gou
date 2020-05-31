@@ -2,6 +2,7 @@
 #define TT_H_INCLUDED
 
 #include "types.h"
+#include "misc.h"
 
 // cf.【決定版】コンピュータ将棋のHASHの概念について詳しく : http://yaneuraou.yaneu.com/2018/11/18/%E3%80%90%E6%B1%BA%E5%AE%9A%E7%89%88%E3%80%91%E3%82%B3%E3%83%B3%E3%83%94%E3%83%A5%E3%83%BC%E3%82%BF%E5%B0%86%E6%A3%8B%E3%81%AEhash%E3%81%AE%E6%A6%82%E5%BF%B5%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6/
 
@@ -126,6 +127,7 @@ public:
 
 		// cf. 置換表の128GB制限を取っ払う冴えない方法 : http://yaneuraou.yaneu.com/2018/05/03/%E7%BD%AE%E6%8F%9B%E8%A1%A8%E3%81%AE128gb%E5%88%B6%E9%99%90%E3%82%92%E5%8F%96%E3%81%A3%E6%89%95%E3%81%86%E5%86%B4%E3%81%88%E3%81%AA%E3%81%84%E6%96%B9%E6%B3%95/
 		// Stockfish公式で対応されるまでデフォルトでは無効にしておく。
+
 #if defined (IS_64BIT) && defined(USE_SSE2) && defined(USE_HUGE_HASH)
 
 		// cf. 128 GB TT size limitation : https://github.com/official-stockfish/Stockfish/issues/1349
@@ -147,6 +149,7 @@ public:
 		// excludedMoveはbit16..31にしか反映させないので、あまりいい性質でもないような…。
 		return &table[(((uint32_t(key >> 1) * uint64_t(clusterCount)) >> 32) & ~1) | (key & 1)].entry[0];
 #endif
+
 	}
 
 private:
@@ -163,6 +166,9 @@ private:
 
 	// 世代カウンター。new_search()のごとに8ずつ加算する。TTEntry::save()で用いる。
 	uint8_t generation8;
+
+	// 置換表テーブルのメモリ確保用のhelpper
+	LargeMemory tt_memory;
 };
 
 extern TranspositionTable TT;

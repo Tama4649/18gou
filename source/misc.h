@@ -25,15 +25,47 @@ const std::string engine_info();
 
 void prefetch(void* addr);
 
-// 連続する128バイトをprefetchするときに用いる。
-void prefetch2(void* addr);
-
 // --------------------
 //  logger
 // --------------------
 
 // cin/coutへの入出力をファイルにリダイレクトを開始/終了する。
 void start_logger(bool b);
+
+// --------------------
+//  Large Page確保
+// --------------------
+
+// Large Pageを確保するwrapper class。
+// WindowsのLarge Pageを確保する。
+// Large Pageを用いるとメモリアクセスが速くなるらしい。
+// 置換表用のメモリなどはこれで確保する。
+// cf. やねうら王、Large Page対応で10数%速くなった件 : http://yaneuraou.yaneu.com/2020/05/31/%e3%82%84%e3%81%ad%e3%81%86%e3%82%89%e7%8e%8b%e3%80%81large-page%e5%af%be%e5%bf%9c%e3%81%a710%e6%95%b0%e9%80%9f%e3%81%8f%e3%81%aa%e3%81%a3%e3%81%9f%e4%bb%b6/
+//
+// Stockfishでは、Large Pageの確保～開放のためにaligned_ttmem_alloc(),aligned_ttmem_free()という関数が実装されている。
+// コードの簡単化のために、やねうら王では独自に本classからそれらを用いる。
+struct LargeMemory
+{
+	// メモリを確保する。Large Pageに確保できるなら、そこにする。
+	// aligned_ttmem_alloc()を内部的に呼び出すので、アドレスは少なくとも2MBでalignされていることは保証されるが、
+	// 気になる人のためにalignmentを明示的に指定できるようになっている。
+	// メモリ確保に失敗するか、引数のalignで指定したalignmentになっていなければ、
+	// エラーメッセージを出力してプログラムを終了させる。
+	void* alloc(size_t size, size_t align = 256);
+
+	// alloc()で確保したメモリを開放する。
+	// このクラスのデストラクタからも自動でこの関数が呼び出されるので明示的に呼び出す必要はない(かも)
+	void free();
+
+	// alloc()が呼び出されてメモリが確保されている状態か？
+	bool alloced() const { return mem != nullptr; }
+
+	~LargeMemory() { free(); }
+
+private:
+	// 確保されたメモリの先頭アドレス(free()で開放するときにこのアドレスを用いる)
+	void* mem = nullptr;
+};
 
 // --------------------
 //  統計情報
@@ -72,7 +104,8 @@ static TimePoint now() {
 //    HashTable
 // --------------------
 
-// 将棋では使わないので要らないや..
+// このclass、Stockfishにあるんだけど、
+// EvalHashとしてLargePageを用いる同等のclassをすでに用意しているので、使わない。
 
 //template<class Entry, int Size>
 //struct HashTable {

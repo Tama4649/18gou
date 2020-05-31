@@ -8,7 +8,7 @@
 
 // 思考エンジンのバージョンとしてUSIプロトコルの"usi"コマンドに応答するときの文字列。
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
-#define ENGINE_VERSION "4.89"
+#define ENGINE_VERSION "4.90"
 
 // --------------------
 //  思考エンジンの種類
@@ -248,6 +248,10 @@
 // 電王盤はMultiPV非対応なので定跡を送るとき、"multipv"をつけずに1番目の候補手を送信する必要がある。
 //#define NICONICO
 
+// PVの出力時の千日手に関する出力をすべて"rep_draw"に変更するオプション。
+// GUI側が、何らかの都合で"rep_draw"のみしか処理できないときに用いる。
+// #define PV_OUTPUT_DRAW_ONLY
+
 // --------------------
 // release configurations
 // --------------------
@@ -480,7 +484,7 @@ constexpr bool pretty_jp = false;
 // --- Dropbit
 
 // USE_DROPBIT_IN_STATSがdefineされているときは、Moveの上位16bitに格納するPieceとして駒打ちは +32(PIECE_DROP)　にする。
-#ifdef USE_DROPBIT_IN_STATS
+#if defined (USE_DROPBIT_IN_STATS)
 #define PIECE_DROP 32
 #else
 #define PIECE_DROP 0
@@ -490,7 +494,7 @@ constexpr bool pretty_jp = false;
 
 // KIF形式に変換するときにPositionクラスにその局面へ至る直前の指し手が保存されていないと
 // "同"金のように出力できなくて困る。
-#ifdef USE_KIF_CONVERT_TOOLS
+#if defined (USE_KIF_CONVERT_TOOLS)
 #define KEEP_LAST_MOVE
 #endif
 
@@ -524,19 +528,19 @@ constexpr bool Is64Bit = false;
 
 // 上位のCPUをターゲットとするなら、その下位CPUの命令はすべて使えるはずなので…。
 
-#ifdef USE_AVX512
+#if defined (USE_AVX512)
 #define USE_AVX2
 #endif
 
-#ifdef USE_AVX2
+#if defined (USE_AVX2)
 #define USE_SSE42
 #endif
 
-#ifdef USE_SSE42
+#if defined (USE_SSE42)
 #define USE_SSE41
 #endif
 
-#ifdef USE_SSE41
+#if defined (USE_SSE41)
 #define USE_SSE2
 #endif
 

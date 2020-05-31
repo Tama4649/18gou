@@ -28,7 +28,7 @@ namespace Eval {
         AlignedPtr<Network> network;
 
         // 評価関数ファイル名
-        const char* const kFileName = "beer.bin";
+        const char* const kFileName = "nn.bin";
 
         // 評価関数の構造を表す文字列を取得する
         std::string GetArchitectureString() {

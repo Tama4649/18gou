@@ -97,10 +97,10 @@ endif
 ifeq ($(OS),Windows_NT)
 	CFLAGS += $(WCFLAGS)
 	LDFLAGS += -static -Wl,--stack,25000000
-	TARGET = Hefeweizen.exe
+	TARGET = JKishi18gou.exe
 else
 	CFLAGS += -D_LINUX
-	TARGET = Hefeweizen
+	TARGET = JKishi18gou
 endif
 
 # リンク時最適化。

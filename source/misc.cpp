@@ -727,8 +727,8 @@ namespace Tools
 
 	// memset(table, 0, size);
 
-	if (name_ != nullptr)
-		//sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
+	//if (name_ != nullptr)
+	//	sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
 
 	// マルチスレッドで並列化してクリアする。
 
@@ -759,8 +759,8 @@ namespace Tools
 	for (std::thread& th : threads)
 		th.join();
 
-		if (name_ != nullptr)
-			//sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
+		//if (name_ != nullptr)
+		//	sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
 	}
 
 	// 途中での終了処理のためのwrapper

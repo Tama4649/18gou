@@ -156,11 +156,11 @@ const string engine_info() {
 #else
 			ENGINE_NAME
 #endif			
-//			<< ' '
-//			<< EVAL_TYPE_NAME << ' '
-//			<< ENGINE_VERSION << setfill('0')
-//			<< (Is64Bit ? " 64" : " 32")
-//			<< TARGET_CPU
+			<< ' '
+			<< EVAL_TYPE_NAME << ' '
+			<< ENGINE_VERSION << setfill('0')
+			<< (Is64Bit ? " 64" : " 32")
+			<< TARGET_CPU
 #if defined(FOR_TOURNAMENT)
 			<< " Tournament"
 #endif
@@ -442,6 +442,8 @@ void* aligned_ttmem_alloc(size_t allocSize , void*& mem , size_t align /* ignore
 
 	// VirtualAlloc()はpage size(4KB)でalignされていること自体は保証されているはず。
 
+	//cout << (u64)mem << "," << allocSize << endl;
+
 	return mem;
 }
 
@@ -499,9 +501,23 @@ void aligned_ttmem_free(void* mem) {
 void* LargeMemory::alloc(size_t size, size_t align , bool zero_clear)
 {
 	free();
-	void* ptr = aligned_ttmem_alloc(size, mem , align);
+	return static_alloc(size, this->mem, align, zero_clear);
+}
 
-	auto error_exit = [&](std::string mes){
+// alloc()で確保したメモリを開放する。
+// このクラスのデストラクタからも自動でこの関数が呼び出されるので明示的に呼び出す必要はない(かも)
+void LargeMemory::free()
+{
+	static_free(mem);
+	mem = nullptr;
+}
+
+// alloc()のstatic関数版。memには、static_free()に渡すべきポインタが得られる。
+void* LargeMemory::static_alloc(size_t size, void*& mem, size_t align, bool zero_clear)
+{
+	void* ptr = aligned_ttmem_alloc(size, mem, align);
+
+	auto error_exit = [&](std::string mes) {
 		sync_cout << "info string Error! : " << mes << " in LargeMemory::alloc(" << size << "," << align << ")" << sync_endl;
 		Tools::exit();
 	};
@@ -529,13 +545,13 @@ void* LargeMemory::alloc(size_t size, size_t align , bool zero_clear)
 	return ptr;
 }
 
-// alloc()で確保したメモリを開放する。
-// このクラスのデストラクタからも自動でこの関数が呼び出されるので明示的に呼び出す必要はない(かも)
-void LargeMemory::free()
+// static_alloc()で確保したメモリを開放する。
+void LargeMemory::static_free(void* mem)
 {
 	aligned_ttmem_free(mem);
-	mem = nullptr;
 }
+
+
 
 // --------------------
 //  全プロセッサを使う
@@ -727,8 +743,8 @@ namespace Tools
 
 	// memset(table, 0, size);
 
-	//if (name_ != nullptr)
-	//	sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
+		if (name_ != nullptr)
+			sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
 
 	// マルチスレッドで並列化してクリアする。
 
@@ -759,8 +775,8 @@ namespace Tools
 	for (std::thread& th : threads)
 		th.join();
 
-		//if (name_ != nullptr)
-		//	sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
+		if (name_ != nullptr)
+			sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
 	}
 
 	// 途中での終了処理のためのwrapper

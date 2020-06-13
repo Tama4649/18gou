@@ -17,7 +17,14 @@
 #include "eval/experimental/evaluate_experimental.h"
 #undef EVAL_EXPERIMENTAL_HEADER
 #else
+
+// 金と小駒の成り駒を区別する
+#if defined(DISTINGUISH_GOLDS)
+#define BonaPieceExpansion (81*8)
+#else
 #define BonaPieceExpansion 0
+#endif
+
 #endif
 
 // -------------------------------------
@@ -183,6 +190,19 @@ namespace Eval {
 		f_dragon = e_rook + 81,
 		e_dragon = f_dragon + 81,
 		fe_old_end = e_dragon + 81,
+
+// 金と小駒の成り駒を区別する
+#if defined(DISTINGUISH_GOLDS)
+		f_pro_pawn = fe_old_end,
+		e_pro_pawn = f_pro_pawn + 81,
+		f_pro_lance = e_pro_pawn + 81,
+		e_pro_lance = f_pro_lance + 81,
+		f_pro_knight = e_pro_lance + 81,
+		e_pro_knight = f_pro_knight + 81,
+		f_pro_silver = e_pro_knight + 81,
+		e_pro_silver = f_pro_silver + 81,
+		fe_new_end = e_pro_silver + 81,
+#endif
 
 		// fe_endの値をBonaPieceExpansionを定義することで変更できる。
 		// このときfe_old_end～fe_endの間の番号をBonaPiece拡張領域として自由に用いることが出来る。

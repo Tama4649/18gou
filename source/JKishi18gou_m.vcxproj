@@ -57,7 +57,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{28C8605A-4E8E-4F59-99B5-96F545BC7D5E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>JKishi18gou</RootNamespace>
+    <RootNamespace>JKishi18gou_m</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -156,94 +156,94 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-mate.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-user.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPPT.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-KPPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPP_KKPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPP_KKPT.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-KPP_KKPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-LEARN|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-GEN|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_mEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-SSE42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_mEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-mate.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-mate.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-sse42.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-user.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_m-common.props" />
+    <Import Project="props\JKishi18gou_mSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_mEdition-user.props" />
+    <Import Project="props\JKishi18gou_mCpu-x64-sse42.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|x64'">
@@ -395,17 +395,47 @@
     <ClInclude Include="eval\evaluate_mir_inv_tools.h" />
     <ClInclude Include="eval\kppt\evaluate_kppt.h" />
     <ClInclude Include="eval\kpp_kkpt\evaluate_kpp_kkpt.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp-gsgs_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp-kingsafety_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp-kingsafety_distinguishgolds_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp-kk_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp-pp_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkpe4_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkpe9_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkpkfile_256x2-32-32.h" />
     <ClInclude Include="eval\nnue\architectures\halfkp_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\halfkp_gameply40x4_256x2-32-32.h" />
     <ClInclude Include="eval\nnue\architectures\k-p_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\kingsafety_distinguishgolds_factorizertest_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\material1_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\material2_256x2-32-32.h" />
+    <ClInclude Include="eval\nnue\architectures\material2-gameply_256x2-32-32.h" />
     <ClInclude Include="eval\nnue\evaluate_nnue.h" />
     <ClInclude Include="eval\nnue\evaluate_nnue_learner.h" />
     <ClInclude Include="eval\nnue\features\features_common.h" />
     <ClInclude Include="eval\nnue\features\feature_set.h" />
+    <ClInclude Include="eval\nnue\features\gameply.h" />
+    <ClInclude Include="eval\nnue\features\gsgs.h" />
     <ClInclude Include="eval\nnue\features\half_kp.h" />
+    <ClInclude Include="eval\nnue\features\half_kpe4.h" />
+    <ClInclude Include="eval\nnue\features\half_kpe9.h" />
+    <ClInclude Include="eval\nnue\features\half_kpkfile.h" />
+    <ClInclude Include="eval\nnue\features\half_kp_gameply40x4.h" />
     <ClInclude Include="eval\nnue\features\half_relative_kp.h" />
     <ClInclude Include="eval\nnue\features\index_list.h" />
     <ClInclude Include="eval\nnue\features\k.h" />
+    <ClInclude Include="eval\nnue\features\king24_defenseeffect.h" />
+    <ClInclude Include="eval\nnue\features\king24_piece_distinguishgolds.h" />
+    <ClInclude Include="eval\nnue\features\king24_attackeffect.h" />
+    <ClInclude Include="eval\nnue\features\king_safety.h" />
+    <ClInclude Include="eval\nnue\features\king_safety_distinguishgolds.h" />
+    <ClInclude Include="eval\nnue\features\kk.h" />
+    <ClInclude Include="eval\nnue\features\material1.h" />
+    <ClInclude Include="eval\nnue\features\material2.h" />
     <ClInclude Include="eval\nnue\features\p.h" />
+    <ClInclude Include="eval\nnue\features\pe4.h" />
+    <ClInclude Include="eval\nnue\features\pe9.h" />
+    <ClInclude Include="eval\nnue\features\pp.h" />
     <ClInclude Include="eval\nnue\layers\affine_transform.h" />
     <ClInclude Include="eval\nnue\layers\clipped_relu.h" />
     <ClInclude Include="eval\nnue\layers\input_slice.h" />
@@ -418,6 +448,12 @@
     <ClInclude Include="eval\nnue\trainer\features\factorizer.h" />
     <ClInclude Include="eval\nnue\trainer\features\factorizer_feature_set.h" />
     <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kp.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpe4.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpe9.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpkfile.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kp_gameply40x4.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_king_safety_distinguishgolds.h" />
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_pp.h" />
     <ClInclude Include="eval\nnue\trainer\trainer.h" />
     <ClInclude Include="eval\nnue\trainer\trainer_affine_transform.h" />
     <ClInclude Include="eval\nnue\trainer\trainer_clipped_relu.h" />
@@ -442,10 +478,10 @@
     <ClInclude Include="misc.h" />
     <ClInclude Include="movepick.h" />
     <ClInclude Include="search.h" />
-    <ClInclude Include="thread_win32_osx.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="position.h" />
     <ClInclude Include="thread.h" />
+    <ClInclude Include="thread_win32_osx.h" />
     <ClInclude Include="tt.h" />
     <ClInclude Include="usi.h" />
   </ItemGroup>
@@ -465,10 +501,27 @@
     <ClCompile Include="eval\kpp_kkpt\evaluate_kpp_kkpt_learner.cpp" />
     <ClCompile Include="eval\nnue\evaluate_nnue.cpp" />
     <ClCompile Include="eval\nnue\evaluate_nnue_learner.cpp" />
+    <ClCompile Include="eval\nnue\features\gameply.cpp" />
+    <ClCompile Include="eval\nnue\features\gsgs.cpp" />
     <ClCompile Include="eval\nnue\features\half_kp.cpp" />
+    <ClCompile Include="eval\nnue\features\half_kpe4.cpp" />
+    <ClCompile Include="eval\nnue\features\half_kpe9.cpp" />
+    <ClCompile Include="eval\nnue\features\half_kpkfile.cpp" />
+    <ClCompile Include="eval\nnue\features\half_kp_gameply40x4.cpp" />
     <ClCompile Include="eval\nnue\features\half_relative_kp.cpp" />
     <ClCompile Include="eval\nnue\features\k.cpp" />
+    <ClCompile Include="eval\nnue\features\king24_defenseeffect.cpp" />
+    <ClCompile Include="eval\nnue\features\king24_piece_distinguishgolds.cpp" />
+    <ClCompile Include="eval\nnue\features\king24_attackeffect.cpp" />
+    <ClCompile Include="eval\nnue\features\king_safety.cpp" />
+    <ClCompile Include="eval\nnue\features\king_safety_distinguishgolds.cpp" />
+    <ClCompile Include="eval\nnue\features\kk.cpp" />
+    <ClCompile Include="eval\nnue\features\material1.cpp" />
+    <ClCompile Include="eval\nnue\features\material2.cpp" />
     <ClCompile Include="eval\nnue\features\p.cpp" />
+    <ClCompile Include="eval\nnue\features\pe4.cpp" />
+    <ClCompile Include="eval\nnue\features\pe9.cpp" />
+    <ClCompile Include="eval\nnue\features\pp.cpp" />
     <ClCompile Include="eval\nnue\nnue_test_command.cpp" />
     <ClCompile Include="extra\bitop.cpp" />
     <ClCompile Include="extra\book\apery_book.cpp" />
@@ -479,6 +532,7 @@
     <ClCompile Include="extra\mate\mate1ply_without_effect.cpp" />
     <ClCompile Include="extra\mate\mate1ply_with_effect.cpp" />
     <ClCompile Include="extra\mate\mate_n_ply.cpp" />
+    <ClCompile Include="extra\see.cpp" />
     <ClCompile Include="extra\sfen_packer.cpp" />
     <ClCompile Include="extra\test_cmd.cpp" />
     <ClCompile Include="learn\learner.cpp" />

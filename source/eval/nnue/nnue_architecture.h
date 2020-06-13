@@ -9,8 +9,40 @@
 
 // 入力特徴量とネットワーク構造が定義されたヘッダをincludeする
 
+#if defined(EVAL_NNUE_HALFKPE9)
+#include "architectures/halfkpe9_256x2-32-32.h"
+#elif defined(EVAL_NNUE_MATERIAL1)
+#include "architectures/material1_256x2-32-32.h"
+#elif defined(EVAL_NNUE_MATERIAL2)
+#include "architectures/material2_256x2-32-32.h"
+#elif defined(EVAL_NNUE_MATERIAL2_GAMEPLY)
+#include "architectures/material2-gameply_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_KK)
+#include "architectures/halfkp-kk_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_PP)
+#include "architectures/halfkp-pp_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_GSGS)
+#include "architectures/halfkp-gsgs_256x2-32-32.h"
+
+// 金と小駒の成り駒を区別するが、architectureはデフォルトのHalfKPと同じ
+#elif defined(EVAL_NNUE_HALFKP_DISTINGUISH_GOLDS)
+#include "architectures/halfkp_256x2-32-32.h"
+
+#elif defined(EVAL_NNUE_HALFKP_GAMEPLY40x4)
+#include "architectures/halfkp_gameply40x4_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY)
+#include "architectures/halfkp-kingsafety_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKPKFILE)
+#include "architectures/halfkpkfile_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS)
+#include "architectures/halfkp-kingsafety_distinguishgolds_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS_FACTORIZER_TEST)
+#include "architectures/kingsafety_distinguishgolds_factorizertest_256x2-32-32.h"
+#elif defined(EVAL_NNUE_HALFKPE4)
+#include "architectures/halfkpe4_256x2-32-32.h"
+
 // KP256型を使いたいときは、これを事前にdefineする。
-#if defined(EVAL_NNUE_KP256)
+#elif defined(EVAL_NNUE_KP256)
 #include "architectures/k-p_256x2-32-32.h"
 #else // #if defined(EVAL_NNUE_HALFKP256)
 

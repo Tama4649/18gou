@@ -29,6 +29,11 @@ namespace Zobrist {
 //           CheckInfo
 // ----------------------------------
 
+// Bitboardクラスにはalignasが指定されているが、StateListPtrは、このStateInfoクラスを内部的にnewするときに
+// alignasを無視するのでcustom allocatorを定義しておいてやる。
+void* StateInfo::operator new(std::size_t s) {  return aligned_malloc(s, alignof(StateInfo)); }
+void StateInfo::operator delete(void*p) noexcept { aligned_free(p); }
+
 // 王手情報の初期化
 template <bool doNullMove>
 void Position::set_check_info(StateInfo* si) const {
@@ -1215,6 +1220,12 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 #if defined(EVAL_NNUE)
 	st->accumulator.computed_accumulation = false;
 	st->accumulator.computed_score = false;
+#endif
+
+#if defined(USE_BOARD_EFFECT_PREV)
+        // NNUE-HalfKPE9
+        // 現局面のboard_effectをコピー
+        std::memcpy(board_effect_prev, board_effect, sizeof(board_effect));
 #endif
 
 	// 直前の指し手を保存するならばここで行なう。

@@ -97,10 +97,10 @@ endif
 ifeq ($(OS),Windows_NT)
 	CFLAGS += $(WCFLAGS)
 	LDFLAGS += -static -Wl,--stack,25000000
-	TARGET = JKishi18gou.exe
+	TARGET = JKishi18gou_m.exe
 else
 	CFLAGS += -D_LINUX
-	TARGET = JKishi18gou
+	TARGET = JKishi18gou_m
 endif
 
 # リンク時最適化。
@@ -210,16 +210,16 @@ SOURCES  = \
 
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_KPPT)
 	SOURCES += \
-		eval/kppt/evaluate_kppt.cpp                                        \
-		eval/kppt/evaluate_kppt_learner.cpp                                \
+		eval/kppt/evaluate_kppt.cpp                                            \
+		eval/kppt/evaluate_kppt_learner.cpp                                    \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_KPP_KKPT)
 	SOURCES += \
-		eval/kppt/evaluate_kppt.cpp                                        \
-		eval/kpp_kkpt/evaluate_kpp_kkpt.cpp                                \
-		eval/kpp_kkpt/evaluate_kpp_kkpt_learner.cpp                        \
+		eval/kppt/evaluate_kppt.cpp                                            \
+		eval/kpp_kkpt/evaluate_kpp_kkpt.cpp                                    \
+		eval/kpp_kkpt/evaluate_kpp_kkpt_learner.cpp                            \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 
@@ -241,13 +241,30 @@ ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_
 		endif
 	endif
 	SOURCES += \
-		eval/nnue/evaluate_nnue.cpp                                        \
-		eval/nnue/evaluate_nnue_learner.cpp                                \
-		eval/nnue/nnue_test_command.cpp                                    \
-		eval/nnue/features/k.cpp                                           \
-		eval/nnue/features/p.cpp                                           \
-		eval/nnue/features/half_kp.cpp                                     \
-		eval/nnue/features/half_relative_kp.cpp                            \
+		eval/nnue/evaluate_nnue.cpp                                            \
+		eval/nnue/evaluate_nnue_learner.cpp                                    \
+		eval/nnue/nnue_test_command.cpp                                        \
+		eval/nnue/features/k.cpp                                               \
+		eval/nnue/features/p.cpp                                               \
+		eval/nnue/features/half_kp.cpp                                         \
+		eval/nnue/features/half_relative_kp.cpp                                \
+		eval/nnue/features/half_kpe9.cpp                                       \
+		eval/nnue/features/pe9.cpp                                             \
+		eval/nnue/features/material1.cpp                                       \
+		eval/nnue/features/material2.cpp                                       \
+		eval/nnue/features/gameply.cpp                                         \
+		eval/nnue/features/kk.cpp                                              \
+		eval/nnue/features/pp.cpp                                              \
+		eval/nnue/features/gsgs.cpp                                            \
+		eval/nnue/features/half_kp_gameply40x4.cpp                             \
+		eval/nnue/features/king_safety.cpp                                     \
+		eval/nnue/features/half_kpkfile.cpp                                    \
+		eval/nnue/features/king_safety_distinguishgolds.cpp                    \
+		eval/nnue/features/king24_piece_distinguishgolds.cpp                   \
+		eval/nnue/features/king24_defenseeffect.cpp                            \
+		eval/nnue/features/king24_attackeffect.cpp                             \
+		eval/nnue/features/half_kpe4.cpp                                       \
+		eval/nnue/features/pe4.cpp                                             \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 

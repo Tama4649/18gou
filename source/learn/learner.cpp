@@ -1664,6 +1664,9 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 				cout << "Error! : illegal packed sfen " << pos.sfen() << endl;
 			}
 
+			// 開始局面からの手数をセット
+			pos.set_game_ply(ps.gamePly);
+
 			// 浅い探索の評価値
 			// evaluate()の値を用いても良いのだが、ロスを計算するときにlearn_cross_entropyと
 			// 値が比較しにくくて困るのでqsearch()を用いる。
@@ -1989,6 +1992,10 @@ void LearnerThink::thread_worker(size_t thread_id)
 			cout << "Error! : illigal packed sfen = " << pos.sfen() << endl;
 			goto RetryRead;
 		}
+
+		// 開始局面からの手数をセット
+		pos.set_game_ply(ps.gamePly);
+
 #if !defined(EVAL_NNUE)
 		{
 			auto key = pos.key();

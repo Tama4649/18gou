@@ -30,6 +30,11 @@ enum class TriggerEvent {
   kEnemyKingMoved,   // 敵玉が移動した場合に全計算する
   kAnyKingMoved,     // どちらかの玉が移動した場合に全計算する
   kAnyPieceMoved,    // 常に全計算する
+
+#if defined(EVAL_NNUE_HALFKP_GAMEPLY40x4)
+  kFriendKingMovedOrPly4181121,  // 自玉が移動した場合、または、手数が「41手目、81手目、121手目」の場合に全計算する
+  kEnemyKingMovedOrPly4181121,   // 敵玉が移動した場合、または、手数が「41手目、81手目、121手目」の場合に全計算する
+#endif
 };
 
 // 手番側or相手側

@@ -19,7 +19,26 @@
 #include "evaluate_nnue.h"
 #include "evaluate_nnue_learner.h"
 #include "trainer/features/factorizer_feature_set.h"
+
+// TODO 他の特徴量のfactorizer作成（次元下げ）
+#if defined(EVAL_NNUE_HALFKPE9)
+#include "trainer/features/factorizer_half_kpe9.h"
+#elif defined(EVAL_NNUE_HALFKP_PP)
 #include "trainer/features/factorizer_half_kp.h"
+#include "trainer/features/factorizer_pp.h"
+#elif defined(EVAL_NNUE_HALFKP_GAMEPLY40x4)
+#include "trainer/features/factorizer_half_kp_gameply40x4.h"
+#elif defined(EVAL_NNUE_HALFKPKFILE)
+#include "trainer/features/factorizer_half_kpkfile.h"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS)
+#include "trainer/features/factorizer_half_kp.h"
+#include "trainer/features/factorizer_king_safety_distinguishgolds.h"
+#elif defined(EVAL_NNUE_HALFKPE4)
+#include "trainer/features/factorizer_half_kpe4.h"
+#else
+#include "trainer/features/factorizer_half_kp.h"
+#endif
+
 #include "trainer/trainer_feature_transformer.h"
 #include "trainer/trainer_input_slice.h"
 #include "trainer/trainer_affine_transform.h"
@@ -225,6 +244,7 @@ void save_eval(std::string dir_name) {
   }
 
   std::cout << "save_eval() finished." << std::endl;
+
 }
 
 // 現在のetaを取得する

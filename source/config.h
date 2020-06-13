@@ -184,8 +184,8 @@
 // 思考を途中で打ち切るときに、fail low/fail highが起きていると、中途半端なPVが出力され、それが棋譜に残る。
 // かと言って、そのときにPVの出力をしないと、最後に出力されたPVとbest moveとは異なる可能性があるので、
 // それはよろしくない。検討モード用の思考オプションを用意すべき。
-// #define USE_TT_PV
 // →　ConsiderationMode というエンジンオプションを用意したので、この機能は無効化する。
+// #define USE_TT_PV
 
 // 定跡を作るコマンド("makebook")を有効にする。
 // #define ENABLE_MAKEBOOK_CMD
@@ -198,6 +198,9 @@
 
 // 置換表のなかでevalを持たない
 // #define NO_EVAL_IN_TT
+
+// ONE_PLY == 1にするためのモード。これを指定していなければONE_PLY == 2
+// #define ONE_PLY_EQ_1
 
 // オーダリングに使っているStatsの配列のなかで駒打ちのためのbitを持つ。
 // #define USE_DROPBIT_IN_STATS
@@ -244,7 +247,7 @@
 
 // ニコニコ生放送の電王盤用
 // 電王盤はMultiPV非対応なので定跡を送るとき、"multipv"をつけずに1番目の候補手を送信する必要がある。
-//#define NICONICO
+// #define NICONICO
 
 // PVの出力時の千日手に関する出力をすべて"rep_draw"に変更するオプション。
 // GUI側が、何らかの都合で"rep_draw"のみしか処理できないときに用いる。
@@ -258,7 +261,7 @@
 
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
-#define ENGINE_NAME "JKishi18gou"
+#define ENGINE_NAME "JKishi18gou_m"
 
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE
@@ -269,6 +272,7 @@
 #define USE_ENTERING_KING_WIN
 #define USE_TIME_MANAGEMENT
 #define KEEP_PIECE_IN_GENERATE_MOVES
+#define ONE_PLY_EQ_1
 
 // 評価関数を共用して複数プロセス立ち上げたときのメモリを節約。(いまのところWindows限定)
 #define USE_SHARED_MEMORY_IN_EVAL
@@ -290,7 +294,6 @@
 
 // パラメーターの自動調整絡み
 #define USE_GAMEOVER_HANDLER
-//#define LONG_EFFECT_LIBRARY
 
 // GlobalOptionsは有効にしておく。
 #define USE_GLOBAL_OPTIONS
@@ -325,6 +328,44 @@
 // KP256を用いる場合これをdefineする。
 // ※　これをdefineしていなければNNUE標準のhalfKP256になる。
 // #define EVAL_NNUE_KP256
+
+// どれか一つをdefineする。
+//#define EVAL_NNUE_HALFKPE9
+//#define EVAL_NNUE_MATERIAL1
+//#define EVAL_NNUE_MATERIAL2
+//#define EVAL_NNUE_MATERIAL2_GAMEPLY
+//#define EVAL_NNUE_HALFKP_KK
+//#define EVAL_NNUE_HALFKP_PP
+//#define EVAL_NNUE_HALFKP_GSGS
+//#define EVAL_NNUE_HALFKP_DISTINGUISH_GOLDS
+//#define EVAL_NNUE_HALFKP_GAMEPLY40x4
+//#define EVAL_NNUE_HALFKP_KINGSAFETY
+//#define EVAL_NNUE_HALFKPKFILE
+//#define EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS
+//#define EVAL_NNUE_HALFKPE4
+
+// テスト用
+//#define EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS_FACTORIZER_TEST
+
+
+#if defined(EVAL_NNUE_HALFKPE9) || defined(EVAL_NNUE_HALFKPE4)
+#define LONG_EFFECT_LIBRARY
+#define USE_BOARD_EFFECT_PREV
+#elif defined(EVAL_NNUE_HALFKP_DISTINGUISH_GOLDS)
+// BonaPieceで金と小駒の成り駒を区別する
+#define DISTINGUISH_GOLDS
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY)
+#define LONG_EFFECT_LIBRARY
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS)
+#define LONG_EFFECT_LIBRARY
+#define USE_BOARD_EFFECT_PREV
+#define DISTINGUISH_GOLDS
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS_FACTORIZER_TEST)
+#define LONG_EFFECT_LIBRARY
+#define USE_BOARD_EFFECT_PREV
+#define DISTINGUISH_GOLDS
+#endif
+
 #endif
 
 #endif // defined(YANEURAOU_ENGINE_KPPT) || ...
@@ -481,7 +522,7 @@ constexpr bool pretty_jp = false;
 // --- Dropbit
 
 // USE_DROPBIT_IN_STATSがdefineされているときは、Moveの上位16bitに格納するPieceとして駒打ちは +32(PIECE_DROP)　にする。
-#if defined (USE_DROPBIT_IN_STATS)
+#if defined(USE_DROPBIT_IN_STATS)
 #define PIECE_DROP 32
 #else
 #define PIECE_DROP 0
@@ -491,7 +532,7 @@ constexpr bool pretty_jp = false;
 
 // KIF形式に変換するときにPositionクラスにその局面へ至る直前の指し手が保存されていないと
 // "同"金のように出力できなくて困る。
-#if defined (USE_KIF_CONVERT_TOOLS)
+#if defined(USE_KIF_CONVERT_TOOLS)
 #define KEEP_LAST_MOVE
 #endif
 
@@ -502,7 +543,7 @@ constexpr bool pretty_jp = false;
 // ターゲットが64bitOSかどうか
 #if (defined(_WIN64) && defined(_MSC_VER)) || (defined(__GNUC__) && defined(__x86_64__)) || defined(IS_64BIT)
 constexpr bool Is64Bit = true;
-#ifndef IS_64BIT
+#if ! defined(IS_64BIT)
 #define IS_64BIT
 #endif
 #else
@@ -525,19 +566,19 @@ constexpr bool Is64Bit = false;
 
 // 上位のCPUをターゲットとするなら、その下位CPUの命令はすべて使えるはずなので…。
 
-#if defined (USE_AVX512)
+#if defined(USE_AVX512)
 #define USE_AVX2
 #endif
 
-#if defined (USE_AVX2)
+#if defined(USE_AVX2)
 #define USE_SSE42
 #endif
 
-#if defined (USE_SSE42)
+#if defined(USE_SSE42)
 #define USE_SSE41
 #endif
 
-#if defined (USE_SSE41)
+#if defined(USE_SSE41)
 #define USE_SSE2
 #endif
 
@@ -569,6 +610,35 @@ constexpr bool Is64Bit = false;
 #define EVAL_TYPE_NAME "KPPT"
 #elif defined(EVAL_KPP_KKPT)
 #define EVAL_TYPE_NAME "KPP_KKPT"
+#elif defined(EVAL_NNUE_HALFKPE9)
+#define EVAL_TYPE_NAME "NNUE HalfKPE9"
+#elif defined(EVAL_NNUE_MATERIAL1)
+#define EVAL_TYPE_NAME "NNUE Material1"
+#elif defined(EVAL_NNUE_MATERIAL2)
+#define EVAL_TYPE_NAME "NNUE Material2"
+#elif defined(EVAL_NNUE_MATERIAL2_GAMEPLY)
+#define EVAL_TYPE_NAME "NNUE Material2-GamePly"
+#elif defined(EVAL_NNUE_HALFKP_KK)
+#define EVAL_TYPE_NAME "NNUE HalfKP-KK"
+#elif defined(EVAL_NNUE_HALFKP_PP)
+#define EVAL_TYPE_NAME "NNUE HalfKP-PP"
+#elif defined(EVAL_NNUE_HALFKP_GSGS)
+#define EVAL_TYPE_NAME "NNUE HalfKP-GSGS"
+#elif defined(EVAL_NNUE_HALFKP_DISTINGUISH_GOLDS)
+#define EVAL_TYPE_NAME "NNUE HalfKP Distinguish Golds"
+#elif defined(EVAL_NNUE_HALFKP_GAMEPLY40x4)
+#define EVAL_TYPE_NAME "NNUE HalfKP GamePly40x4"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY)
+#define EVAL_TYPE_NAME "NNUE HalfKP-KingSafety"
+#elif defined(EVAL_NNUE_HALFKPKFILE)
+#define EVAL_TYPE_NAME "NNUE HalfKPKfile"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS)
+#define EVAL_TYPE_NAME "NNUE HalfKP-KingSafety Distinguish Golds"
+#elif defined(EVAL_NNUE_HALFKP_KINGSAFETY_DISTINGUISH_GOLDS_FACTORIZER_TEST)
+#define EVAL_TYPE_NAME "NNUE HalfKP-KingSafety Distinguish Golds Factorizer Test"
+#elif defined(EVAL_NNUE_HALFKPE4)
+#define EVAL_TYPE_NAME "NNUE HalfKPE4"
+
 #elif defined(EVAL_NNUE_KP256)
 #define EVAL_TYPE_NAME "NNUE KP256"
 #elif defined(EVAL_NNUE) // 標準NNUE halfKP256
@@ -609,6 +679,9 @@ constexpr bool Is64Bit = false;
 #define USE_FV_VAR
 #endif
 
+// KPPTのみ利用する場合に指定
+//#define USE_ONLY_KPPT
+
 // -- 評価関数の種類により、盤面の利きの更新ときの処理が異なる。(このタイミングで評価関数の差分計算をしたいので)
 
 // 盤面上の利きを更新するときに呼び出したい関数。(評価関数の差分更新などのために差し替え可能にしておく。)
@@ -621,9 +694,6 @@ constexpr bool Is64Bit = false;
 // ↑の関数のundo_move()時用。こちらは、評価関数の差分更新を行わない。(評価関数の値を巻き戻すのは簡単であるため)
 #define ADD_BOARD_EFFECT_REWIND(color_,sq_,e1_) { board_effect[color_].e[sq_] += (uint8_t)e1_; }
 #define ADD_BOARD_EFFECT_BOTH_REWIND(color_,sq_,e1_,e2_) { board_effect[color_].e[sq_] += (uint8_t)e1_; board_effect[~color_].e[sq_] += (uint8_t)e2_; }
-
-// KPPTのみ利用する場合に指定
-//#define USE_ONLY_KPPT
 
 #endif // ifndef _CONFIG_H_INCLUDED
 

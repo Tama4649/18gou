@@ -195,6 +195,9 @@ public:
 	// 平手の開始局面なら1が返る。(0ではない)
 	int game_ply() const { return gamePly; }
 
+	// 開始局面からの手数をセットする。
+	void set_game_ply(int ply) { gamePly = ply; }
+
 	// この局面クラスを用いて探索しているスレッドを返す。 
 	Thread* this_thread() const { return thisThread; }
 
@@ -491,7 +494,7 @@ public:
 	// 歩の成る指し手であるか？
 	bool pawn_promotion(Move m) const
 	{
-#if defined (KEEP_PIECE_IN_GENERATE_MOVES)
+#if defined(KEEP_PIECE_IN_GENERATE_MOVES)
 		// 移動させる駒が歩かどうかは、Moveの上位16bitを見れば良い
 		return (is_promote(m) && raw_type_of(moved_piece_after(m)) == PAWN);
 #else
@@ -509,7 +512,7 @@ public:
 	// 捕獲か価値のある駒の成り。(歩、角、飛車)
 	bool capture_or_valuable_promotion(Move m) const
 	{
-#if defined (KEEP_PIECE_IN_GENERATE_MOVES)
+#if defined(KEEP_PIECE_IN_GENERATE_MOVES)
 		// 歩の成りを角・飛車の成りにまで拡大する。
 		auto pr = raw_type_of(moved_piece_after(m));
 		return (is_promote(m) && (pr == PAWN || pr == BISHOP || pr == ROOK)) || capture(m);
@@ -575,6 +578,11 @@ public:
 
   // 各升の利きの数
 	LongEffect::ByteBoard board_effect[COLOR_NB];
+
+#if defined(USE_BOARD_EFFECT_PREV)
+	// 前局面のboard_effect（評価値の差分計算用）
+	LongEffect::ByteBoard board_effect_prev[COLOR_NB];
+#endif
 
 	// 長い利き(これは先後共用)
 	LongEffect::WordBoard long_effect;

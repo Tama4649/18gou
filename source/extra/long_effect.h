@@ -173,6 +173,9 @@ namespace Effect24
   // 24近傍で8近傍に利く長い利きの方向。24近傍 = 4筋*9段+5升=41升 ≦ 48升*WordBoard = 96byte = ymm(32) * 3
   extern ymm ymm_direct_to_around8[3];
 
+  ENABLE_FULL_OPERATORS_ON(Direct)
+  ENABLE_RANGE_OPERATORS_ON(Direct, DIRECT_ZERO, DIRECT_NB)
+
   // --- init
 
   // このnamespaceで用いるテーブルの初期化

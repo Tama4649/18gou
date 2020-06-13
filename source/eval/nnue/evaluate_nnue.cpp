@@ -43,14 +43,13 @@ namespace Eval {
                 // 評価関数パラメータを初期化する
                 template <typename T>
                 void Initialize(AlignedPtr<T>& pointer) {
+			// →　メモリはLarge Pageから確保することで高速化する。
+			void* mem; // 開放すべきポインタ
+			void* ptr = LargeMemory::static_alloc(sizeof(T), mem , alignof(T), true);
+			pointer.reset(reinterpret_cast<T*>(ptr));
+			pointer.get_deleter().mem = mem;
 
-                    // →　メモリはLarge Pageから確保することで高速化する。
-                    void* mem; // 開放すべきポインタ
-                    void* ptr = LargeMemory::static_alloc(sizeof(T), mem , alignof(T), true);
-                    pointer.reset(reinterpret_cast<T*>(ptr));
-                    pointer.get_deleter().mem = mem;
-
-                    //sync_cout << "nnue.alloc(" << sizeof(T) << "," << alignof(T) << ")" << sync_endl;
+			//sync_cout << "nnue.alloc(" << sizeof(T) << "," << alignof(T) << ")" << sync_endl;
                 }
 
                 // 評価関数パラメータを読み込む
@@ -252,8 +251,23 @@ namespace Eval {
   }
     }
 
+#if defined(EVAL_NNUE_HALFKP_PP)
+    // フィボナッチ数列の初期化
+    void init_fibonacci() {
+      int n = 0;
+      for (int i = 0; i <= fe_end; i++) {
+        n += i;
+        Eval::NNUE::fibonacci[i] = n;
+      }
+    }
+#endif
+
     // 初期化
     void init() {
+#if defined(EVAL_NNUE_HALFKP_PP)
+      // フィボナッチ数列の初期化
+      init_fibonacci();
+#endif
     }
 
     // 評価関数。差分計算ではなく全計算する。

@@ -235,6 +235,11 @@
     <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kp.h">
       <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
     </ClInclude>
+    <ClInclude Include="types.h">
+    </ClInclude>
+    <ClInclude Include="thread_win32_osx.h">
+      <Filter>リソース ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="usi.h">
       <Filter>リソース ファイル</Filter>
     </ClInclude>
@@ -259,18 +264,123 @@
     <ClInclude Include="eval\evalhash.h">
       <Filter>リソース ファイル\eval</Filter>
     </ClInclude>
-    <ClInclude Include="thread_win32_osx.h">
-      <Filter>リソース ファイル</Filter>
+    <ClInclude Include="eval\nnue\features\half_kpe9.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
     </ClInclude>
-    <ClInclude Include="types.h">
-      <Filter>リソース ファイル</Filter>
+    <ClInclude Include="eval\nnue\architectures\halfkpe9_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpe9.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\pe9.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\material1.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\gameply.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\material2.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\material1_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\material2_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\kk.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\material2-gameply_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp-kk_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\pp.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp-pp_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_pp.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\gsgs.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp-gsgs_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\half_kp_gameply40x4.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp_gameply40x4_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\king_safety.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp-kingsafety_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\half_kpkfile.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkpkfile_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\king_safety_distinguishgolds.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkp-kingsafety_distinguishgolds_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kp_gameply40x4.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpkfile.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\king24_piece_distinguishgolds.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\kingsafety_distinguishgolds_factorizertest_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_king_safety_distinguishgolds.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\king24_attackeffect.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\king24_defenseeffect.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\pe4.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\features\half_kpe4.h">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\architectures\halfkpe4_256x2-32-32.h">
+      <Filter>リソース ファイル\eval\nnue\architectures</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\nnue\trainer\features\factorizer_half_kpe4.h">
+      <Filter>リソース ファイル\eval\nnue\trainer\features</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="movegen.cpp">
-      <Filter>リソース ファイル</Filter>
+    <ClCompile Include="benchmark.cpp">
+      <Filter>リソース ファイル\extra</Filter>
     </ClCompile>
     <ClCompile Include="bitboard.cpp">
+      <Filter>リソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="movegen.cpp">
       <Filter>リソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="position.cpp">
@@ -293,6 +403,9 @@
     </ClCompile>
     <ClCompile Include="tt.cpp">
       <Filter>リソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="extra\see.cpp">
+      <Filter>リソース ファイル\extra</Filter>
     </ClCompile>
     <ClCompile Include="extra\bitop.cpp">
       <Filter>リソース ファイル\extra</Filter>
@@ -399,8 +512,56 @@
     <ClCompile Include="engine\yaneuraou-engine\yaneuraou-search.cpp">
       <Filter>リソース ファイル\engine\yaneuraou-engine</Filter>
     </ClCompile>
-    <ClCompile Include="benchmark.cpp">
-      <Filter>リソース ファイル</Filter>
+    <ClCompile Include="eval\nnue\features\half_kpe9.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\pe9.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\material1.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\gameply.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\material2.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\kk.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\pp.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\gsgs.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\half_kp_gameply40x4.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\king_safety.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\half_kpkfile.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\king_safety_distinguishgolds.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\king24_piece_distinguishgolds.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\king24_attackeffect.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\king24_defenseeffect.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\pe4.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
+    </ClCompile>
+    <ClCompile Include="eval\nnue\features\half_kpe4.cpp">
+      <Filter>リソース ファイル\eval\nnue\features</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -87,10 +87,10 @@ class ClippedReLU {
     constexpr IndexType kStart = kNumChunks * kSimdWidth;
 	// 端数分の処理が必要なので、↓以下でそれを行う。
 
-#elif defined(USE_SSE3)
+#elif defined(USE_SSSE3)
     constexpr IndexType kNumChunks = kInputDimensions / kSimdWidth;
     const __m128i kZero = _mm_setzero_si128();
-#if !defined(USE_SSE41) // SSE4非対応だがSSE3は使える環境
+#if !defined(USE_SSE41) // SSE4非対応だがSSSE3は使える環境
 	const __m128i k0x80s = _mm_set1_epi8(-128);
 #endif
     const auto in = reinterpret_cast<const __m128i*>(input);
@@ -106,7 +106,7 @@ class ClippedReLU {
 			_mm_store_si128(&out[i],
 #if defined(USE_SSE41)
 			_mm_max_epi8(packedbytes, kZero)
-#else // SSE4非対応だがSSE3は使える環境
+#else // SSE4非対応だがSSSE3は使える環境
 			_mm_subs_epi8(_mm_adds_epi8(packedbytes, k0x80s), k0x80s)
 #endif
 		);

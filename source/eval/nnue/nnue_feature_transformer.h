@@ -90,10 +90,10 @@ class FeatureTransformer {
     constexpr int kControl = 0b11011000;
     const __m256i kZero = _mm256_setzero_si256();
 
-#elif defined(USE_SSE3)
+#elif defined(USE_SSSE3)
     constexpr IndexType kNumChunks = kHalfDimensions / kSimdWidth;
     const __m128i kZero = _mm_setzero_si128();
-#if !defined(USE_SSE41) // SSE4非対応だがSSE3は使える環境
+#if !defined(USE_SSE41) // SSE4非対応だがSSSE3は使える環境
 	const __m128i k0x80s = _mm_set1_epi8(-128);
 #endif
 
@@ -120,7 +120,7 @@ class FeatureTransformer {
         _mm256_store_si256(&out[j], _mm256_permute4x64_epi64(_mm256_max_epi8(
             _mm256_packs_epi16(sum0, sum1), kZero), kControl));
       }
-#elif defined(USE_SSE3)
+#elif defined(USE_SSSE3)
       auto out = reinterpret_cast<__m128i*>(&output[offset]);
       for (IndexType j = 0; j < kNumChunks; ++j) {
         __m128i sum0 = _mm_load_si128(&reinterpret_cast<const __m128i*>(
@@ -138,7 +138,7 @@ class FeatureTransformer {
 			_mm_store_si128(&out[j],
 #if defined(USE_SSE41)
 			_mm_max_epi8(packedbytes, kZero)
-#else // SSE4非対応だがSSE3は使える環境
+#else // SSE4非対応だがSSSE3は使える環境
 			_mm_subs_epi8(_mm_adds_epi8(packedbytes, k0x80s), k0x80s)
 #endif
 		);

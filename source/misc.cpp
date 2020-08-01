@@ -162,10 +162,10 @@ const string engine_info() {
 			<< (Is64Bit ? " 64" : " 32")
 			<< TARGET_CPU
 #if defined(FOR_TOURNAMENT)
-			<< " Tournament"
+			<< " TOURNAMENT"
 #endif
 			<< endl
-			<< "id author by Tama" << endl;
+			<< "id author by yaneurao" << endl;
 	}
 
 	return ss.str();
@@ -743,8 +743,8 @@ namespace Tools
 
 	// memset(table, 0, size);
 
-	//	if (name_ != nullptr)
-	//		sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
+		if (name_ != nullptr)
+			sync_cout << "info string " + std::string(name_) + " Clear begin , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
 
 	// マルチスレッドで並列化してクリアする。
 
@@ -775,8 +775,8 @@ namespace Tools
 	for (std::thread& th : threads)
 		th.join();
 
-	//	if (name_ != nullptr)
-	//		sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
+		if (name_ != nullptr)
+			sync_cout << "info string " + std::string(name_) + " Clear done." << sync_endl;
 	}
 
 	// 途中での終了処理のためのwrapper

@@ -53,28 +53,28 @@ ENGINE_TARGET := YANEURAOU_ENGINE_NNUE
 
 ifeq ($(ENGINE_TARGET),YANEURAOU_ENGINE_KPPT)
   ARCH_DEF += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_KPPT
-  ENGINE_NAME := JKishi18gou_KPPT
+  ENGINE_NAME := YaneuraOu_KPPT
 endif
 
 ifeq ($(ENGINE_TARGET),YANEURAOU_ENGINE_KPP_KKPT)
   ARCH_DEF += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_KPP_KKPT
-  ENGINE_NAME := JKishi18gou_KPP_KKPT
+  ENGINE_NAME := YaneuraOu_KPP_KKPT
 endif
 
 ifeq ($(ENGINE_TARGET),YANEURAOU_ENGINE_MATERIAL)
   ARCH_DEF += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_MATERIAL
-  ENGINE_NAME := JKishi18gou_KOMA
+  ENGINE_NAME := YaneuraOu_KOMA
 endif
 
 ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(ENGINE_TARGET)),YANEURAOU_ENGINE_NNUE)
   ARCH_DEF += -DUSE_MAKEFILE -DYANEURAOU_ENGINE_NNUE
-  ENGINE_NAME := JKishi18gou_NNUE
+  ENGINE_NAME := YaneuraOu_NNUE
   ifeq ($(ENGINE_TARGET),YANEURAOU_ENGINE_NNUE_KP256)
-    ENGINE_NAME := JKishi18gou_NNUE_KP256
+    ENGINE_NAME := YaneuraOu_NNUE_KP256
     CFLAGS += -DEVAL_NNUE_KP256
   else
     ifeq ($(NNUE_EVAL_ARCH),KP256)
-      ENGINE_NAME := JKishi18gou_NNUE_KP256
+      ENGINE_NAME := YaneuraOu_NNUE_KP256
       CFLAGS += -DEVAL_NNUE_KP256
     endif
   endif
@@ -82,12 +82,12 @@ endif
 
 ifeq ($(ENGINE_TARGET),MATE_ENGINE)
   ARCH_DEF += -DUSE_MAKEFILE -DMATE_ENGINE
-  ENGINE_NAME := JKishi18gou_MATE
+  ENGINE_NAME := tanuki_MATE
 endif
 
 ifeq ($(ENGINE_TARGET),USER_ENGINE)
   ARCH_DEF += -DUSE_MAKEFILE -DUSER_ENGINE
-  ENGINE_NAME := JKishi18gou_USER
+  ENGINE_NAME := YaneuraOu_USER
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
@@ -123,14 +123,13 @@ LOCAL_SRC_FILES := \
   ../source/bitboard.cpp                                               \
   ../source/misc.cpp                                                   \
   ../source/movegen.cpp                                                \
-  ../source/mosition.cpp                                               \
-  ../source/msi.cpp                                                    \
+  ../source/position.cpp                                               \
+  ../source/usi.cpp                                                    \
   ../source/usi_option.cpp                                             \
   ../source/thread.cpp                                                 \
   ../source/tt.cpp                                                     \
   ../source/movepick.cpp                                               \
   ../source/timeman.cpp                                                \
-  ../source/benchmark.cpp                                              \
   ../source/extra/book/apery_book.cpp                                  \
   ../source/extra/book/book.cpp                                        \
   ../source/extra/book/makebook2019.cpp                                \
@@ -139,7 +138,9 @@ LOCAL_SRC_FILES := \
   ../source/extra/mate/mate1ply_with_effect.cpp                        \
   ../source/extra/mate/mate1ply_without_effect.cpp                     \
   ../source/extra/mate/mate_n_ply.cpp                                  \
+  ../source/extra/benchmark.cpp                                        \
   ../source/extra/test_cmd.cpp                                         \
+  ../source/extra/see.cpp                                              \
   ../source/extra/sfen_packer.cpp                                      \
   ../source/extra/kif_converter/kif_convert_tools.cpp                  \
   ../source/eval/evaluate_bona_piece.cpp                               \
@@ -148,6 +149,7 @@ LOCAL_SRC_FILES := \
   ../source/eval/evaluate_mir_inv_tools.cpp                            \
   ../source/learn/learner.cpp                                          \
   ../source/learn/learning_tools.cpp                                   \
+  ../source/learn/multi_think.cpp
 
 ifeq ($(ENGINE_TARGET),YANEURAOU_ENGINE_KPPT)
 LOCAL_SRC_FILES += \

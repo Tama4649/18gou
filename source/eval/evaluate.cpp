@@ -99,8 +99,8 @@ namespace Eval
 		if (list.count(check_sum))
 			softname = list[check_sum];
 
-//		sync_cout << "info string Eval Check Sum = " << std::hex << check_sum << std::dec
-//			<< " , Eval File = " << softname << sync_endl;
+		sync_cout << "info string Eval Check Sum = " << std::hex << check_sum << std::dec
+			<< " , Eval File = " << softname << sync_endl;
 	}
 #endif
 

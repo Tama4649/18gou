@@ -1096,6 +1096,12 @@ double ELMO_LAMBDA = 0.33;
 double ELMO_LAMBDA2 = 0.33;
 double ELMO_LAMBDA_LIMIT = 32000;
 
+// 勝敗補正項
+// あまり大きい値を指定するとすぐにマイナスになってセグフォでコケるので注意。
+double win_correct = 1;
+double lose_correct = 0;
+double draw_correct = 0.5;
+
 double calc_grad(Value deep, Value shallow , const PackedSfenValue& psv)
 {
 	// elmo(WCSC27)方式
@@ -1106,7 +1112,11 @@ double calc_grad(Value deep, Value shallow , const PackedSfenValue& psv)
 
 	// 期待勝率を勝っていれば1、負けていれば 0、引き分けなら0.5として補正項として用いる。
 	// game_result = 1,0,-1なので1足して2で割る。
-	const double t = double(psv.game_result + 1) / 2;
+//	const double t = double(psv.game_result + 1) / 2;
+	// 勝敗補正をパラメータ化
+	double t = lose_correct;
+	if (psv.game_result == 1) t = win_correct;
+	if (psv.game_result == 0) t = draw_correct;
 
 	// 深い探索での評価値がELMO_LAMBDA_LIMITを超えているならELMO_LAMBDAではなくELMO_LAMBDA2を適用する。
 	const double lambda = (abs(deep) >= ELMO_LAMBDA_LIMIT) ? ELMO_LAMBDA2 : ELMO_LAMBDA;
@@ -1126,7 +1136,11 @@ void calc_cross_entropy(Value deep, Value shallow, const PackedSfenValue& psv,
 {
 	const double p /* teacher_winrate */ = winning_percentage(deep);
 	const double q /* eval_winrate    */ = winning_percentage(shallow);
-	const double t = double(psv.game_result + 1) / 2;
+//	const double t = double(psv.game_result + 1) / 2;
+	// 勝敗補正をパラメータ化
+	double t = lose_correct;
+	if (psv.game_result == 1) t = win_correct;
+	if (psv.game_result == 0) t = draw_correct;
 
 	constexpr double epsilon = 0.000001;
 
@@ -1329,11 +1343,13 @@ struct SfenReader
 			filenames.pop_back();
 
 			fs.open(filename, ios::in | ios::binary);
-			cout << "open filename = " << filename << endl;
+			//cout << "open filename = " << filename << endl;
 			ASSERT(fs);
-
+			//cout << endl;
 			return true;
 		};
+
+		cout << "date               ,      sfens,  epo,  eta,hirate,     tce,     lce,  cediff,     tcw,     lcw,  cwdiff,      te,      le,   ediff,       t,       l,    diff, ma" << endl;
 
 		while (true)
 		{
@@ -1360,7 +1376,7 @@ struct SfenReader
 					if (!open_next_file())
 					{
 						// 次のファイルもなかった。あぼーん。
-						cout << "..end of files." << endl;
+						//cout << "..end of files." << endl;
 						end_of_files = true;
 						return;
 					}
@@ -1576,12 +1592,15 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	// 置換表を無効にしているなら関係ないのだが。
 	TT.new_search();
 
-#if defined(EVAL_NNUE)
-	std::cout << "PROGRESS: " << Tools::now_string() << ", ";
-	std::cout << sr.total_done << " sfens";
-	std::cout << ", iteration " << epoch;
-	std::cout << ", eta = " << Eval::get_eta() << ", ";
-#endif
+//#if defined(EVAL_NNUE)
+//	std::cout << "PROGRESS: " << now_string() << ", ";
+//	std::cout << sr.total_done << " sfens";
+//	std::cout << ", iteration " << epoch;
+//	std::cout << ", eta = " << Eval::get_eta() << ", ";
+	auto disp_sfens = (u64)sr.total_done;
+	auto disp_epoch = epoch;
+	auto disp_eta   = Eval::get_eta();
+//#endif
 
 #if !defined(LOSS_FUNCTION_IS_ELMO_METHOD)
 	double sum_error = 0;
@@ -1614,7 +1633,8 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 	auto& pos = th->rootPos;
 	StateInfo si;
 	pos.set_hirate(&si,th);
-	std::cout << "hirate eval = " << Eval::evaluate(pos);
+//	std::cout << "hirate eval = " << Eval::evaluate(pos);
+	auto hirateval = Eval::evaluate(pos);
 
 	//Eval::print_eval_stat(pos);
 
@@ -1745,26 +1765,57 @@ void LearnerThink::calc_loss(size_t thread_id, u64 done)
 
 	if (sr.sfen_for_mse.size() && done)
 	{
-		cout
-			<< " , test_cross_entropy_eval = "  << test_sum_cross_entropy_eval / sr.sfen_for_mse.size()
-			<< " , test_cross_entropy_win = "   << test_sum_cross_entropy_win / sr.sfen_for_mse.size()
-			<< " , test_entropy_eval = "        << test_sum_entropy_eval / sr.sfen_for_mse.size()
-			<< " , test_entropy_win = "         << test_sum_entropy_win / sr.sfen_for_mse.size()
-			<< " , test_cross_entropy = "       << test_sum_cross_entropy / sr.sfen_for_mse.size()
-			<< " , test_entropy = "             << test_sum_entropy / sr.sfen_for_mse.size()
-			<< " , norm = "						<< sum_norm
-			<< " , move accuracy = "			<< (move_accord_count * 100.0 / sr.sfen_for_mse.size()) << "%";
-		if (done != static_cast<u64>(-1))
-		{
-			cout
-				<< " , learn_cross_entropy_eval = " << learn_sum_cross_entropy_eval / done
-				<< " , learn_cross_entropy_win = "  << learn_sum_cross_entropy_win / done
-				<< " , learn_entropy_eval = "       << learn_sum_entropy_eval / done
-				<< " , learn_entropy_win = "        << learn_sum_entropy_win / done
-				<< " , learn_cross_entropy = "      << learn_sum_cross_entropy / done
-				<< " , learn_entropy = "            << learn_sum_entropy / done;
-		}
-		cout << endl;
+		// 整形して出力する。全て百分率で出すようにした。
+		auto tce    = test_sum_cross_entropy_eval  * 100 / sr.sfen_for_mse.size();
+		auto lce    = learn_sum_cross_entropy_eval * 100 / done;
+		auto tcw    = test_sum_cross_entropy_win   * 100 / sr.sfen_for_mse.size();
+		auto lcw    = learn_sum_cross_entropy_win  * 100 / done;
+		auto te     = test_sum_cross_entropy       * 100 / sr.sfen_for_mse.size();
+		auto le     = learn_sum_cross_entropy      * 100 / done;
+		auto ts     = test_sum_entropy             * 100 / sr.sfen_for_mse.size();
+		auto ls     = learn_sum_entropy            * 100 / done;
+		auto mc     = (move_accord_count           * 100 / sr.sfen_for_mse.size());
+		auto wktime = std::time(NULL);
+		auto wtp    = *std::localtime(&wktime);
+
+		ios::fmtflags flagsSaved = cout.flags();
+		std::cout << setw(19)                             << right << std::put_time(&wtp, "%Y-%m-%d %H:%M:%S");
+		std::cout << setw( 1) << ",";
+		std::cout << setw(11) << dec                      << right << disp_sfens;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 5) << dec                      << right << disp_epoch;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 5) << fixed << setprecision(2) << right << disp_eta;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 6) << dec                      << right << hirateval;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << lce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tce - lce;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << lcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << tcw - lcw;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << te;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << le;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << te - le;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ts;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ls;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 8) << fixed << setprecision(4) << right << ts - ls;
+		std::cout << setw( 1) << ",";
+		std::cout << setw( 3) << dec                      << right << mc;
+		std::cout << std::endl;
+		std::cout.flags(flagsSaved);
 	}
 	else {
 		cout << "Error! : sr.sfen_for_mse.size() = " << sr.sfen_for_mse.size() << " ,  done = " << done << endl;
@@ -1830,13 +1881,16 @@ void LearnerThink::thread_worker(size_t thread_id)
 
 #if !defined(EVAL_NNUE)
 				// 現在時刻を出力。毎回出力する。
-				std::cout << sr.total_done << " sfens , at " << Tools::now_string() << std::endl;
+//				std::cout << sr.total_done << " sfens , at " << Tools::now_string() << std::endl;
 
 				// このタイミングで勾配をweight配列に反映。勾配の計算も1M局面ごとでmini-batch的にはちょうどいいのでは。
 				Eval::update_weights(epoch , freeze);
 
 				// デバッグ用にepochと現在のetaを表示してやる。
-				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
+//				std::cout << "epoch = " << epoch << " , eta = " << Eval::get_eta() << std::endl;
+				auto disp_sfens = (u64)sr.total_done;
+				auto disp_epoch = epoch;
+				auto disp_eta   = Eval::get_eta();
 #else
 				{
 					// パラメータの更新
@@ -2087,7 +2141,7 @@ void LearnerThink::thread_worker(size_t thread_id)
 bool LearnerThink::save(bool is_final)
 {
 	// 保存前にcheck sumを計算して出力しておく。(次に読み込んだときに合致するか調べるため)
-	std::cout << "Check Sum = " << std::hex << Eval::calc_check_sum() << std::dec << std::endl;
+//	std::cout << "Check Sum = " << std::hex << Eval::calc_check_sum() << std::dec << std::endl;
 
 	// 保存ごとにファイル名の拡張子部分を"0","1","2",..のように変えていく。
 	// (あとでそれぞれの評価関数パラメーターにおいて勝率を比較したいため)
@@ -2112,32 +2166,33 @@ bool LearnerThink::save(bool is_final)
 			const double latest_loss = latest_loss_sum / latest_loss_count;
 			latest_loss_sum = 0.0;
 			latest_loss_count = 0;
-			cout << "loss: " << latest_loss;
+			std::cout << "loss: " << latest_loss;
 			if (latest_loss < best_loss) {
-				cout << " < best (" << best_loss << "), accepted" << endl;
+				std::cout << " < best (" << best_loss << "), accepted.";
 				best_loss = latest_loss;
 				best_nn_directory = Path::Combine((std::string)Options["EvalSaveDir"], dir_name);
 				trials = newbob_num_trials;
 			} else {
-				cout << " >= best (" << best_loss << "), rejected" << endl;
+				std::cout << " >= best (" << best_loss << "), rejected.";
 				if (best_nn_directory.empty()) {
-					cout << "WARNING: no improvement from initial model" << endl;
+					std::cout << " WARNING: no improvement from initial model.";
 				} else {
-					cout << "restoring parameters from " << best_nn_directory << endl;
+					std::cout << " restoring parameters from " << best_nn_directory << ".";
 					Eval::NNUE::RestoreParameters(best_nn_directory);
 				}
 				if (--trials > 0 && !is_final) {
-					cout << "reducing learning rate scale from " << newbob_scale
+					std::cout << " reducing learning rate scale from " << newbob_scale
 					     << " to " << (newbob_scale * newbob_decay)
-					     << " (" << trials << " more trials)" << endl;
+					     << " (" << trials << " more trials).";
 					newbob_scale *= newbob_decay;
 					Eval::NNUE::SetGlobalLearningRateScale(newbob_scale);
 				}
 			}
 			if (trials == 0) {
-				cout << "converged" << endl;
+				std::cout << "converged." << std::endl;
 				return true;
 			}
+			std::cout << std::endl;
 		}
 #endif
 	}
@@ -2159,16 +2214,16 @@ void shuffle_write(const string& output_file_name , PRNG& prng , vector<fstream>
 	u64 write_sfen_count = 0;
 
 	// 進捗をこの局面数ごとに画面に出力する。
-	const u64 buffer_size = 10000000;
+	// 1000万じゃデカすぎるので、1万にする。
+	const u64 buffer_size = 10000;
 
 	auto print_status = [&]()
 	{
 		// 10M局面ごと、もしくは、すべての書き出しが終わったときに進捗を出力する
-		if (((write_sfen_count % buffer_size) == 0) ||
-			(write_sfen_count == total_sfen_count))
-			cout << write_sfen_count << " / " << total_sfen_count << endl;
+//		if (((write_sfen_count % buffer_size) == 0) ||
+//			(write_sfen_count == total_sfen_count))
+//			cout << write_sfen_count << " / " << total_sfen_count << endl;
 	};
-
 
 	cout << endl <<  "write : " << output_file_name << endl;
 
@@ -2543,6 +2598,11 @@ void learn(Position&, istringstream& is)
 	ELMO_LAMBDA = 0.33;
 	ELMO_LAMBDA2 = 0.33;
 	ELMO_LAMBDA_LIMIT = 32000;
+	// 勝敗補正項
+	// あまり大きい値を指定するとすぐにマイナスになってセグフォでコケるので注意。
+	double win_correct = 1;
+	double lose_correct = 0;
+	double draw_correct = 0.5;
 #endif
 
 	// 割引率。これを0以外にすると、PV終端以外でも勾配を加算する。(そのとき、この割引率を適用する)
@@ -2626,6 +2686,9 @@ void learn(Position&, istringstream& is)
 		else if (option == "lambda")       is >> ELMO_LAMBDA;
 		else if (option == "lambda2")      is >> ELMO_LAMBDA2;
 		else if (option == "lambda_limit") is >> ELMO_LAMBDA_LIMIT;
+		else if (option == "win_cor")      is >> win_correct;
+		else if (option == "lose_cor")     is >> lose_correct;
+		else if (option == "draw_cor")     is >> draw_correct;
 
 #endif
 		else if (option == "reduction_gameply") is >> reduction_gameply;
@@ -2767,6 +2830,9 @@ void learn(Position&, istringstream& is)
 	cout << "LAMBDA            : " << ELMO_LAMBDA       << endl;
 	cout << "LAMBDA2           : " << ELMO_LAMBDA2      << endl;
 	cout << "LAMBDA_LIMIT      : " << ELMO_LAMBDA_LIMIT << endl;
+	cout << "win_correct         : " << win_correct       << endl;
+	cout << "lose_correct        : " << lose_correct      << endl;
+	cout << "draw_correct        : " << draw_correct      << endl;
 #endif
 	cout << "mirror_percentage : " << mirror_percentage << endl;
 	cout << "eval_save_interval  : " << eval_save_interval << " sfens" << endl;

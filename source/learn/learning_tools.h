@@ -72,9 +72,16 @@ namespace EvalLearningTools
 		// etaの一括初期化。0が渡された場合、デフォルト値が設定される。
 		static void init_eta(double eta1, double eta2, double eta3, u64 eta1_epoch, u64 eta2_epoch)
 		{
+			// NNUEとそれ以外でetaの初期値を変更。これによってetaを省略できるようにした。
+#if defined (EVAL_NNUE)
+			Weight::eta1 = (eta1 != 0) ? eta1 : 0.1;
+			Weight::eta2 = (eta2 != 0) ? eta2 : 0.1;
+			Weight::eta3 = (eta3 != 0) ? eta3 : 0.1;
+#else
 			Weight::eta1 = (eta1 != 0) ? eta1 : 30.0;
 			Weight::eta2 = (eta2 != 0) ? eta2 : 30.0;
 			Weight::eta3 = (eta3 != 0) ? eta3 : 30.0;
+#endif
 			Weight::eta1_epoch = (eta1_epoch != 0) ? eta1_epoch : 0;
 			Weight::eta2_epoch = (eta2_epoch != 0) ? eta2_epoch : 0;
 		}

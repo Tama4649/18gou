@@ -256,7 +256,7 @@
 
 // ニコニコ生放送の電王盤用
 // 電王盤はMultiPV非対応なので定跡を送るとき、"multipv"をつけずに1番目の候補手を送信する必要がある。
-// #define NICONICO
+//#define NICONICO
 
 // PVの出力時の千日手に関する出力をすべて"rep_draw"に変更するオプション。
 // GUI側が、何らかの都合で"rep_draw"のみしか処理できないときに用いる。
@@ -272,7 +272,7 @@
 
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
-#define ENGINE_NAME "YaneuraOu"
+#define ENGINE_NAME "JKishi18gou"
 
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE
@@ -347,7 +347,7 @@
 // --- 詰将棋エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(MATE_ENGINE)
-#define ENGINE_NAME "YaneuraOu mate solver"
+#define ENGINE_NAME "JKishi18gou mate solver"
 #define KEEP_LAST_MOVE
 #undef  MAX_PLY_NUM
 #define MAX_PLY_NUM 2000
@@ -362,7 +362,7 @@
 // --- ユーザーの自作エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(USER_ENGINE)
-#define ENGINE_NAME "YaneuraOu user engine"
+#define ENGINE_NAME "JKishi18gou user engine"
 #define EVAL_KPP
 #endif
 
@@ -648,6 +648,9 @@ constexpr bool Is64Bit = false;
 // ↑の関数のundo_move()時用。こちらは、評価関数の差分更新を行わない。(評価関数の値を巻き戻すのは簡単であるため)
 #define ADD_BOARD_EFFECT_REWIND(color_,sq_,e1_) { board_effect[color_].e[sq_] += (uint8_t)e1_; }
 #define ADD_BOARD_EFFECT_BOTH_REWIND(color_,sq_,e1_,e2_) { board_effect[color_].e[sq_] += (uint8_t)e1_; board_effect[~color_].e[sq_] += (uint8_t)e2_; }
+
+// KPPTのみ利用する場合に指定
+//#define USE_ONLY_KPPT
 
 #endif // ifndef _CONFIG_H_INCLUDED
 

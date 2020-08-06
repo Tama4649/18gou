@@ -52,8 +52,10 @@ namespace Eval
 	// 評価関数パラメーター
 	// 2GBを超える配列は確保できないようなのでポインターにしておき、動的に確保する。
 
+#if !defined (USE_ONLY_KPPT)
 	ValueKk(*kk_)[SQ_NB][SQ_NB];
 	ValueKkp(*kkp_)[SQ_NB][SQ_NB][fe_end];
+#endif
 	ValueKpp(*kpp_)[SQ_NB][fe_end][fe_end];
 
 	// 評価関数ファイルを読み込む
@@ -63,8 +65,13 @@ namespace Eval
 		// ちなみに、inputのところにあるbasic_kppt32()をbasic_kppt16()に変更するとApery(WCSC27)の評価関数ファイルが読み込める。
 		// また、eval_convert()に渡している引数のinputとoutputを入れ替えるとファイルに書き出すことが出来る。EvalIOマジ、っょぃ。
 		auto make_name = [&](std::string filename) { return Path::Combine((string)Options["EvalDir"], filename); };
+#if !defined (USE_ONLY_KPPT)
 		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KK_BIN), make_name(KKP_BIN), make_name(KPP_BIN));
 		auto output = EvalIO::EvalInfo::build_kppt32((void*)kk, (void*)kkp, (void*)kpp);
+#else
+		auto input = EvalIO::EvalInfo::build_kppt32(make_name(KPP_BIN));
+		auto output = EvalIO::EvalInfo::build_kppt32((void*)kpp);
+#endif
 
 		// 評価関数の実験のためにfe_endをKPPT32から変更しているかも知れないので現在のfe_endの値をもとに読み込む。
 		input.fe_end = output.fe_end = Eval::fe_end;
@@ -153,8 +160,10 @@ namespace Eval
 		// また、データが2 or 4バイトなので2バイトずつ加算していくとき、
 		// データの余りは出ない。
 
+#if !defined (USE_ONLY_KPPT)
 		add_sum(reinterpret_cast<u16*>(kk) , size_of_kk  / sizeof(u16));
 		add_sum(reinterpret_cast<u16*>(kkp), size_of_kkp / sizeof(u16));
+#endif
 		add_sum(reinterpret_cast<u16*>(kpp), size_of_kpp / sizeof(u16));
 
 		return sum;
@@ -171,8 +180,10 @@ namespace Eval
 	void eval_assign(void* ptr)
 	{
 		s8* p = (s8*)ptr;
+#if !defined (USE_ONLY_KPPT)
 		kk_ = (ValueKk(*)[SQ_NB][SQ_NB]) (p);
 		kkp_ = (ValueKkp(*)[SQ_NB][SQ_NB][fe_end]) (p + size_of_kk);
+#endif
 		kpp_ = (ValueKpp(*)[SQ_NB][fe_end][fe_end]) (p + size_of_kk + size_of_kkp);
 	}
 
@@ -317,7 +328,9 @@ namespace Eval
 	{
 		// is_ready()で評価関数を読み込み、
 		// 初期化してからしかcompute_eval()を呼び出すことは出来ない。
+#if !defined (USE_ONLY_KPPT)
 		ASSERT_LV1(&(kk) != nullptr);
+#endif
 		// →　32bit環境だとこの変数、単なるポインタなのでこのassertは意味がないのだが、
 		// とりあえず開発時に早期に気づくようにこのassertを入れておく。
 
@@ -366,7 +379,11 @@ namespace Eval
 #endif
 
 		// KK
+#if !defined (USE_ONLY_KPPT)
 		sum.p[2] = kk[sq_bk][sq_wk];
+#else
+		sum.p[2][0] = sum.p[2][1] = 0;
+#endif
 
 		for (i = 0; i < length ; ++i)
 		{
@@ -396,7 +413,9 @@ namespace Eval
 			}
 
 			// KKP
+#if !defined (USE_ONLY_KPPT)
 			sum.p[2] += kkp[sq_bk][sq_wk][k0];
+#endif
 		}
 
 		auto st = pos.state();
@@ -466,7 +485,11 @@ namespace Eval
 		sum.p[1] = { 0, 0 };
 #endif
 		// KK
+#if !defined (USE_ONLY_KPPT)
 		sum.p[2] = kkp[sq_bk][sq_wk][ebp.fb];
+#else
+		sum.p[2][0] = sum.p[2][1] = 0;
+#endif
 
 		const auto* pkppb = kpp[sq_bk     ][ebp.fb];
 		const auto* pkppw = kpp[Inv(sq_wk)][ebp.fw];
@@ -613,7 +636,11 @@ namespace Eval
 			auto sq_wk = pos.king_square(WHITE);
 
 			// ΣKKPは最初から全計算するしかないので初期化する。
+#if !defined (USE_ONLY_KPPT)
 			diff.p[2] = kk[sq_bk][sq_wk];
+#else
+			diff.p[2][0] = diff.p[2][1] = 0;
+#endif
 			diff.p[2][0] += now->materialValue * FV_SCALE;
 
 			// 後手玉の移動(片側分のKPPを丸ごと求める)
@@ -634,7 +661,9 @@ namespace Eval
 				{
 					// KKPの値は、後手側から見た計算だとややこしいので、先手から見た計算でやる。
 					// 後手から見た場合、kkp[inv(sq_wk)][inv(sq_bk)][k1]になるが、これ次元下げで同じ値を書いているとは限らない。
+#if !defined (USE_ONLY_KPPT)
 					diff.p[2] += kkp[sq_bk][sq_wk][list0[i]];
+#endif
 
 					const int k1 = list1[i];
 					const auto* pkppw = ppkppw[k1];
@@ -685,7 +714,9 @@ namespace Eval
 
 				for (int i = 0; i < length ; ++i)
 				{
+#if !defined (USE_ONLY_KPPT)
 					diff.p[2] += kkp[sq_bk][sq_wk][list0[i]];
+#endif
 
 					const int k1 = list1[i];
 					const auto* pkppw = ppkppw[k1];
@@ -731,7 +762,9 @@ namespace Eval
 					const auto* pkppb = ppkppb[k0];
 
 					// KKP
+#if !defined (USE_ONLY_KPPT)
 					diff.p[2] += kkp[sq_bk][sq_wk][k0];
+#endif
 
 					int j = 0;
 					for (; j + 8 < i; j += 8)
@@ -785,7 +818,9 @@ namespace Eval
 						const int l0 = list0[j];
 						diff.p[0] += pkppb[l0];
 					}
+#if !defined (USE_ONLY_KPPT)
 					diff.p[2] += kkp[sq_bk][sq_wk][k0];
+#endif
 				}
 #endif
 
@@ -960,6 +995,7 @@ namespace Eval
 	}
 
 #if defined(EVAL_LEARN)
+#if !defined (USE_ONLY_KPPT)
 	// KKのKの値を出力する実験的コード
 	void kk_stat()
 	{
@@ -1035,6 +1071,7 @@ namespace Eval
 		});
 	}
 #endif
+#endif
 
 	// 現在の局面の評価値の内訳を表示する。
 	void print_eval_stat(Position& pos)
@@ -1109,8 +1146,10 @@ namespace Eval
 #endif
 
 		// KK
+#if !defined (USE_ONLY_KPPT)
 		sum.p[2] = kk[sq_bk][sq_wk];
 		cout << "KKC : " << sq_bk << " " << sq_wk << " = " << kk[sq_bk][sq_wk][0] << " + " << kk[sq_bk][sq_wk][1] << endl;
+#endif
 
 		for (i = 0; i < length ; ++i)
 		{
@@ -1141,9 +1180,11 @@ namespace Eval
 				sum.p[1] += pkppw[l1];
 #endif
 			}
+#if !defined (USE_ONLY_KPPT)
 			sum.p[2] += kkp[sq_bk][sq_wk][k0];
 
 			cout << "KKP : " << sq_bk << " " << sq_wk << " " << k0 << " = " << kkp[sq_bk][sq_wk][k0][0] << " + " << kkp[sq_bk][sq_wk][k0][1] << endl;
+#endif
 
 		}
 
@@ -1158,7 +1199,7 @@ namespace Eval
 
 	// とりあえずここに書いておく。あとで移動させるかも。
 #if defined(EVAL_LEARN)
-
+#if !defined (USE_ONLY_KPPT)
 	// regularize_kk()の下請け
 	void regularize_kk_impl()
 	{
@@ -1247,6 +1288,7 @@ namespace Eval
 		regularize_kk_impl();
 		kk_stat();
 	}
+#endif
 #endif
 
 	// 評価関数のそれぞれのパラメーターに対して関数fを適用してくれるoperator。

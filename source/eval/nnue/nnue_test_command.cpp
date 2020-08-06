@@ -186,8 +186,8 @@ void TestCommand(Position& pos, std::istream& stream) {
     PrintInfo(stream);
   } else {
     std::cout << "usage:" << std::endl;
-    std::cout << " test nn test_features" << std::endl;
-    std::cout << " test nn info [path/to/" << kFileName << "...]" << std::endl;
+    std::cout << " test nnue test_features" << std::endl;
+    std::cout << " test nnue info [path/to/" << kFileName << "...]" << std::endl;
   }
 }
 

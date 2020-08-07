@@ -101,10 +101,10 @@ endif
 ifeq ($(OS),Windows_NT)
 	CFLAGS += $(WCFLAGS)
 	LDFLAGS += -static -Wl,--stack,25000000
-	TARGET = JKishi18gou.exe
+	TARGET = JKishi18gou_n.exe
 else
 	CFLAGS += -D_LINUX
-	TARGET = JKishi18gou
+	TARGET = JKishi18gou_n
 endif
 
 # リンク時最適化。
@@ -215,16 +215,16 @@ SOURCES  = \
 
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_KPPT)
 	SOURCES += \
-		eval/kppt/evaluate_kppt.cpp                                        \
-		eval/kppt/evaluate_kppt_learner.cpp                                \
+		eval/kppt/evaluate_kppt.cpp                                            \
+		eval/kppt/evaluate_kppt_learner.cpp                                    \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 
 ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_KPP_KKPT)
 	SOURCES += \
-		eval/kppt/evaluate_kppt.cpp                                        \
-		eval/kpp_kkpt/evaluate_kpp_kkpt.cpp                                \
-		eval/kpp_kkpt/evaluate_kpp_kkpt_learner.cpp                        \
+		eval/kppt/evaluate_kppt.cpp                                            \
+		eval/kpp_kkpt/evaluate_kpp_kkpt.cpp                                    \
+		eval/kpp_kkpt/evaluate_kpp_kkpt_learner.cpp                            \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 
@@ -246,13 +246,13 @@ ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_
 		endif
 	endif
 	SOURCES += \
-		eval/nnue/evaluate_nnue.cpp                                        \
-		eval/nnue/evaluate_nnue_learner.cpp                                \
-		eval/nnue/nnue_test_command.cpp                                    \
-		eval/nnue/features/k.cpp                                           \
-		eval/nnue/features/p.cpp                                           \
-		eval/nnue/features/half_kp.cpp                                     \
-		eval/nnue/features/half_relative_kp.cpp                            \
+		eval/nnue/evaluate_nnue.cpp                                            \
+		eval/nnue/evaluate_nnue_learner.cpp                                    \
+		eval/nnue/nnue_test_command.cpp                                        \
+		eval/nnue/features/k.cpp                                               \
+		eval/nnue/features/p.cpp                                               \
+		eval/nnue/features/half_kp.cpp                                         \
+		eval/nnue/features/half_relative_kp.cpp                                \
 		engine/yaneuraou-engine/yaneuraou-search.cpp
 endif
 

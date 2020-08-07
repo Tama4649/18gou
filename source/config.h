@@ -272,7 +272,7 @@
 
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
-#define ENGINE_NAME "JKishi18gou"
+#define ENGINE_NAME "JKishi18gou_n"
 
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE
@@ -347,7 +347,7 @@
 // --- 詰将棋エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(MATE_ENGINE)
-#define ENGINE_NAME "JKishi18gou mate solver"
+#define ENGINE_NAME "JKishi18gou_n mate solver"
 #define KEEP_LAST_MOVE
 #undef  MAX_PLY_NUM
 #define MAX_PLY_NUM 2000
@@ -362,7 +362,7 @@
 // --- ユーザーの自作エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(USER_ENGINE)
-#define ENGINE_NAME "JKishi18gou user engine"
+#define ENGINE_NAME "JKishi18gou_n user engine"
 #define EVAL_KPP
 #endif
 

@@ -108,6 +108,7 @@ inline uint64_t PEXT64(uint64_t a, uint64_t b) { return pext(a, b); }
 
 #endif
 
+
 // ----------------------------
 //     POPCNT(SSE4.2の命令)
 // ----------------------------

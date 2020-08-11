@@ -62,6 +62,7 @@ Bitboard LanceStepEffectBB[SQ_NB_PLUS1][COLOR_NB];
 Bitboard BishopStepEffectBB[SQ_NB_PLUS1];
 Bitboard RookStepEffectBB[SQ_NB_PLUS1];
 
+
 // 歩が打てる筋を得るためのmask
 u64 PAWN_DROP_MASKS[SQ_NB];
 

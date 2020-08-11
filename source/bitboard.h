@@ -413,11 +413,14 @@ extern u64      RookFileEffect[RANK_NB + 1][128];
 // 従来のやねうら王の実装
 
 // --- 角の利き
+
 extern Bitboard BishopEffect[2][1856+1];
 extern Bitboard BishopEffectMask[2][SQ_NB_PLUS1];
 extern int		BishopEffectIndex[2][SQ_NB_PLUS1];
 
 // --- 飛車の横の利き
+
+extern Bitboard RookRankEffect[FILE_NB + 1][128];
 
 #else // defined(USE_OLD_YANEURAOU_EFFECT)
 

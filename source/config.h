@@ -363,7 +363,8 @@
 
 #if defined(USER_ENGINE)
 #define ENGINE_NAME "JKishi18gou_n user engine"
-#define EVAL_KPP
+#define USE_SEE
+#define EVAL_MATERIAL
 #endif
 
 // --------------------

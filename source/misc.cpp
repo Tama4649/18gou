@@ -156,7 +156,11 @@ const string engine_info() {
 #else
 			ENGINE_NAME
 #endif			
+<<<<<<< HEAD
 		//	<< ' '
+=======
+			<< ' '
+>>>>>>> master
 		//	<< EVAL_TYPE_NAME << ' '
 		//	<< ENGINE_VERSION << setfill('0')
 		//	<< (Is64Bit ? " 64" : " 32")

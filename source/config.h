@@ -8,7 +8,7 @@
 
 // 思考エンジンのバージョンとしてUSIプロトコルの"usi"コマンドに応答するときの文字列。
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
-#define ENGINE_VERSION "4.91"
+#define ENGINE_VERSION "5.20"
 
 // --------------------
 //  思考エンジンの種類
@@ -89,7 +89,7 @@
 
 
 // 通常探索時の最大探索深さ
-#define MAX_PLY_NUM 127
+constexpr int MAX_PLY_NUM = 246;
 
 // --- デバッグ時の標準出力への局面表示などに日本語文字列を用いる。
 
@@ -164,7 +164,7 @@
 
 
 // 評価関数を教師局面から学習させるときに使うときのモード
-// #define EVAL_LEARN
+//#define EVAL_LEARN
 
 // Eval::compute_eval()やLearner::add_grad()を呼び出す前にEvalListの組み換えを行なう機能を提供する。
 // 評価関数の実験に用いる。詳しくは、Eval::make_list_functionに書いてある説明などを読むこと。
@@ -248,15 +248,9 @@
 // これをdefineすると、extra/kif_converter/ フォルダにある棋譜や指し手表現の変換を行なう関数群が使用できるようになる。
 // #define USE_KIF_CONVERT_TOOLS
 
-// 128GB超えの置換表を使いたいとき用。
-// このシンボルを定義するとOptions["Hash"]として131072(=128*1024[MB]。すなわち128GB)超えの置換表が扱えるようになる。
-// Stockfishのコミュニティではまだ議論中なのでデフォルトでオフにしておく。
-// cf. 128 GB TT size limitation : https://github.com/official-stockfish/Stockfish/issues/1349
-// #define USE_HUGE_HASH
-
 // ニコニコ生放送の電王盤用
 // 電王盤はMultiPV非対応なので定跡を送るとき、"multipv"をつけずに1番目の候補手を送信する必要がある。
-// #define NICONICO
+//#define NICONICO
 
 // PVの出力時の千日手に関する出力をすべて"rep_draw"に変更するオプション。
 // GUI側が、何らかの都合で"rep_draw"のみしか処理できないときに用いる。
@@ -288,7 +282,9 @@
 #define USE_SHARED_MEMORY_IN_EVAL
 
 // 学習機能を有効にするオプション。
-#define EVAL_LEARN
+// 教師局面の生成、定跡コマンド(makebook thinkなど)を用いる時には、これを
+// 有効化してコンパイルしなければならない。
+// #define EVAL_LEARN
 
 // デバッグ絡み
 //#define ASSERT_LV 3
@@ -627,15 +623,10 @@ constexpr bool Is64Bit = false;
 // 7. FV_VAR方式のリファレンス実装として、EVAL_KPP_KKPT_FV_VARがあるので、そのソースコードを見ること。
 
 // あらゆる局面でP(駒)の数が増えないFV38と呼ばれる形式の差分計算用。
-#if defined(EVAL_KPPT) || defined(EVAL_KPP_KKPT) || defined(EVAL_NNUE)
+#if defined(EVAL_KPPT) || defined(EVAL_KPP_KKPT) || defined(EVAL_NNUE) || defined(EVAL_MATERIAL)
 #define USE_FV38
 #endif
 
-// P(駒)の数が増えたり減ったりするタイプの差分計算用
-// FV38とは異なり、可変長piece_list。
-#if defined(EVAL_MATERIAL)
-#define USE_FV_VAR
-#endif
 
 // -- 評価関数の種類により、盤面の利きの更新ときの処理が異なる。(このタイミングで評価関数の差分計算をしたいので)
 

@@ -1,12 +1,15 @@
 
-# ビルドターゲット
+# === ビルドターゲット (build target) ===
+
 # normal     : 通常使用用
 # evallearn  : 教師局面からの学習用
 # tournament : 大会で使う用
-# gensfen    : 教師生成用(現状、非公開)
+# gensfen    : 教師生成用     // 現状、非公開 (currently private)
 
 
-# やねうら王の使いたいエディションを指定する
+# === ビルドオプション (build options) ===
+
+# やねうら王の使いたいエディションを指定する (select YaneuraOu Edition)
 # YANEURAOU_ENGINE_NNUE       : NNUE型評価関数(halfKP256),標準NNUE型
 # YANEURAOU_ENGINE_NNUE_KP256 : NNUE型評価関数(KP256)
 # YANEURAOU_ENGINE_KPPT       : KPPT型評価関数
@@ -23,8 +26,8 @@ YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE
 #YANEURAOU_EDITION = MATE_ENGINE
 #YANEURAOU_EDITION = USER_ENGINE
 
+# ターゲットCPU (target cpu)
 
-# ターゲットCPU
 # 利用できるCPU拡張命令を指定する。
 # AMDのRyzen(Zen/Zen2)はZEN1/ZEN2を選択するとBMI2命令が使わずに速くなる。(10%程度高速化)
 # ARM系ならOTHERを指定する。
@@ -44,38 +47,53 @@ TARGET_CPU = AVX2
 #TARGET_CPU = ZEN2
 
 
-# デバッガーを使用するか
+# デバッガーを使用するか (debugger)
 DEBUG = OFF
 #DEBUG = ON
 
 
-# clangでコンパイルしたほうがgccより数%速いっぽい。
+# 使用するコンパイラ (compiler)
+# ※ clangでコンパイルしたほうがgccより数%速いっぽい。
 #COMPILER = g++
 COMPILER = clang++
 
 
-# 標準的なコンパイルオプション
-CFLAGS   = -std=c++17 -fno-exceptions -fno-rtti -Wextra -Ofast -MMD -MP -fpermissive
-WCFLAGS  =
+# エンジンの表示名 (engine displayname)
+# ("usi"コマンドに対して出力される)
+#ENGINE_NAME =
+
+
+# developing branch // 現状、非公開 (currently private)
+# dev : 開発中のbranchならdevと指定する (developing branch) : 
+# abe : abe
+#ENGINE_BRANCH = dev
+
+
+# 標準的なコンパイルオプション (standard compile options)
+CPPFLAGS   = -std=c++17 -fno-exceptions -fno-rtti -Wextra -Ofast -MMD -MP -fpermissive
+WCPPFLAGS  =
 LDFLAGS  =
 LIBS     =
 INCLUDE  = # -I../include
 
+
+# === implementations ===
+
 # デバッガーを使わないなら、NDEBUGをdefineする。
 ifeq ($(DEBUG),OFF)
-	CFLAGS += -DNDEBUG
+	CPPFLAGS += -DNDEBUG
 endif
 
-# clang用にCFLAGSなどを変更
+# clang用にCPPFLAGSなどを変更
 ifeq ($(findstring clang++,$(COMPILER)),clang++)
 	# stdlib
-	CFLAGS += -stdlib=libstdc++
+	CPPFLAGS += -stdlib=libstdc++
 
 	# C++17のfilesystem
 	# LDFLAGS += -lstdc++fs
 
 	# 関数の引数が関数本体で使われていないときに警告出るのうざすぎるので抑制。
-	CFLAGS += -Wno-unused-parameter
+	CPPFLAGS += -Wno-unused-parameter
 
 	# static リンクを行う際に __cxa_guard_acquire __cxa_guard_release の生成を抑止
 	#   undefined reference to `__imp___cxa_guard_acquire'
@@ -83,14 +101,14 @@ ifeq ($(findstring clang++,$(COMPILER)),clang++)
 	# static 変数を初期化したかを pthread_mutex_t でロックを取って確認し、
 	# 最初の実行なら初期化するスレッドセーフなコードを生成するためのもの。
 	# → 本当に消してしまっても大丈夫か？
-	WCFLAGS += -fno-threadsafe-statics
+	WCPPFLAGS += -fno-threadsafe-statics
 
 else
 	ifeq ($(findstring g++,$(COMPILER)),g++)
 		# mingw g++ で AVX512 向けビルドを行おうとするとエラーになる問題の回避
 		# https://stackoverflow.com/questions/43152633/invalid-register-for-seh-savexmm-in-cygwin
 		# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-		WCFLAGS += -fno-asynchronous-unwind-tables
+		WCPPFLAGS += -fno-asynchronous-unwind-tables
 
 		# C++17のfilesystem
 		# LDFLAGS += -lstdc++fs
@@ -99,44 +117,38 @@ else
 endif
 
 ifeq ($(OS),Windows_NT)
-	CFLAGS += $(WCFLAGS)
+	CPPFLAGS += $(WCPPFLAGS)
 	LDFLAGS += -static -Wl,--stack,25000000
 	TARGET = JKishi18gou.exe
 else
-	CFLAGS += -D_LINUX
+	CPPFLAGS += -D_LINUX
 	TARGET = JKishi18gou
 endif
 
 # リンク時最適化。
-# CFLAGSとLDFLAGSの両方で-fltoを指定する必要がある。
+# CPPFLAGSとLDFLAGSの両方で-fltoを指定する必要がある。
 # cf. https://gcc.gnu.org/onlinedocs/gcc-6.3.0/gcc/Optimize-Options.html#Optimize-Options
 LTOFLAGS = -flto
 
 # wstringを使うためにこのシンボル定義が必要。
-CFLAGS  += -DUNICODE
+CPPFLAGS  += -DUNICODE
 
 # stripの指示。(実行ファイルのサイズを小さく)
 LDFLAGS += -Wl,-s
 
 # mingw64では-D_WIN64,-D_WIN32は環境に応じて自動で設定されるので指定すべきではない。
-# CFLAGS += -D_WIN64
+# CPPFLAGS += -D_WIN64
 
 # これを指定していると、各CPU向けの実行ファイルが生成されないので指定すべきではない。
-# CFLAGS   += -march=native
+# CPPFLAGS   += -march=native
 
 # デバッグ情報を付加
-# CFLAGS  += -g3 -ggdb
+# CPPFLAGS  += -g3 -ggdb
 
-# OpenMPを使うときにCFLAGSとして指定するオプション
+# OpenMPを使うときにCPPFLAGSとして指定するオプション
 # ※ 学習部ではOpenMpを用いるので、学習用のビルドではこのオプションを指定する。
 # clangでOPENMPを有効にしてビルドする方法については、解説.txtを参照のこと。
 
-# エンジンの表示名("usi"コマンドに対して出力される)
-#ENGINE_NAME =
-
-# 開発中のbranchならdevと指定する
-# そうでなければこのシンボルを定義しない
-#ENGINE_BRANCH = dev
 
 ifeq ($(findstring g++,$(COMPILER)),g++)
 	OPENMP   = -fopenmp
@@ -170,7 +182,7 @@ ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_
 	endif
 endif
 
-CFLAGS += -DNO_EXCEPTIONS
+CPPFLAGS += -DNO_EXCEPTIONS
 LDFLAGS += -lpthread
 LDFLAGS += -v
 
@@ -236,13 +248,13 @@ endif
 ifeq ($(findstring YANEURAOU_ENGINE_NNUE,$(YANEURAOU_EDITION)),YANEURAOU_ENGINE_NNUE)
 	ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE)
 	else
-		CFLAGS += -DYANEURAOU_ENGINE_NNUE
+		CPPFLAGS += -DYANEURAOU_ENGINE_NNUE
 	endif
 	ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_NNUE_KP256)
-		CFLAGS += -DEVAL_NNUE_KP256
+		CPPFLAGS += -DEVAL_NNUE_KP256
 	else
 		ifeq ($(NNUE_EVAL_ARCH),KP256)
-			CFLAGS += -DEVAL_NNUE_KP256
+			CPPFLAGS += -DEVAL_NNUE_KP256
 		endif
 	endif
 	SOURCES += \
@@ -265,13 +277,20 @@ ifeq ($(YANEURAOU_EDITION),USER_ENGINE)
 endif
 
 ifneq ($(ENGINE_NAME),)
-	CFLAGS += -DENGINE_NAME_FROM_MAKEFILE=$(ENGINE_NAME)
+	CPPFLAGS += -DENGINE_NAME_FROM_MAKEFILE=$(ENGINE_NAME)
 endif
 
 # 開発用branch
 ifeq ($(findstring dev,$(ENGINE_BRANCH)),dev)
 	# SuperSort使ってみよう。
+	CPPFLAGS += -DDEV_BRANCH
 	SOURCES += extra/super_sort.cpp
+endif
+
+# abe
+ifeq ($(findstring abe,$(ENGINE_BRANCH)),abe)
+	SOURCES += extra/super_sort.cpp
+	CPPFLAGS += -DPV_OUTPUT_DRAW_ONLY
 endif
 
 
@@ -284,10 +303,10 @@ endif
 # (USE_BMI2が定義されていない時、自動的にmagic bitboardが用いられる)
 
 ifeq ($(TARGET_CPU),ZEN1)
-	CFLAGS += -DUSE_AVX2 -mbmi -mno-bmi2 -mavx2 -march=znver1
+	CPPFLAGS += -DUSE_AVX2 -mbmi -mno-bmi2 -mavx2 -march=znver1
 
 else ifeq ($(TARGET_CPU),ZEN2)
-	CFLAGS += -DUSE_AVX2 -mbmi -mno-bmi2 -mavx2 -march=znver2
+	CPPFLAGS += -DUSE_AVX2 -mbmi -mno-bmi2 -mavx2 -march=znver2
 
 # それ以外は、AVX512,AVX2,SSE4.2,SSE4.1,SSE2のように利用できるCPU拡張命令で振り分ける。
 # AVX2より上位のCPUなら普通は(Intel系なら)BMI2命令を使ったほうが速いので"USE_BMI2"を指定しておく。
@@ -296,47 +315,48 @@ else ifeq ($(TARGET_CPU),AVX512)
 	# skylake     : -DUSE_AVX512 -DUSE_AVX512VLBWDQ -march=skylake-avx512
 	# cascadelake : -DUSE_AVX512 -DUSE_AVX512VLBWDQ -DUSE_AVX512VNNI -march=cascadelake
 	# icelake     : -DUSE_AVX512 -DUSE_AVX512VLBWDQ -DUSE_AVX512VNNI -DUSE_AVX512VBMI -DUSE_AVX512IFMA -USE_GFNI -march=icelake-client
-	CFLAGS += -DUSE_AVX512 -DUSE_BMI2 -DUSE_AVX512VLBWDQ -march=skylake-avx512
+	CPPFLAGS += -DUSE_AVX512 -DUSE_BMI2 -DUSE_AVX512VLBWDQ -march=skylake-avx512
 
 else ifeq ($(TARGET_CPU),AVX2)
-	CFLAGS += -DUSE_AVX2 -DUSE_BMI2 -mbmi -mbmi2 -mavx2 -march=corei7-avx
+	CPPFLAGS += -DUSE_AVX2 -DUSE_BMI2 -mbmi -mbmi2 -mavx2 -march=corei7-avx
 
 else ifeq ($(TARGET_CPU),SSE42)
-	CFLAGS += -DUSE_SSE42 -msse4.2 -march=corei7
+	CPPFLAGS += -DUSE_SSE42 -msse4.2 -march=corei7
 
 else ifeq ($(TARGET_CPU),SSE41)
-	CFLAGS += -DUSE_SSE41 -msse4.1 -march=core2
+	CPPFLAGS += -DUSE_SSE41 -msse4.1 -march=core2
 
 else ifeq ($(TARGET_CPU),SSSE3)
-	CFLAGS += -DUSE_SSSE3 -msse3 -march=core2
+	CPPFLAGS += -DUSE_SSSE3 -msse3 -march=core2
 
 else ifeq ($(TARGET_CPU),SSE2)
-	CFLAGS += -DUSE_SSE2 -msse2 -march=core2
+	CPPFLAGS += -DUSE_SSE2 -msse2 -march=core2
 
 else ifeq ($(TARGET_CPU),NO_SSE)
 	# 32bit用。-m32は、MSYS2 MinGW-64だと無視されるので、
 	# MinGW-64の32bit環境用でコンパイルする必要がある。
-	CFLAGS += -DNO_SSE -m32 -march=pentium3
+	CPPFLAGS += -DNO_SSE -m32 -march=pentium3
 
 else ifeq ($(TARGET_CPU),OTHER)
-	CFLAGS += -DNO_SSE
+	CPPFLAGS += -DNO_SSE
 
 endif
 
 
-CFLAGS += -DUSE_MAKEFILE -D$(YANEURAOU_EDITION)
+CPPFLAGS += -DUSE_MAKEFILE -D$(YANEURAOU_EDITION)
 
 OBJECTS  = $(addprefix $(OBJDIR)/, $(SOURCES:.cpp=.o))
 DEPENDS  = $(OBJECTS:.o=.d)
 
+all: clean $(TARGET)
+.PHONY : all normal evallearn tournament prof profgen profuse pgo clean
+
 $(TARGET): $(OBJECTS) $(LIBS)
-	$(COMPILER) -o $@ $^ $(LDFLAGS) $(CFLAGS)
+	$(COMPILER) -o $@ $^ $(LDFLAGS) $(CPPFLAGS)
 
 $(OBJDIR)/%.o: %.cpp
 	@[ -d $(dir $@) ] || mkdir -p $(dir $@)
-	$(COMPILER) $(CFLAGS) $(INCLUDE) -o $@ -c $<
-
-all: clean $(TARGET)
+	$(COMPILER) $(CPPFLAGS) $(INCLUDE) -o $@ -c $<
 
 # https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
 
@@ -345,30 +365,30 @@ all: clean $(TARGET)
 
 # 通常使用。
 normal:
-	$(MAKE) CFLAGS='$(CFLAGS)' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 # 学習用。openmp , openblasなどを有効にする。
 evallearn:
-	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) $(BLAS)' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) $(OPENMP) $(BLAS) -DEVAL_LEARN' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 # トーナメント用
 tournament:
-	$(MAKE) CFLAGS='$(CFLAGS) -DFOR_TOURNAMENT' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) -DFOR_TOURNAMENT' LDFLAGS='$(LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
-# 教師棋譜生成用
+# 教師棋譜生成用(開発用なので非公開) // currently private
 gensfen:
-	$(MAKE) CFLAGS='$(CFLAGS) $(OPENMP) $(BLAS) -DGENSFEN2019' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) $(OPENMP) $(BLAS) -DEVAL_LEARN -DGENSFEN2019' LDFLAGS='$(LDFLAGS) $(OPENMP_LDFLAGS) $(BLAS_LDFLAGS) $(LTOFLAGS)' $(TARGET)
 
 
 #　とりあえずPGOはAVX2とSSE4.2専用
 prof:
-	$(MAKE) CFLAGS='$(CFLAGS) -pg' tournament
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) -pg' tournament
 
 profgen:
-	$(MAKE) CFLAGS='$(CFLAGS) -fprofile-generate -lgcov' LDFLAGS='$(LDFLAGS) -fprofile-generate -lgcov'
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) -fprofile-generate -lgcov' LDFLAGS='$(LDFLAGS) -fprofile-generate -lgcov'
 
 profuse:
-	$(MAKE) CFLAGS='$(CFLAGS) -fprofile-use -lgcov' LDFLAGS='$(LDFLAGS) -fprofile-use -lgcov $(LTOFLAGS)'
+	$(MAKE) CPPFLAGS='$(CPPFLAGS) -fprofile-use -lgcov' LDFLAGS='$(LDFLAGS) -fprofile-use -lgcov $(LTOFLAGS)'
 
 pgo:
 	$(MAKE) profgen

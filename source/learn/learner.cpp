@@ -1588,9 +1588,6 @@ struct LearnerThink: public MultiThink
 
 void LearnerThink::calc_loss(size_t thread_id, u64 done)
 {
-	// 置換表にhitされてもかなわんので、このタイミングで置換表の世代を新しくする。
-	// 置換表を無効にしているなら関係ないのだが。
-	TT.new_search();
 
 //#if defined(EVAL_NNUE)
 //	std::cout << "PROGRESS: " << now_string() << ", ";
@@ -2466,7 +2463,7 @@ void convert_bin(const vector<string>& filenames , const string& output_file_nam
 			}
 			else if (token == "move") {
 				ss >> value;
-				p.move = USI::to_move(value);
+				p.move = USI::to_move16(value).to_u16();
 			}
 			else if (token == "score") {
 				ss >> p.score;

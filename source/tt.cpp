@@ -7,7 +7,7 @@ TranspositionTable TT; // 置換表をglobalに確保。
 // 置換表のエントリーに対して与えられたデータを保存する。上書き動作
 //   v    : 探索のスコア
 //   eval : 評価関数 or 静止探索の値
-//   m    : ベストな指し手
+//   m    : ベストな指し手(指し手16bit ≒ Move16 , Moveの上位16bitは無視される)
 //   gen  : TT.generation()
 // 引数のgenは、Stockfishにはないが、やねうら王では学習時にスレッドごとに別の局面を探索させたいので
 // スレッドごとに異なるgenerationの値を指定したくてこのような作りになっている。
@@ -30,19 +30,20 @@ void TTEntry::save(Key k, Value v, bool pv , Bound b, Depth d, Move m , Value ev
 
 	// このif式だが、
 	// A = m!=MOVE_NONE
-	// B = (k >> 48) != key16)
+	// B = ((u16)(k >> 1)) != key16)
 	// として、ifが成立するのは、
 	// a)  A && !B
 	// b)  A &&  B
 	// c) !A &&  B
 	// の3パターン。b),c)は、B == trueなので、その下にある次のif式が成立して、この局面のhash keyがkey16に格納される。
-	// a)は、B == false すなわち、(k >> 48) == key16であり、この局面用のentryであるから、その次のif式が成立しないとしても
+	// a)は、B == false すなわち、((u16)(k >> 1)) == key16であり、この局面用のentryであるから、その次のif式が成立しないとしても
 	// 整合性は保てる。
 	// a)のケースにおいても、指し手の情報は格納しておいたほうがいい。
 	// これは、このnodeで、TT::probeでhitして、その指し手は試したが、それよりいい手が見つかって、枝刈り等が発生しているような
 	// ケースが考えられる。ゆえに、今回の指し手のほうが、いまの置換表の指し手より価値があると考えられる。
 
-	if (m || (k >> 48) != key16)
+	u16 pos_key = (u16)(k >> 1);
+	if (m || pos_key != key16)
 		move16 = (uint16_t)m;
 
 	// このエントリーの現在の内容のほうが価値があるなら上書きしない。
@@ -51,19 +52,20 @@ void TTEntry::save(Key k, Value v, bool pv , Bound b, Depth d, Move m , Value ev
 	// 　少しの深さのマイナスなら許容)
 	// 3. BOUND_EXACT(これはPVnodeで探索した結果で、とても価値のある情報なので無条件で書き込む)
 	// 1. or 2. or 3.
-	if (  (k >> 48) != key16
+	if ( b == BOUND_EXACT
+		|| pos_key != key16
 		|| d - DEPTH_OFFSET > depth8 - 4
 		/*|| g != generation() // probe()において非0のkeyとマッチした場合、その瞬間に世代はrefreshされている。　*/
-		|| b == BOUND_EXACT
 		)
 	{
 		ASSERT_LV3(d >= DEPTH_NONE);
+		ASSERT_LV3(d < 256 + DEPTH_OFFSET);
 
-		key16 = (uint16_t)(k >> 48);
+		key16     = pos_key;
+		depth8    = (uint8_t)(d - DEPTH_OFFSET); // DEPTH_OFFSETだけ下駄履きさせてある。
+		genBound8 = (uint8_t)(TT.generation8 | uint8_t(pv) << 2 | b);
 		value16 = (int16_t)v;
 		eval16    = (int16_t)ev;
-		genBound8 = (uint8_t)(TT.generation8 | uint8_t(pv) << 2 | b);
-		depth8 = (uint8_t)(d - DEPTH_OFFSET); // DEPTH_OFFSETだけ下駄履きさせてある。
 	}
 }
 
@@ -113,6 +115,12 @@ void TranspositionTable::resize(size_t mbSize) {
 
 	// →　Stockfish、ここでclear()呼び出しているが、Search::clear()からTT.clear()を呼び出すので
 	// 二重に初期化していることになると思う。
+
+#if defined(EVAL_LEARN)
+	// スレッドごとにTTを持つ実装なら、確保しているメモリサイズが変更になったので、
+	// スレッドごとのTTを初期化してやる必要がある。
+	init_tt_per_thread();
+#endif
 }
 
 void TranspositionTable::clear()
@@ -147,9 +155,9 @@ TTEntry* TranspositionTable::probe(const Key key, bool& found) const
 	// keyの下位bitをいくつか使って、このアドレスを求めるので、自ずと下位bitはいくらかは一致していることになる。
 	TTEntry* const tte = first_entry(key);
 
-	// 上位16bitが合致するTT_ENTRYを探す
-	// 下位bitは、tteのアドレスが一致してることから、だいたい合ってる。
-	const uint16_t key16 = key >> 48;
+	// 下位16bit(bit0は除く)が合致するTT_ENTRYを探す
+	// 上位bitは、tteのアドレスの算出に用いているので、だいたい合ってる。
+	const uint16_t key16 = (u16)(key >> 1);
 
 	// クラスターのなかから、keyが合致するTT_ENTRYを探す
 	for (int i = 0; i < ClusterSize; ++i)
@@ -162,11 +170,15 @@ TTEntry* TranspositionTable::probe(const Key key, bool& found) const
 		// save()のときにgenerationを書き出すため、このケースにおいてrefreshは必要ない。
 		// (しかしソースコードをStockfishに合わせておくことに価値があると思うので、Stockfishに合わせておく)
 
-		if (!tte[i].key16 || tte[i].key16 == key16)
+		// Stockfish11まではkey16 == 0が空のTTEntryを意味することになっていたが、
+		// Stockfish12からはdepth8 == 0が空のTTEntryを意味するように変わった。
+		// key16は1/65536の確率で0になりうるので…。
+
+		if (tte[i].key16 == key16 || !tte[i].depth8)
 		{
 			tte[i].genBound8 = uint8_t(generation8 | (tte[i].genBound8 & 0x7)); // Refresh
 
-			return found = (bool)tte[i].key16, &tte[i];
+			return found = (bool)tte[i].depth8, &tte[i];
 		}
 	}
 
@@ -207,12 +219,12 @@ TTEntry* TranspositionTable::read_probe(const Key key, bool& found) const
 #endif
 
 	TTEntry* const tte = first_entry(key);
-	const uint16_t key16 = key >> 48;
+	const uint16_t key16 = (u16)(key >> 1);
 
 	for (int i = 0; i < ClusterSize; ++i)
 	{
-		if (!tte[i].key16 || tte[i].key16 == key16)
-			return found = (bool)tte[i].key16, &tte[i];
+		if (tte[i].key16 == key16 || !tte[i].depth8)
+				return found = (bool)tte[i].depth8, &tte[i];
 	}
 	return found = false, nullptr;
 }
@@ -228,8 +240,32 @@ int TranspositionTable::hashfull() const
 	int cnt = 0;
 	for (int i = 0; i < 1000 / ClusterSize; ++i)
 		for (int j = 0; j < ClusterSize; ++j)
-			cnt += (table[i].entry[j].genBound8 & 0xF8) == generation8;
+			cnt += table[i].entry[j].depth8 && (table[i].entry[j].genBound8 & 0xF8) == generation8;
 
 	// return cnt;でも良いが、そうすると最大で999しか返らず、置換表使用率が100%という表示にならない。
 	return cnt * 1000 / (ClusterSize * (1000 / ClusterSize));
 }
+
+#if defined(EVAL_LEARN)
+// スレッド数が変更になった時にThread.set()から呼び出される。
+// これに応じて、スレッドごとに保持しているTTを初期化する。
+void TranspositionTable::init_tt_per_thread()
+{
+	// スレッド数
+	size_t thread_size = Threads.size();
+
+	// 1スレッドあたりのクラスター数(端数切捨て)
+	// clusterCountは2の倍数でないと駄目なので、端数を切り捨てるためにLSBを0にする。
+	size_t clusterCountPerThread = (clusterCount / thread_size) & ~(size_t)1;
+	 
+	ASSERT_LV3((clusterCountPerThread & 1) == 0);
+
+	// これを、自分が確保したglobalな置換表用メモリから切り分けて割当てる。
+	for (size_t i = 0; i < thread_size; ++i)
+	{
+		auto& tt = Threads[i]->tt;
+		tt.clusterCount = clusterCountPerThread;
+		tt.table = this->table + clusterCountPerThread * i;
+	}
+}
+#endif

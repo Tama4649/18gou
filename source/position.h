@@ -105,7 +105,7 @@ struct StateInfo
 	int encoded_eval_kk;
 #endif
 
-#if defined(USE_FV38) || defined(USE_FV_VAR)
+#if defined(USE_FV38)
 	// 評価値の差分計算の管理用
 	Eval::DirtyPiece dirtyPiece;
 #endif
@@ -115,7 +115,7 @@ struct StateInfo
 	Move lastMove;
 
 	// lastMoveで移動させた駒(先後の区別なし)
-	Piece lastMovedPieceType;
+	PieceType lastMovedPieceType;
 #endif
 
 	// 盤面(盤上の駒)と手駒に関するhash key
@@ -252,9 +252,8 @@ public:
 #endif
 	}
 
-	// 置換表から取り出したMoveを32bit化する。
-	// mは16bitの値であること。
-	Move move16_to_move(Move m) const;
+	// 定跡DBや置換表から取り出したMove16(16bit型の指し手)を32bit化する。
+	Move to_move(Move16 m) const;
 
 	// 普通の千日手、連続王手の千日手等を判定する。
 	// そこまでの局面と同一局面であるかを、局面を遡って調べる。
@@ -289,24 +288,24 @@ public:
 	//	  BISHOP_HORSE(角・馬) , ROOK_DRAGON(飛車・龍)。
 	// ・引数でPieceを2つ取るものは２種類の駒のBitboardを合成したものが返る。
 
-	Bitboard pieces(Piece pr) const { ASSERT_LV3(pr < PIECE_BB_NB); return byTypeBB[pr]; }
-	Bitboard pieces(Piece pr1, Piece pr2) const { return pieces(pr1) | pieces(pr2); }
-	Bitboard pieces(Piece pr1, Piece pr2, Piece pr3) const { return pieces(pr1) | pieces(pr2) | pieces(pr3); }
-	Bitboard pieces(Piece pr1, Piece pr2, Piece pr3, Piece pr4) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4); }
-	Bitboard pieces(Piece pr1, Piece pr2, Piece pr3, Piece pr4, Piece pr5) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4) | pieces(pr5); }
+	Bitboard pieces(PieceType pr) const { ASSERT_LV3(pr < PIECE_BB_NB); return byTypeBB[pr]; }
+	Bitboard pieces(PieceType pr1, PieceType pr2) const { return pieces(pr1) | pieces(pr2); }
+	Bitboard pieces(PieceType pr1, PieceType pr2, PieceType pr3) const { return pieces(pr1) | pieces(pr2) | pieces(pr3); }
+	Bitboard pieces(PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4); }
+	Bitboard pieces(PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4, PieceType pr5) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4) | pieces(pr5); }
 
-	Bitboard pieces(Color c, Piece pr) const { return pieces(pr) & pieces(c); }
-	Bitboard pieces(Color c, Piece pr1, Piece pr2) const { return pieces(pr1, pr2) & pieces(c); }
-	Bitboard pieces(Color c, Piece pr1, Piece pr2, Piece pr3) const { return pieces(pr1, pr2, pr3) & pieces(c); }
-	Bitboard pieces(Color c, Piece pr1, Piece pr2, Piece pr3, Piece pr4) const { return pieces(pr1, pr2, pr3, pr4) & pieces(c); }
-	Bitboard pieces(Color c, Piece pr1, Piece pr2, Piece pr3, Piece pr4, Piece pr5) const { return pieces(pr1, pr2, pr3, pr4, pr5) & pieces(c); }
+	Bitboard pieces(Color c, PieceType pr) const { return pieces(pr) & pieces(c); }
+	Bitboard pieces(Color c, PieceType pr1, PieceType pr2) const { return pieces(pr1, pr2) & pieces(c); }
+	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3) const { return pieces(pr1, pr2, pr3) & pieces(c); }
+	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4) const { return pieces(pr1, pr2, pr3, pr4) & pieces(c); }
+	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4, PieceType pr5) const { return pieces(pr1, pr2, pr3, pr4, pr5) & pieces(c); }
 
 
 	// --- 升
 
 	// ある駒の存在する升を返す
 	// 現状、Pt==KINGしか渡せない。Stockfishとの互換用。
-	template<Piece Pt> Square square(Color c) const
+	template<PieceType Pt> Square square(Color c) const
 	{
 		static_assert(Pt == KING,"Pt must be a KING in Position::square().");
 		ASSERT_LV3(is_ok(c));
@@ -322,7 +321,7 @@ public:
 	Bitboard blockers_for_king(Color c) const { return st->blockersForKing[c]; }
 
 	// 現局面で駒Ptを動かしたときに王手となる升を表現するBitboard
-	Bitboard check_squares(Piece pt) const { ASSERT_LV3(pt!= NO_PIECE && pt < PIECE_WHITE); return st->checkSquares[pt]; }
+	Bitboard check_squares(PieceType pt) const { ASSERT_LV3(pt!= NO_PIECE_TYPE && pt < PIECE_TYPE_NB); return st->checkSquares[pt]; }
 
 	// --- 利き
 
@@ -535,7 +534,7 @@ public:
   // 1手詰めのみを判定する。(要するに判定に漏れがある。)
   // 
   // 返し値は、16bitのMove。このあとpseudo_legal()等を使いたいなら、
-  // pos.move16_to_move()を使って32bitのMoveに変換すること。
+  // pos.to_move()を使って32bitのMoveに変換すること。
 
 	Move mate1ply() const;
 
@@ -552,7 +551,7 @@ public:
   // Search::Limits.enteringKingRuleに基いて、宣言勝ちを行なう。
   // 条件を満たしているとき、MOVE_WINや、玉を移動する指し手(トライルール時)が返る。さもなくば、MOVE_NONEが返る。
   // mate1ply()から内部的に呼び出す。(そうするとついでに処理出来て良い)
-	// ※　トライルールのときに返ってくるのは16bitのmoveなので注意。
+	// 32bit Moveが返る。
 	Move DeclarationWin() const;
 
 	// -- sfen化ヘルパ
@@ -659,7 +658,7 @@ private:
 	// --- 盤面を更新するときにEvalListの更新のために必要なヘルパー関数
 
 	// c側の手駒ptの最後の1枚のBonaPiece番号を返す
-	Eval::BonaPiece bona_piece_of(Color c, Piece pt) const {
+	Eval::BonaPiece bona_piece_of(Color c, PieceType pt) const {
 		// c側の手駒ptの枚数
 		int ct = hand_count(hand[c], pt);
 		ASSERT_LV3(ct > 0);
@@ -667,7 +666,7 @@ private:
 	}
 
 	// c側の手駒ptの(最後の1枚の)PieceNumberを返す。
-	PieceNumber piece_no_of(Color c, Piece pt) const { return evalList.piece_no_of_hand(bona_piece_of(c, pt)); }
+	PieceNumber piece_no_of(Color c, PieceType pt) const { return evalList.piece_no_of_hand(bona_piece_of(c, pt)); }
 
 	// 盤上のsqの升にある駒のPieceNumberを返す。
 	PieceNumber piece_no_of(Square sq) const
@@ -677,8 +676,6 @@ private:
 		ASSERT_LV3(is_ok(n));
 		return n;
 	}
-#elif defined(USE_FV_VAR)
-
 #else
 	// 駒番号を使わないとき用のダミー
 	PieceNumber piece_no_of(Color c, Piece pt) const { return PIECE_NUMBER_ZERO; }

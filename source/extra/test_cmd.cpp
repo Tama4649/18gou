@@ -451,8 +451,8 @@ void test_hand()
 			for (int k = 0; k < 7; ++k)
 			{
 				int bit = (1 << k);
-				if (i & bit) add_hand(h1, (Piece)(k + 1), 1);
-				if (j & bit) add_hand(h2, (Piece)(k + 1), 1);
+				if (i & bit) add_hand(h1, (PieceType)(k + 1), 1);
+				if (j & bit) add_hand(h2, (PieceType)(k + 1), 1);
 			}
 
 			// h1のほうがh2より優れているか。
@@ -1048,7 +1048,7 @@ void book_check(Position& pos, Color rootTurn, Book::MemoryBook& book, string sf
 				continue;
 #endif
 
-			Move m = move_list[i].bestMove;
+			Move m = pos.to_move(move_list[i].bestMove);
 
 			pos.do_move(m, si);
 			book_check(pos, rootTurn, book, sfen + ' ' + to_usi_string(m), of);

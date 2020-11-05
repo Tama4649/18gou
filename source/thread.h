@@ -12,6 +12,11 @@
 #include "search.h"
 #include "thread_win32_osx.h"
 
+#if defined(EVAL_LEARN)
+// 学習用の実行ファイルでは、スレッドごとに置換表を持ちたい。
+#include "tt.h"
+#endif
+
 // --------------------
 // 探索時に用いるスレッド
 // --------------------
@@ -89,6 +94,10 @@ public:
 	// 探索開始局面
 	Position rootPos;
 
+	// rootでのStateInfo
+	// Position::set()で書き換えるのでスレッドごとに保持していないといけない。
+	StateInfo rootState;
+
 	// 探索開始局面で思考対象とする指し手の集合。
 	// goコマンドで渡されていなければ、全合法手(ただし歩の不成などは除く)とする。
 	Search::RootMoves rootMoves;
@@ -100,14 +109,17 @@ public:
 	//
 	Depth rootDepth, completedDepth;
 
-	// 近代的なMovePickerではオーダリングのために、スレッドごとにhistoryとcounter movesのtableを持たないといけない。
+	// 近代的なMovePickerではオーダリングのために、スレッドごとにhistoryとcounter movesなどのtableを持たないといけない。
 	CounterMoveHistory counterMoves;
+	LowPlyHistory lowPlyHistory;
 	ButterflyHistory mainHistory;
 	CapturePieceToHistory captureHistory;
 
 	// コア数が多いか、長い持ち時間においては、ContinuationHistoryもスレッドごとに確保したほうが良いらしい。
 	// cf. https://github.com/official-stockfish/Stockfish/commit/5c58d1f5cb4871595c07e6c2f6931780b5ac05b5
-	ContinuationHistory continuationHistory;
+	// 添字の[2][2]は、[inCheck(王手がかかっているか)][captureOrPawnPromotion]
+	// →　この改造、レーティングがほぼ上がっていない。悪い改造のような気がする。
+	ContinuationHistory continuationHistory[2][2];
 
 	// Stockfish10ではスレッドごとにcontemptを保持するように変わった。
 	//Score contempt;
@@ -120,6 +132,11 @@ public:
 	// スレッドごとにメモリ領域を割り当てたいときなどに必要となる。
 	// MainThreadなら0、slaveなら1,2,3,...
 	size_t thread_id() const { return idx; }
+
+#if defined(EVAL_LEARN)
+	// 学習用の実行ファイルでは、スレッドごとに置換表を持ちたい。
+	TranspositionTable tt;
+#endif
 
 };
   
@@ -192,6 +209,12 @@ struct ThreadPool: public std::vector<Thread*>
 
 	// 今回、goコマンド以降に探索したノード数
 	uint64_t nodes_searched() { return accumulate(&Thread::nodes); }
+
+	// 探索を開始する(main thread以外)
+	void start_searching();
+
+	// main threadがそれ以外の探索threadの終了を待つ。
+	void wait_for_search_finished() const;
 
 	// stop   : 探索中にこれがtrueになったら探索を即座に終了すること。
 	std::atomic_bool stop;

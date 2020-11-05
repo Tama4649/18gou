@@ -202,6 +202,7 @@
     <Import Project="props\JKishi18gouSolution-release-x64.props" />
     <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
     <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou-EvalLearn.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-GEN|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />

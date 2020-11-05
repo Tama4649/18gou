@@ -57,7 +57,7 @@ std::ostream& operator<<(std::ostream& os, Piece pc)
 
 std::ostream& operator<<(std::ostream& os, Hand hand)
 {
-	for (Piece pr = PAWN; pr < PIECE_HAND_NB; ++pr)
+	for (PieceType pr = PAWN; pr < PIECE_HAND_NB; ++pr)
 	{
 		int c = hand_count(hand, pr);
 		// 0枚ではないなら出力。
@@ -122,7 +122,7 @@ namespace Search {
 		Move m;
 		if (ttHit)
 		{
-			m = tte->move(); // SMP safeにするためlocal copy
+			m = pos.to_move(tte->move()); // SMP safeにするためlocal copy
 			if (MoveList<LEGAL_ALL>(pos).contains(m))
 				goto FOUND;
 		}

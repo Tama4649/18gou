@@ -50,10 +50,10 @@ namespace {
 	struct VMD
 	{
 		VMD() : value(-VALUE_INFINITE), move(MOVE_NONE), depth(0) {}
-		VMD(Value value_, Move move_, Depth depth_) : value(value_), move(move_), depth(depth_) {}
+		VMD(Value value_, Move16 move_, Depth depth_) : value(value_), move(move_), depth(depth_) {}
 
 		Value value; // 評価値
-		Move move;   // 候補手
+		Move16 move;  // 候補手
 		Depth depth; // これはleaf nodeまでの手数
 	};
 
@@ -66,10 +66,10 @@ namespace {
 		VMD_Pair() {}
 
 		// blackとwhiteとを同じ値で初期化する。
-		VMD_Pair(Value v, Move m, Depth d) : black(v, m, d), white(v, m, d) {}
+		VMD_Pair(Value v, Move16 m, Depth d) : black(v, m, d), white(v, m, d) {}
 
 		// black,whiteをそれぞれの値で初期化する。
-		VMD_Pair(Value black_v, Move black_m, Depth black_d, Value white_v, Move white_m, Depth white_d) :
+		VMD_Pair(Value black_v, Move16 black_m, Depth black_d, Value white_v, Move16 white_m, Depth white_d) :
 			black(black_v, black_m, black_d), white(white_v, white_m, white_d) {}
 		VMD_Pair(VMD black_, VMD white_) : black(black_), white(white_) {}
 		VMD_Pair(VMD best[COLOR_NB]) : black(best[BLACK]), white(best[WHITE]) {}
@@ -216,7 +216,7 @@ namespace {
 
 					// 例) 4手前の局面とkey()が同じなら4手前から循環して千日手が成立。すなわち、lastMovesの後ろから5つ目の指し手で千日手局面に突入しているので
 					// その次の指し手(4手前の指し手)が、ここの次の一手のはず…。
-					auto draw_move = lastMoves[lastMoves.size() - i];
+				Move16 draw_move = lastMoves[lastMoves.size() - i];
 					// この普通の千日手以外のケースでこれをやると非合法手になる可能性があって…。
 
 					//  contempt * Eval::PawnValue / 100 という処理はしない。
@@ -229,10 +229,10 @@ namespace {
 					);
 				}
 
-			case REPETITION_INFERIOR: return VMD_Pair(-VALUE_SUPERIOR  , MOVE_NONE, 0);
-			case REPETITION_SUPERIOR: return VMD_Pair(VALUE_SUPERIOR   , MOVE_NONE, 0);
-			case REPETITION_WIN     : return VMD_Pair(mate_in(MAX_PLY) , MOVE_NONE, 0);
-			case REPETITION_LOSE    : return VMD_Pair(mated_in(MAX_PLY), MOVE_NONE, 0);
+			case REPETITION_INFERIOR: return VMD_Pair(-VALUE_SUPERIOR  , MOVE_NONE , 0);
+			case REPETITION_SUPERIOR: return VMD_Pair( VALUE_SUPERIOR  , MOVE_NONE , 0);
+			case REPETITION_WIN     : return VMD_Pair(mate_in(MAX_PLY) , MOVE_NONE , 0);
+			case REPETITION_LOSE    : return VMD_Pair(mated_in(MAX_PLY), MOVE_NONE , 0);
 
 					// これ入れておかないとclangで警告が出る。
 				case REPETITION_NONE:
@@ -343,7 +343,7 @@ namespace {
 						// 子がなかった
 
 						// 定跡にこの指し手があったのであれば、それをコピーしてくる。なければこの指し手については何も処理しない。
-						auto it = std::find_if(it_read->begin(), it_read->end(), [m](const auto& x) { return x.bestMove == m; });
+					auto it = std::find_if(it_read->begin(), it_read->end(), [m](const auto& x) { return x.bestMove == m.move; });
 						if (it != it_read->end())
 						{
 						it->depth = 0; // depthはここがleafなので0扱い
@@ -365,7 +365,7 @@ namespace {
 
 						//ASSERT_LV3(nextMove != MOVE_NONE);
 
-						Book::BookPos bp(m, nextMove, value, depth, 1);
+					Book::BookPos bp(m.move , nextMove, value, depth, 1);
 						add_list(bp, color, update_list);
 					}
 				}
@@ -536,7 +536,9 @@ namespace {
 		{
 			// 定跡の指し手以外の指し手でも、次の局面で定跡にhitする指し手を探す必要がある。
 
-			auto it = std::find_if(it_read->begin(), it_read->end(), [m](const auto & x) { return x.bestMove == m; });
+			auto it = std::find_if(it_read->begin(), it_read->end(), [m](const auto & x)
+				{ return x.bestMove == m.move; });
+
 			// 定跡にhitしたのか
 			bool book_hit = it != it_read->end();
 

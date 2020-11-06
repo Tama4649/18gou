@@ -78,7 +78,11 @@ public:
 	// pvIdx    : このスレッドでMultiPVを用いているとして、rootMovesの(0から数えて)何番目のPVの指し手を
 	//      探索中であるか。MultiPVでないときはこの変数の値は0。
 	// pvLast   : tbRank絡み。将棋では関係ないので用いない。
-	size_t pvIdx /*,pvLast*/ /* ,shuffleExts */;
+	size_t pvIdx /*,pvLast*/;
+
+	// 置換表に平均的にどれくらいhitしているかという統計情報
+	// これに基づき、枝刈りを調整する。
+	uint64_t ttHitAverage;
 
 	// selDepth  : rootから最大、何手目まで探索したか(選択深さの最大)
 	// nmpMinPly : null moveの前回の適用ply
@@ -158,7 +162,11 @@ struct MainThread: public Thread
 
 	// 前回の探索時のスコア。
 	// 次回の探索のときに何らか使えるかも。
-	Value previousScore;
+	Value bestPreviousScore;
+
+	// 時間まぎわのときに探索を終了させるかの判定に用いるための、
+	// 反復深化のiteration、前4回分のScore
+	Value iterValue[4];
 
 	// check_time()で用いるカウンター。
 	// デクリメントしていきこれが0になるごとに思考をストップするのか判定する。
@@ -209,6 +217,9 @@ struct ThreadPool: public std::vector<Thread*>
 
 	// 今回、goコマンド以降に探索したノード数
 	uint64_t nodes_searched() { return accumulate(&Thread::nodes); }
+
+	// 探索終了時に、一番良い探索ができていたスレッドを選ぶ。
+	Thread* get_best_thread() const;
 
 	// 探索を開始する(main thread以外)
 	void start_searching();

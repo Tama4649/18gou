@@ -1,0 +1,71 @@
+# for Linux environment
+name: Make CI (for Ubuntu Linux)
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    # ubuntu-latest = ubuntu-18.04
+    # https://docs.github.com/ja/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        edition:
+          - YANEURAOU_ENGINE_NNUE
+          - YANEURAOU_ENGINE_NNUE_HALFKPE9
+          - YANEURAOU_ENGINE_NNUE_KP256
+          - YANEURAOU_ENGINE_KPPT
+          - YANEURAOU_ENGINE_KPP_KKPT
+          - YANEURAOU_ENGINE_MATERIAL
+          - MATE_ENGINE
+          - USER_ENGINE
+        compiler: [ clang++-10, g++-8 ]
+        target: [ 'normal,tournament', 'evallearn' ]
+        archcpu: [ 'AVX2,SSE42,SSE41,SSSE3,SSE2,OTHER,ZEN1', 'ZEN2', 'ZEN3,AVX512VNNI,AVX512,AVXVNNI', 'NO_SSE' ]
+        exclude:
+          # 以下のエディションには機械学習の実装が存在しない
+          # There is no machine learning implementation for the following editions
+          - edition: YANEURAOU_ENGINE_MATERIAL
+            target: evallearn
+          - edition: MATE_ENGINE
+            target: evallearn
+          - edition: USER_ENGINE
+            target: evallearn
+          # Ubuntu-18.04 g++-8 は archcpu ZEN3,ZEN2,AVX512VNNI,AVXVNNI のサポートを行わない
+          # ubuntu-18.04 g++-8 will not support the archcpu ZEN3,ZEN2,AVX512VNNI,AVXVNNI
+          # AVX512VNNI, AVX512, AVXVNNI: NNUE is not yet a code that uses VNNI
+          # `-march=cascadelake`: LLVM8, GCC9 support (AVX512VNNI)
+          # `-march=alderlake` : LLVM12, GCC11 support (AVX-VNNI)
+          # `-march=znver3`: LLVM12 support
+          - compiler: g++-8
+            archcpu: ZEN2
+          - archcpu: 'ZEN3,AVX512VNNI,AVX512,AVXVNNI'
+          # Linux 32bit archcpu 向けのビルドは通常はしない
+          # don't usually build for Linux 32bit archcpu
+          - archcpu: NO_SSE
+
+    steps:
+    - name: Checkout own repository
+      uses: actions/checkout@v2
+      with:
+        path: main
+
+    - name: install openblas
+      run: |
+        sudo apt update
+        sudo apt install build-essential clang-10 g++-8 libopenblas-dev libomp-dev libomp5
+
+    - name: make
+      run: ./main/script/build.sh -e ${{ matrix.edition }} -c ${{ matrix.compiler }} -t ${{ matrix.target }} -a ${{ matrix.archcpu }}
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: build-linux
+        path: ./main/build/**/**/*

@@ -8,7 +8,7 @@
 
 // 思考エンジンのバージョンとしてUSIプロトコルの"usi"コマンドに応答するときの文字列。
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
-#define ENGINE_VERSION "5.31"
+#define ENGINE_VERSION "5.32"
 
 // --------------------
 //  思考エンジンの種類
@@ -550,28 +550,32 @@ constexpr bool Is64Bit = true;
 constexpr bool Is64Bit = false;
 #endif
 
-#if defined(USE_BMI2)
-#define BMI2_STR "BMI2"
-#else
-#define BMI2_STR ""
-#endif
+// TARGET_CPU、Makefileのほうで"ZEN2"のようにダブルコーテーション有りの文字列として定義されているはずだが、
+// それが定義されていないならここでUSE_XXXオプションから推定する。
+#if !defined(TARGET_CPU)
+	#if defined(USE_BMI2)
+	#define BMI2_STR "BMI2"
+	#else
+	#define BMI2_STR ""
+	#endif
 
-#if defined(USE_AVX512VNNI)
-#define TARGET_CPU "AVX512VNNI" BMI2_STR
-#elif defined(USE_AVX512)
-#define TARGET_CPU "AVX512" BMI2_STR
-#elif defined(USE_AVX2)
-#define TARGET_CPU "AVX2" BMI2_STR
-#elif defined(USE_SSE42)
-#define TARGET_CPU "SSE4.2"
-#elif defined(USE_SSE41)
-#define TARGET_CPU "SSE4.1"
-#elif defined(USE_SSSE3)
-#define TARGET_CPU "SSSE3"
-#elif defined(USE_SSE2)
-#define TARGET_CPU "SSE2"
-#else
-#define TARGET_CPU "noSSE"
+	#if defined(USE_AVX512VNNI)
+	#define TARGET_CPU "AVX512VNNI" BMI2_STR
+	#elif defined(USE_AVX512)
+	#define TARGET_CPU "AVX512" BMI2_STR
+	#elif defined(USE_AVX2)
+	#define TARGET_CPU "AVX2" BMI2_STR
+	#elif defined(USE_SSE42)
+	#define TARGET_CPU "SSE4.2"
+	#elif defined(USE_SSE41)
+	#define TARGET_CPU "SSE4.1"
+	#elif defined(USE_SSSE3)
+	#define TARGET_CPU "SSSE3"
+	#elif defined(USE_SSE2)
+	#define TARGET_CPU "SSE2"
+	#else
+	#define TARGET_CPU "noSSE"
+	#endif
 #endif
 
 // 上位のCPUをターゲットとするなら、その下位CPUの命令はすべて使えるはずなので…。

@@ -65,25 +65,22 @@ class FeatureTransformer {
     return !stream.fail();
   }
 
-  // 可能なら差分計算を進める
-  bool UpdateAccumulatorIfPossible(const Position& pos) const {
+  // 累積値を計算する
+  void ComputeAccumulator(const Position& pos) const {
     const auto now = pos.state();
     if (now->accumulator.computed_accumulation) {
-      return true;
+      return;
     }
     const auto prev = now->previous;
     if (prev && prev->accumulator.computed_accumulation) {
       UpdateAccumulator(pos);
-      return true;
+      return;
     }
-    return false;
+    RefreshAccumulator(pos);
   }
 
   // 入力特徴量を変換する
-  void Transform(const Position& pos, OutputType* output, bool refresh) const {
-    if (refresh || !UpdateAccumulatorIfPossible(pos)) {
-      RefreshAccumulator(pos);
-    }
+  void Transform(const Position& pos, OutputType* output) const {
     const auto& accumulation = pos.state()->accumulator.accumulation;
 #if defined(USE_AVX2)
     constexpr IndexType kNumChunks = kHalfDimensions / kSimdWidth;

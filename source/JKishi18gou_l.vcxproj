@@ -57,7 +57,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{28C8605A-4E8E-4F59-99B5-96F545BC7D5E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>JKishi18gou</RootNamespace>
+    <RootNamespace>JKishi18gou_l</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -156,95 +156,95 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-mate.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-debug-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-user.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPPT.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-KPPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPP_KKPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPP_KKPT.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-KPP_KKPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-LEARN|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
-    <Import Project="props\JKishi18gou-EvalLearn.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_l-EvalLearn.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-GEN|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_lEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-SSE42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_lEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-mate.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-mate-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-mate.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-sse42.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-user.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
+    <Import Project="props\JKishi18gou_l-common.props" />
+    <Import Project="props\JKishi18gou_lSolution-release-x64.props" />
+    <Import Project="props\JKishi18gou_lEdition-user.props" />
+    <Import Project="props\JKishi18gou_lCpu-x64-sse42.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-mate|x64'">

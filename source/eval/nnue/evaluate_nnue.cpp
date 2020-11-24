@@ -123,21 +123,18 @@ namespace Eval {
   return !stream.fail();
         }
 
-        // 差分計算ができるなら進める
-        static void UpdateAccumulatorIfPossible(const Position& pos) {
-  feature_transformer->UpdateAccumulatorIfPossible(pos);
+        // 累積値を計算する
+        static void ComputeAccumulator(const Position& pos) {
+  feature_transformer->ComputeAccumulator(pos);
         }
 
         // 評価値を計算する
-        static Value ComputeScore(const Position& pos, bool refresh = false) {
+        static Value ComputeScore(const Position& pos) {
   auto& accumulator = pos.state()->accumulator;
-  if (!refresh && accumulator.computed_score) {
-    return accumulator.score;
-  }
-
+  feature_transformer->ComputeAccumulator(pos);
   alignas(kCacheLineSize) TransformedFeatureType
       transformed_features[FeatureTransformer::kBufferSize];
-  feature_transformer->Transform(pos, transformed_features, refresh);
+  feature_transformer->Transform(pos, transformed_features);
   alignas(kCacheLineSize) char buffer[Network::kBufferSize];
   const auto output = network->Propagate(transformed_features, buffer);
 
@@ -239,7 +236,7 @@ namespace Eval {
     std::ifstream stream(file_name, std::ios::binary);
     const bool result = NNUE::ReadParameters(stream);
 
-	//sync_cout << "info string loading eval file : " << file_name << sync_endl;
+	sync_cout << "info string loading eval file : " << file_name << sync_endl;
 
             //      ASSERT(result);
 
@@ -261,12 +258,12 @@ namespace Eval {
     // 手番側から見た評価値を返すので注意。(他の評価関数とは設計がこの点において異なる)
     // なので、この関数の最適化は頑張らない。
     Value compute_eval(const Position& pos) {
-  return NNUE::ComputeScore(pos, true);
+  return NNUE::ComputeScore(pos);
     }
 
     // 評価関数
     Value evaluate(const Position& pos) {
-  const auto& accumulator = pos.state()->accumulator;
+  auto& accumulator = pos.state()->accumulator;
   if (accumulator.computed_score) {
     return accumulator.score;
   }
@@ -287,7 +284,9 @@ namespace Eval {
   entry.decode();
   if (entry.key == key) {
     // あった！
-    return Value(entry.score);
+    accumulator.score = Value(entry.score);
+    accumulator.computed_score = true;
+    return accumulator.score;
   }
 #endif
 
@@ -303,9 +302,9 @@ namespace Eval {
   return score;
     }
 
-    // 差分計算ができるなら進める
+    // 累積値を計算する
     void evaluate_with_no_return(const Position& pos) {
-  NNUE::UpdateAccumulatorIfPossible(pos);
+  NNUE::ComputeAccumulator(pos);
     }
 
     // 現在の局面の評価値の内訳を表示する

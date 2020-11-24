@@ -286,13 +286,12 @@ constexpr int MAX_PLY_NUM = 246;
 
 #if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE) || defined(YANEURAOU_ENGINE_MATERIAL)
 
-#define ENGINE_NAME "JKishi18gou"
+#define ENGINE_NAME "JKishi18gou_l"
 
 // 探索部は通常のやねうら王エンジンを用いる。
 #define YANEURAOU_ENGINE
 
-// EvalHashを用いるのは3駒型のみ。それ以外は差分計算用の状態が大きすぎてhitしたところでどうしようもない。
-#if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT)
+#if defined(YANEURAOU_ENGINE_KPPT) || defined(YANEURAOU_ENGINE_KPP_KKPT) || defined(YANEURAOU_ENGINE_NNUE)
 #define USE_EVAL_HASH
 #endif
 
@@ -373,7 +372,7 @@ constexpr int MAX_PLY_NUM = 246;
 // --- 詰将棋エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(MATE_ENGINE)
-#define ENGINE_NAME "JKishi18gou mate solver"
+#define ENGINE_NAME "JKishi18gou_l mate solver"
 #define KEEP_LAST_MOVE
 #undef  MAX_PLY_NUM
 #define MAX_PLY_NUM 2000
@@ -388,7 +387,7 @@ constexpr int MAX_PLY_NUM = 246;
 // --- ユーザーの自作エンジンとして実行ファイルを公開するとき用の設定集
 
 #if defined(USER_ENGINE)
-#define ENGINE_NAME "JKishi18gou user engine"
+#define ENGINE_NAME "JKishi18gou_l user engine"
 #define USE_SEE
 #define EVAL_MATERIAL
 #endif

@@ -129,10 +129,10 @@ endif
 ifeq ($(OS),Windows_NT)
 	CPPFLAGS += $(WCPPFLAGS)
 	LDFLAGS += -static -Wl,--stack,25000000
-	TARGET = JKishi18gou.exe
+	TARGET = JK18_l.exe
 else
 	CPPFLAGS += -D_LINUX
-	TARGET = JKishi18gou
+	TARGET = JK18_l
 endif
 
 # リンク時最適化。

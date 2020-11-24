@@ -1584,8 +1584,13 @@ namespace {
 
 		CapturePieceToHistory& captureHistory = thisThread->captureHistory;
 
+#if defined(EVAL_NNUE)
+		// UpdateAccumulator
+		evaluate_with_no_return(pos);
+#else
 		// どうせ差分計算のためにevaluate()は呼び出す必要がある。
 		ss->staticEval = eval = evaluate(pos);
+#endif
 
 		if (ss->inCheck)
 		{
@@ -1598,7 +1603,9 @@ namespace {
 		}
 		else if (ss->ttHit)
 		{
-
+#if defined(EVAL_NNUE)
+			ss->staticEval = eval = evaluate(pos);
+#endif
 			//		ss->staticEval = eval = tte->eval();
 			//		if (eval == VALUE_NONE)
 			//			  ss->staticEval = eval = evaluate(pos);
@@ -1633,8 +1640,12 @@ namespace {
 
 			// 【計測資料 28.】moves_loopに入る前、1手前がnull moveのときにstaticEvalにbonusを足すかどうか
 
-			int bonus = -(ss - 1)->statScore / 512;
+			const int bonus = -(ss - 1)->statScore / 512;
+#if defined(EVAL_NNUE)
+			ss->staticEval = eval = evaluate(pos) + bonus;
+#else
 			ss->staticEval = eval = eval /* == evaluate(pos) */ + bonus;
+#endif
 
 			// 評価関数を呼び出したので置換表のエントリーはなかったことだし、何はともあれそれを保存しておく。
 			// ※　bonus分だけ加算されているが静止探索の値ということで…。

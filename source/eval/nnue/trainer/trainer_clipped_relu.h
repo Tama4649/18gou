@@ -107,20 +107,14 @@ private:
         std::begin(min_activations_), std::end(min_activations_));
     const auto smallest_max_activation = *std::min_element(
         std::begin(max_activations_), std::end(max_activations_));
-<<<<<<< HEAD
-//  std::cout << "INFO: largest min activation = " << largest_min_activation
-//            << ", smallest max activation = " << smallest_max_activation
-//            << std::endl;
-=======
 
 		// largest_min_activationが1.0だと常に1.0しか出力していないわけで、いても仕方ないニューロン
 		// largest_max_activationが0.0だと常に0しか出力していないわけで、これもいても仕方ないニューロン
 		// こいつらは、何らかの方法でresetすべきだと思う。
 
-    std::cout << "INFO: largest min activation = " << largest_min_activation
-              << ", smallest max activation = " << smallest_max_activation
-              << std::endl;
->>>>>>> refs/remotes/origin/master
+//		std::cout << "INFO: largest min activation = " << largest_min_activation
+//			<< ", smallest max activation = " << smallest_max_activation
+//			<< std::endl;
 
 		// このタイミングでresetする。Propagate()で記録していく。
 		reset_minmax_activations();

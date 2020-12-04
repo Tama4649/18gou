@@ -1,25 +1,25 @@
-﻿#include "../../config.h"
+﻿#include "../config.h"
 #include "book.h"
-#include "../../position.h"
-#include "../../misc.h"
-#include "../../search.h"
-#include "../../thread.h"
-#include "../../learn/multi_think.h"
-#include "../../tt.h"
+#include "../position.h"
+#include "../misc.h"
+#include "../search.h"
+#include "../thread.h"
+#include "../learn/multi_think.h"
+#include "../tt.h"
 #include "apery_book.h"
 
-#include <sstream>
 #include <unordered_set>
 #include <iomanip>		// std::setprecision()
+#include <numeric>      // std::accumulate()
 
 using namespace std;
 using std::cout;
 
 namespace Book
 {
-	std::ostream& operator<<(std::ostream& os, BookPos c)
+	std::ostream& operator<<(std::ostream& os, BookMove c)
 	{
-		os << "bestMove " << c.bestMove << " , nextMove " << c.nextMove << " , value " << c.value << " , depth " << c.depth;
+		os << "move " << c.move << " , ponder " << c.ponder << " , value " << c.value << " , depth " << c.depth;
 		return os;
 	}
 
@@ -46,667 +46,148 @@ namespace Book
 		return Move16(m);
 	};
 
-#if defined (ENABLE_MAKEBOOK_CMD)
-	// ----------------------------------
-	// USI拡張コマンド "makebook"(定跡作成)
-	// ----------------------------------
-
-	// 局面を与えて、その局面で思考させるために、やねうら王2018が必要。
-#if defined(EVAL_LEARN) && defined(YANEURAOU_ENGINE)
-
-	struct MultiThinkBook : public MultiThink
+	// BookMoveを一つ追加する。
+	// 動作はinsert()とほぼ同じだが、この局面に同じ指し手は存在しないことがわかっている時に用いる。
+	// こちらのほうが、同一の指し手が含まれるかのチェックをしない分だけ高速。
+	void BookMoves::push_back(const BookMove& book_move)
 	{
-		MultiThinkBook(MemoryBook & book_ , int search_depth_, u64 nodes_ = 0)
-			: search_depth(search_depth_), book(book_), appended(false) , search_nodes(nodes_) {}
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-		virtual void thread_worker(size_t thread_id);
-
-		// 定跡を作るために思考する局面
-		vector<string> sfens;
-
-		// 定跡を作るときの通常探索の探索深さと探索ノード数
-		int search_depth;
-		u64 search_nodes;
-
-		// メモリ上の定跡ファイル(ここに追加していく)
-		MemoryBook& book;
-
-		// 前回から新たな指し手が追加されたかどうかのフラグ。
-		bool appended;
-	};
-
-	//  thread_id    = 0..Threads.size()-1
-	//  search_depth = 通常探索の探索深さ
-	void MultiThinkBook::thread_worker(size_t thread_id)
-	{
-		// g_loop_maxになるまで繰り返し
-		u64 id;
-		size_t multi_pv = (size_t)Options["MultiPV"];
-
-		while ((id = get_next_loop_count()) != UINT64_MAX)
-		{
-			auto sfen = sfens[id];
-
-			auto th = Threads[thread_id];
-			auto& pos = th->rootPos;
-			StateInfo si;
-			pos.set(sfen,&si,th);
-
-			if (pos.is_mated())
-				continue;
-
-			// depth手読みの評価値とPV(最善応手列)を取得。
-			// 内部的にはLearner::search()を呼び出す。
-			// Learner::search()は、現在のOptions["MultiPV"]の値に従い、MultiPVで思考することが保証されている。
-			Learner::search(pos, search_depth , multi_pv , search_nodes);
-
-			// MultiPVで局面を足す、的な
-			size_t m = std::min(multi_pv, th->rootMoves.size());
-
-			PosMoveListPtr move_list(new PosMoveList());
-
-			for (size_t i = 0; i < m ; ++i)
-			{
-				const auto& rootMoves = th->rootMoves[i];
-				Move nextMove = (rootMoves.pv.size() >= 1) ? rootMoves.pv[1] : MOVE_NONE;
-
-				// 出現頻度は、バージョンナンバーを100倍したものにしておく)
-				BookPos bp(rootMoves.pv[0], nextMove , rootMoves.score
-					, search_depth, int(atof(ENGINE_VERSION) * 100));
-
-				// MultiPVで思考しているので、手番側から見て評価値の良い順に並んでいることは保証される。
-				// (書き出しのときに並び替えなければ)
-				move_list->push_back(bp);
-			}
-
-			{
-				std::unique_lock<std::mutex> lk(io_mutex);
-				// 前のエントリーは上書きされる。
-				book.append(sfen,move_list);
-
-				// 新たなエントリーを追加したのでフラグを立てておく。
-				appended = true;
-			}
-
-			// 1局面思考するごとに'.'をひとつ出力する。
-			//cout << '.' << flush;
-
-#if 1
-			// 思考、極めて遅いのでログにタイムスタンプを出力して残しておいたほうが良いのでは…。
-			// id番号(連番)とthread idと現在の時刻を出力する。
-			sync_cout << "[" << get_done_count() << "/" << get_loop_max() << ":" << thread_id << "] "
-				      << Tools::now_string() << " : " << sfen << sync_endl;
-#endif
-		}
+		moves.push_back(book_move);
+		sorted = false; // sort関係が崩れたのでフラグをfalseに戻しておく。
 	}
-#endif
 
-	// 定跡生成コマンド2019年度版。makebook2019.cppで定義されている。
-	int makebook2019(Position& pos, istringstream& is, const string& token);
-
-	// フォーマット等についてはdoc/解説.txt を見ること。
-	void makebook_cmd(Position& pos, istringstream& is)
+	// ある指し手と同じBookMoveのエントリーを探して、あればそのiteratorを返す。
+	// thread safeにするためにコピーして返す。
+	std::shared_ptr<BookMove> BookMoves::find_move(const Move16 m16) const
 	{
-		string token;
-		is >> token;
+		std::lock_guard<std::recursive_mutex> lock(const_cast<BookMoves*>(this)->mutex_);
 
-		// sfenから生成する
-		bool from_sfen = token == "from_sfen";
-		// 自ら思考して生成する
-		bool from_thinking = token == "think";
-		// 定跡のマージ
-		bool book_merge = token == "merge";
-		// 定跡のsort
-		bool book_sort = token == "sort";
-		// 定跡の変換
-		bool convert_from_apery = token == "convert_from_apery";
+		auto it = std::find_if(moves.begin(), moves.end(), [m16](const BookMove& book_move) { return book_move.move == m16; });
+		return shared_ptr<BookMove>(it == moves.end() ? nullptr : new BookMove(*it));
+	}
+
+	// 指し手を出現回数、評価値順に並び替える。
+	// ※　より正確に言うなら、BookMoveのoperator <()で定義されている順。
+	// すでに並び替わっているなら、何もしない。
+	void BookMoves::sort_moves()
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+		// すでに並び替わっているなら何もしない。
+		if (sorted)
+			return ;
+
+		std::stable_sort(moves.begin(), moves.end());
+
+		// 並び替えたのでtrueにしておく。
+		sorted = true;
+	}
+
+	// 定跡フォーマットの、ある局面の指し手を書いてある一行を引数lineに渡して、
+	// BookMoveのオブジェクトを構築するbuilder。
+	BookMove BookMove::from_string(std::string line)
+	{
+		Move16 move, ponder;
+
+		string move_str, ponder_str;
+		int value = 0;
+		int depth = 0;
+		u64 num = 1, win = 0, lose = 0;
+
+		//istringstream is(line);
+		// value以降は、元データに欠落してるかもですよ。
+		//is >> bestMove >> nextMove >> value >> depth >> num;
+
+		// → istringstream、げろげろ遅いので、自前でparseする。
+
+		LineScanner scanner(line);
+		move_str   = scanner.get_text();
+		ponder_str = scanner.get_text();
+
+		// ここ以降、optional。
 		
-		// 評価関数を読み込まないとPositionのset()が出来ないのでis_ready()の呼び出しが必要。
-		// ただし、このときに定跡ファイルを読み込まれると読み込みに時間がかかって嫌なので一時的にno_bookに変更しておく。
-		auto original_book_file = Options["BookFile"];
-		Options["BookFile"] = string("no_book");
+		value = (int)scanner.get_number(value);
+		depth = (int)scanner.get_number(depth);
+		num   = (u64)scanner.get_number(num);
+		win   = (u64)scanner.get_number(win);
+		lose  = (u64)scanner.get_number(lose);
 
-		// IgnoreBookPlyオプションがtrue(デフォルトでtrue)のときは、定跡書き出し時にply(手数)のところを無視(0)にしてしまうので、
-		// これで書き出されるとちょっと嫌なので一時的にfalseにしておく。
-		auto original_ignore_book_ply = (bool)Options["IgnoreBookPly"];
-		Options["IgnoreBookPly"] = false;
+		// 起動時なので変換に要するオーバーヘッドは最小化したいので合法かのチェックはしない。
 
-		SCOPE_EXIT(Options["BookFile"] = original_book_file; Options["IgnoreBookPly"] = original_ignore_book_ply; );
+		move = (move_str == "none" || move_str == "resign") ? MOVE_NONE : USI::to_move16(move_str);
+		ponder = (ponder_str == "none" || ponder_str == "resign") ? MOVE_NONE : USI::to_move16(ponder_str);
 
-		// ↑ SCOPE_EXIT()により、この関数を抜けるときには復旧する。
+		return BookMove(move,ponder,value,depth,num,win,lose);
+	}
 
-		is_ready();
+	void BookMoves::insert(const BookMove& bp, bool overwrite)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-#if !(defined(EVAL_LEARN) && defined(YANEURAOU_ENGINE))
-		if (from_thinking)
-		{
-			cout << "Error!:define EVAL_LEARN and YANEURAOU_ENGINE" << endl;
-			return;
-		}
-#endif
-
-		// 2019年以降に作ったmakebook拡張コマンド
-		if (makebook2019(pos, is, token))
-			return;
-
-		if (from_sfen || from_thinking)
-		{
-			// sfenファイル名
-			is >> token;
-
-			// 読み込むべきファイル名
-			string sfen_file_name[COLOR_NB];
-
-			// ここに "bw"(black and whiteの意味)と指定がある場合、
-			// 先手局面用と後手局面用とのsfenファイルが異なるという意味。
-			// つまり、このあとsfenファイル名の指定が2つ来ることを想定している。
-
-			// 先後両方のsfenファイルを指定されているときはこのフラグをtrueに設定しておく。
-			bool bw_files;
-			if (token == "bw")
+		// すでに格納されているかも知れないので同じ指し手がないかをチェックして、なければ追加
+		for (auto& b : moves)
+			if (b == bp)
 			{
-				is >> sfen_file_name[BLACK];
-				is >> sfen_file_name[WHITE];
-				bw_files = true;
-			}
-			else {
-				/*BLACKとWHITEと共通*/
-				sfen_file_name[0] = token;
-				bw_files = false;
-			}
-
-			// 定跡ファイル名
-			// Option["BookFile"]ではなく、ここで指定したものが処理対象である。
-			string book_name;
-			is >> book_name;
-
-			// 開始手数、終了手数、探索深さ、node数の指定
-			int start_moves = 1;
-			int moves = 16;
-			int depth = 24;
-			u64 nodes = 0;
-
-			// 分散生成用。
-			// 2/7なら、7個に分けて分散生成するときの2台目のPCの意味。
-			// cluster 2 7
-			// のように指定する。
-			// 1/1なら、分散させない。
-			// cluster 1 1
-			// のように指定する。
-			int cluster_id = 1;
-			int cluster_num = 1;
-
-			while (true)
-			{
-				token = "";
-				is >> token;
-				if (token == "")
-					break;
-				if (token == "moves")
-					is >> moves;
-				else if (token == "depth")
-					is >> depth;
-				else if (token == "nodes")
-					is >> nodes;
-				else if (from_thinking && token == "startmoves")
-					is >> start_moves;
-				else if (from_thinking && token == "cluster")
-					is >> cluster_id >> cluster_num;
-				else
+				// 上書きモードなのか？
+				if (overwrite)
 				{
-					cout << "Error! : Illigal token = " << token << endl;
-					return;
+					// すでに存在していたのでエントリーを置換。ただし採択回数は合算する。
+					auto num = b.num;
+					auto win = b.win;
+					auto lose = b.lose;
+					b = bp;
+					b.num += num;
+					b.win += win;
+					b.lose += lose;
+
+					sorted = false; // sort関係が崩れたのでフラグをfalseに戻しておく。
 				}
-			}
-
-			// 処理対象ファイル名の出力
-			cout << "makebook think.." << endl;
-
-			if (bw_files)
-			{
-				// 先後、個別の定跡ファイルを用いる場合
-			cout << "sfen_file_name[BLACK] = " << sfen_file_name[BLACK] << endl;
-			cout << "sfen_file_name[WHITE] = " << sfen_file_name[WHITE] << endl;
-			}
-			else {
-				// 先後、同一の定跡ファイルを用いる場合
-				cout << "sfen_file_name        = " << sfen_file_name[BLACK] << endl;
-			}
-
-			cout << "book_name             = " << book_name << endl;
-
-			if (from_sfen)
-				cout << "read sfen moves " << moves << endl;
-			if (from_thinking)
-				cout << "read sfen moves from " << start_moves << " to " << moves
-				<< " , depth = " << depth
-				<< " , nodes = " << nodes
-				<< " , cluster = " << cluster_id << "/" << cluster_num << endl;
-
-			// 解析対象とするsfen集合。
-			// 読み込むべきsfenファイル名が2つ指定されている時は、
-			// 先手用と後手用の局面で個別のsfenファイルが指定されているということ。
-
-			// Colorは、例えばBLACKが指定されていれば、ここで与えられるsfenの一連の局面は
-			// 先手番のときのみ処理対象とする。
-			typedef pair<string, Color> SfenAndColor;
-			vector<SfenAndColor> sfens;
-
-			if (! bw_files)
-			{
-				vector<string> tmp_sfens;
-				FileOperator::ReadAllLines(sfen_file_name[0], tmp_sfens);
-
-				// こちらは先後、どちらの手番でも解析対象とするのでCOLOR_NBを指定しておく。
-				for (auto& sfen : tmp_sfens)
-					sfens.push_back(SfenAndColor(sfen, COLOR_NB));
-			}
-			else
-			{
-				// sfenファイルを2つとも読み込み、手番を指定しておく。
-				for (auto c : COLOR)
-				{
-					auto& filename = sfen_file_name[c];
-
-					// ファイル名として"no_file"が指定されていれば、先手用 or 後手用のsfenはファイルは
-					// 読み込まないという指定になる。
-					if (filename == "no_file")
-						continue;
-
-					vector<string> tmp_sfens;
-					FileOperator::ReadAllLines(filename, tmp_sfens);
-					for (auto& sfen : tmp_sfens)
-						sfens.push_back(SfenAndColor(sfen, c));
-				}
-			}
-
-			cout << "..done" << endl;
-
-			MemoryBook book;
-
-			if (from_thinking)
-			{
-				cout << "read book.." << endl;
-				// 初回はファイルがないので読み込みに失敗するが無視して続行。
-				if (book.read_book(book_name).is_not_ok())
-				{
-					cout << "..failed but , create new file." << endl;
-				}
-				else
-					cout << "..done" << endl;
-			}
-
-			cout << "parse..";
-
-			// 思考すべき局面のsfen
-			unordered_set<string> thinking_sfens;
-
-			// 各行の局面をparseして読み込む(このときに重複除去も行なう)
-			for (size_t k = 0; k < sfens.size(); ++k)
-			{
-				// sfenを取り出す(普通のsfen文字列とは限らない。"startpos"から書かれているかも)
-				auto sfen = sfens[k].first;
-
-				// ここで指定されている手番の局面しか処理対象とはしない。
-				// ただしCOLOR_NBが指定されているときは、「希望する手番はない」の意味。
-				auto color = sfens[k].second;
-
-				if (sfen.length() == 0)
-					continue;
-
-				// issから次のtokenを取得する
-				auto feed_next = [](istringstream& iss)
-				{
-					string token = "";
-					iss >> token;
-					return token;
-				};
-
-				// "sfen"に後続するsfen文字列をissからfeedする
-				auto feed_sfen = [&feed_next](istringstream& iss)
-				{
-					stringstream sfen;
-
-					// ループではないが条件外であるときにbreakでreturnのところに行くためのhack
-					while(true)
-					{
-						string token;
-
-						// 盤面を表すsfen文字列
-						sfen << feed_next(iss);
-
-						// 手番
-						token = feed_next(iss);
-						if (token != "w" && token != "b")
-							break;
-						sfen << " " << token;
-
-						// 手駒
-						sfen << " " << feed_next(iss);
-
-						// 初期局面からの手数
-						sfen <<  " " << feed_next(iss);
-
-						break;
-					}
-					return sfen.str();
-				};
-
-				StateInfo state;
-
-				bool hirate = true;
-				istringstream iss(sfen);
-				do {
-					token = feed_next(iss);
-					if (token == "sfen")
-					{
-						// 駒落ちなどではsfen xxx movesとなるのでこれをfeedしなければならない。
-						auto sfen = feed_sfen(iss);
-						pos.set(sfen,&state,Threads.main());
-						hirate = false;
-					}
-				} while (token == "startpos" || token == "moves" || token == "sfen");
-
-				if (hirate)
-					pos.set_hirate(&state,Threads.main());
-
-				vector<Move> m;				// 初手から(moves+1)手までの指し手格納用
-
-				// is_validは、この局面を処理対象とするかどうかのフラグ
-				// 処理対象としない局面でもとりあえずsfにpush_back()はしていく。(indexの番号が狂うため)
-				typedef pair<string, bool /*is_valid*/> SfenAndBool;
-				vector<SfenAndBool> sf;		// 初手から(moves+0)手までのsfen文字列格納用
-
-				// これより長い棋譜、食わせない＆思考対象としないやろ
-				std::vector<StateInfo> states(1024);
-
-				// 変数sfに解析対象局面としてpush_backする。
-				// ただし、
-				// 1) color == COLOR_NB (希望する手番なし)のとき
-				// 2) この局面の手番が、希望する手番の局面のとき
-				// に限る。
-				auto append_to_sf = [&sf,&pos,&color]()
-				{
-					sf.push_back(SfenAndBool(pos.sfen(),
-						/* is_valid = */ color == COLOR_NB || color == pos.side_to_move()));
-				};
-
-				// sfenから直接生成するときはponderのためにmoves + 1の局面まで調べる必要がある。
-				for (int i = 0; i < moves + (from_sfen ? 1 : 0); ++i)
-				{
-					// 初回は、↑でfeedしたtokenが入っているはず。
-					if (i != 0)
-					{
-						token = "";
-						iss >> token;
-					}
-					if (token == "")
-					{
-						// この局面、未知の局面なのでpushしないといけないのでは..
-						if (!from_sfen)
-							append_to_sf();
-						break;
-					}
-
-					Move move = USI::to_move(pos, token);
-					// illigal moveであるとMOVE_NONEが返る。
-					if (move == MOVE_NONE)
-					{
-						cout << "illegal move : line = " << (k + 1) << " , " << sfen << " , move = " << token << endl;
-						break;
-					}
-
-					// MOVE_WIN,MOVE_RESIGNでは局面を進められないのでここで終了。
-					if (!is_ok(move))
-						break;
-
-					append_to_sf();
-					m.push_back(move);
-
-					pos.do_move(move, states[i]);
-				}
-
-				for (int i = 0; i < (int)sf.size() - (from_sfen ? 1 : 0); ++i)
-				{
-					if (i < start_moves - 1)
-						continue;
-
-					// 現局面の手番が望むべきものではないので解析をskipする。
-					if (!sf[i].second /* sf[i].is_valid */)
-						continue;
-
-					const auto& sfen = sf[i].first;
-					if (from_sfen)
-					{
-						// この場合、m[i + 1]が必要になるので、m.size()-1までしかループできない。
-						BookPos bp(m[i] , m[i + 1] , VALUE_ZERO, 32, 1);
-						book.insert(sfen, bp);
-					}
-					else if (from_thinking)
-					{
-						// posの局面で思考させてみる。(あとでまとめて)
-						if (thinking_sfens.count(sfen) == 0)
-							thinking_sfens.insert(sfen);
-					}
-				}
-
-				// sfenから生成するモードの場合、1000棋譜処理するごとにドットを出力。
-				if ((k % 1000) == 0)
-					cout << '.';
-			}
-			cout << "done." << endl;
-
-#if defined(EVAL_LEARN) && defined(YANEURAOU_ENGINE)
-
-			if (from_thinking)
-			{
-				// thinking_sfensを並列的に探索して思考する。
-				// スレッド数(これは、USIのsetoptionで与えられる)
-				size_t multi_pv = (size_t)Options["MultiPV"];
-
-				// 手数無視なら、定跡読み込み時にsfen文字列の"ply"を削って読み込まれているはずなので、
-				// 比較するときにそこを削ってやる必要がある。
-
-				// 思考する局面をsfensに突っ込んで、この局面数をg_loop_maxに代入しておき、この回数だけ思考する。
-				MultiThinkBook multi_think(book , depth, nodes);
-
-				auto& sfens_ = multi_think.sfens;
-				for (auto& s : thinking_sfens)
-				{
-					// この局面のいま格納されているデータを比較して、この局面を再考すべきか判断する。
-					auto it = book.find(s);
-
-					// →　手数違いの同一局面がある場合、こちらのほうが手数が大きいなら思考しても無駄なのだが…。
-					// その局面の情報は、write_book()で書き出されないのでまあいいか…。
-
-					// MemoryBookにエントリーが存在しないなら無条件で、この局面について思考して良い。
-					if (book.is_not_found(it))
-						sfens_.push_back(s);
-					else
-					{
-						auto& bp = *(it->second);
-						if (bp[0].depth < depth // 今回の探索depthのほうが深い
-							|| (bp[0].depth == depth && bp.size() < multi_pv) // 探索深さは同じだが今回のMultiPVのほうが大きい
-							)
-							sfens_.push_back(s);
-					}
-				}
-
-#if 0
-				// 思考対象局面が求まったので、sfenを表示させてみる。
-				cout << "thinking sfen = " << endl;
-				for (auto& s : sfens_)
-					cout << "sfen " << s << endl;
-#endif
-
-				// 思考対象node数の出力。
-				cout << "total " << sfens_.size() << " nodes " << endl;
-
-				// クラスターの指定に従い、間引く。
-				if (cluster_id != 1 || cluster_num != 1)
-				{
-					vector<string> a;
-					for (int i = 0; i < (int)sfens_.size(); ++i)
-					{
-						if ((i % cluster_num) == cluster_id - 1)
-							a.push_back(sfens_[i]);
-					}
-					sfens_ = a;
-
-					// このPCに割り振られたnode数を表示する。
-					cout << "for my PC : " << sfens_.size() << " nodes " << endl;
-				}
-
-				multi_think.set_loop_max(sfens_.size());
-
-				// 15分ごとに保存
-				// (ファイルが大きくなってくると保存の時間も馬鹿にならないのでこれくらいの間隔で妥協)
-				multi_think.callback_seconds = 15 * 60;
-				multi_think.callback_func = [&]()
-				{
-					std::unique_lock<std::mutex> lk(multi_think.io_mutex);
-					// 前回書き出し時からレコードが追加された？
-					if (multi_think.appended)
-					{
-						// 連番つけて保存する。
-						//　(いつ中断してもファイルが残っているように)
-						static int book_number = 1;
-						string write_book_name = book_name + "-" + to_string(book_number++) + ".db";
-
-						sync_cout << "Save start : " << Tools::now_string() << " , book_name = " << write_book_name << sync_endl;
-
-						book.write_book(write_book_name);
-						sync_cout << "Save done  : " << Tools::now_string() << sync_endl;
-						multi_think.appended = false;
-					}
-					else {
-						// 追加されていないときは小文字のsマークを表示して
-						// ファイルへの書き出しは行わないように変更。
-						//cout << 's' << endl;
-						// →　この出力要らんような気がしてきた。
-					}
-
-				};
-
-				multi_think.go_think();
-
-			}
-
-#endif
-
-			book.write_book(book_name);
-		}
-		else if (book_merge) {
-
-			// 定跡のマージ
-			MemoryBook book[3];
-			string book_name[3];
-			is >> book_name[0] >> book_name[1] >> book_name[2];
-			if (book_name[2] == "")
-			{
-				cout << "Error! book name is empty." << endl;
 				return;
 			}
-			cout << "book merge from " << book_name[0] << " and " << book_name[1] << " to " << book_name[2] << endl;
-			for (int i = 0; i < 2; ++i)
-			{
-				if (book[i].read_book(book_name[i]).is_not_ok())
-					return;
-			}
 
-			// 読み込めたので合体させる。
-			cout << "merge..";
+		// この指し手が見つからなかったので追加する。
+		moves.push_back(bp);
 
-			// 同一nodeと非同一nodeの統計用
-			// diffrent_nodes1 = book0側にのみあったnodeの数
-			// diffrent_nodes2 = book1側にのみあったnodeの数
-			u64 same_nodes = 0;
-			u64 diffrent_nodes1 = 0, diffrent_nodes2 = 0;
+		sorted = false; // sort関係が崩れたのでフラグをfalseに戻しておく。
+	}
 
-			// 1) 探索が深いほうを採用。
-			// 2) 同じ探索深さであれば、MultiPVの大きいほうを採用。
-			for (auto& it0 : *book[0].get_body())
-			{
-				auto sfen = it0.first;
-				// このエントリーがbook1のほうにないかを調べる。
-				auto it1_ = book[1].find(sfen);
-				auto& it1 = *it1_;
-				if ( book[1].is_found(it1_))
-				{
-					same_nodes++;
+	// [ASYNC] このクラスの持つ指し手集合に対して、それぞれの局面を列挙する時に用いる
+	void BookMoves::foreach(std::function<void(BookMove&)> f)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-					// あったので、良いほうをbook2に突っ込む。
-					// 1) 登録されている候補手の数がゼロならこれは無効なのでもう片方を登録
-					// 2) depthが深いほう
-					// 3) depthが同じならmulti pvが大きいほう(登録されている候補手が多いほう)
-					if (it0.second->size() == 0)
-						book[2].insert(it1);
-					else if (it1.second->size() == 0)
-						book[2].insert(it0);
-					else if (it0.second->at(0).depth > it1.second->at(0).depth)
-						book[2].insert(it0);
-					else if (it0.second->at(0).depth < it1.second->at(0).depth)
-						book[2].insert(it1);
-					else if (it0.second->size() >= it1.second->size())
-						book[2].insert(it0);
-					else
-						book[2].insert(it1);
-				}
-				else {
-					// なかったので無条件でbook2に突っ込む。
-					book[2].insert(it0);
-					diffrent_nodes1++;
-				}
-			}
-			// book0の精査が終わったので、book1側で、まだ突っ込んでいないnodeを探して、それをbook2に突っ込む
-			for (auto& it1 : *book[1].get_body())
-			{
-				if (book[2].is_not_found(book[2].find(it1.first)))
-				{
-					book[2].insert(it1);
-					diffrent_nodes2++;
-				}
-			}
-			cout << "..done" << endl;
+		for(auto& it : moves)
+			f(it);
+	}
 
-			cout << "same nodes = " << same_nodes
-				<< " , different nodes =  " << diffrent_nodes1 << " + " << diffrent_nodes2 << endl;
+	void MemoryBook::insert(const std::string& sfen, const BookMove& bp , bool overwrite)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
 
-			book[2].write_book(book_name[2]);
-
-		}
-		else if (book_sort) {
-			// 定跡のsort
-			MemoryBook book;
-			string book_src, book_dst;
-			is >> book_src >> book_dst;
-			cout << "book sort from " << book_src << " , write to " << book_dst << endl;
-			book.read_book(book_src);
-
-			book.write_book(book_dst);
-
-		}
-		else if (convert_from_apery) {
-			MemoryBook book;
-			string book_src, book_dst;
-			is >> book_src >> book_dst;
-			cout << "convert apery book from " << book_src << " , write to " << book_dst << endl;
-			book.read_apery_book(book_src);
-
-			book.write_book(book_dst);
+		auto it = book_body.find(sfen);
+		if (it == book_body.end())
+		{
+			// 存在しないので要素を作って追加。
+			BookMovesPtr move_list(new BookMoves());
+			move_list->push_back(bp);
+			book_body[sfen] = move_list;
 		}
 		else {
-			cout << "usage" << endl;
-			cout << "> makebook from_sfen book.sfen book.db moves 24" << endl;
-			cout << "> makebook think book.sfen book.db moves 16 depth 18" << endl;
-			cout << "> makebook merge book_src1.db book_src2.db book_merged.db" << endl;
-			cout << "> makebook sort book_src.db book_sorted.db" << endl;
-			cout << "> makebook convert_from_apery book_src.bin book_converted.db" << endl;
-			cout << "> makebook build_tree book2019.db user_book1.db" << endl;
+			// この局面での指し手のリスト
+			auto& book_moves = *it->second;
+			book_moves.insert(bp, overwrite);
 		}
 	}
 
-#endif
+	// [ASYNC] このクラスの持つ定跡DBに対して、それぞれの局面を列挙する時に用いる
+	void MemoryBook::foreach(std::function<void(std::string /*sfen*/, BookMovesPtr)> f)
+	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+		for(auto& it : book_body)
+			f(it.first,it.second);
+	}
 
 	// ----------------------------------
 	//			MemoryBook
@@ -715,7 +196,7 @@ namespace Book
 	static std::unique_ptr<AperyBook> apery_book;
 	static const constexpr char* kAperyBookName = "book.bin";
 
-	std::string MemoryBook::trim(std::string input)
+	std::string MemoryBook::trim(std::string input) const
 	{
 		return Options["IgnoreBookPly"] ? StringExtension::trim_number(input) : StringExtension::trim(input);
 	}
@@ -723,6 +204,8 @@ namespace Book
 	// 定跡ファイルの読み込み(book.db)など。
 	Tools::Result MemoryBook::read_book(const std::string& filename, bool on_the_fly_)
 	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+
 		// 読み込み済であるかの判定
 		// 一度read_book()が呼び出されたなら、そのときに読み込んだ定跡ファイル名が
 		// book_nameに設定されているはずなので、これと一致したなら、ここでは今回の読み込み動作を終了して良い。
@@ -810,25 +293,6 @@ namespace Book
 			bool ignore_book_ply = Options["IgnoreBookPly"];
 #endif
 
-			auto calc_prob = [&] {
-				// 空のsfen文字列(既存のエントリーすなわち重複エントリー)であるならこの計算を行わない。
-				if (sfen.size()==0)
-					return;
-
-				auto& move_list = *book_body[sfen];
-				std::stable_sort(move_list.begin(), move_list.end());
-
-				// 出現率の正規化
-
-				u64 num_sum = 0;
-				for (auto& it : move_list)
-					num_sum += it.num;
-				num_sum = std::max(num_sum, UINT64_C(1)); // ゼロ除算対策
-				for (auto& it : move_list)
-					it.prob = float(it.num) / num_sum;
-				num_sum = 0;
-			};
-
 			// 定跡に登録されている手数を無視するのか？
 			// (これがtrueならばsfenから手数を除去しておく)
 			bool ignoreBookPly = Options["IgnoreBookPly"];
@@ -848,10 +312,6 @@ namespace Book
 				// "sfen "で始まる行は局面のデータであり、sfen文字列が格納されている。
 				if (line.length() >= 5 && line.substr(0, 5) == "sfen ")
 				{
-					// ひとつ前のsfen文字列に対応するものが終わったということなので採択確率を計算して、かつ、採択回数でsortしておく
-					// (sortはされてるはずだが他のソフトで生成した定跡DBではそうとも限らないので)。
-					calc_prob();
-
 					// 5文字目から末尾までをくり抜く。
 					// 末尾のゴミは除去されているはずなので、Options["IgnoreBookPly"] == trueのときは、手数(数字)を除去。
 
@@ -886,45 +346,7 @@ namespace Book
 				if (sfen.size() == 0)
 					continue;
 
-				Move16 best, next;
-
-				string bestMove, nextMove;
-				int value = 0;
-				int depth = 0;
-				uint64_t num = 1;
-
-				//istringstream is(line);
-				// value以降は、元データに欠落してるかもですよ。
-				//is >> bestMove >> nextMove >> value >> depth >> num;
-
-				// → istringstream、げろげろ遅いので、自前でparseする。
-
-				LineScanner scanner(line);
-				bestMove = scanner.get_text();
-				nextMove = scanner.get_text();
-				value = (int)scanner.get_number(value);
-				depth = (int)scanner.get_number(depth);
-				num = (uint64_t)scanner.get_number(num);
-
-#if 0
-				// 思考した指し手に対しては指し手の出現頻度のところを強制的にエンジンバージョンを100倍したものに変更する。
-				// この#ifを有効にして、makebook mergeコマンドを叩いて、別のファイルに書き出すなどするときに便利。
-				num = int(atof(ENGINE_VERSION) * 100);
-#endif
-
-				// 起動時なので変換に要するオーバーヘッドは最小化したいので合法かのチェックはしない。
-				if (bestMove == "none" || bestMove == "resign")
-					best = MOVE_NONE;
-				else
-					best = USI::to_move16(bestMove);
-
-				if (nextMove == "none" || nextMove == "resign")
-					next = MOVE_NONE;
-				else
-					next = USI::to_move16(nextMove);
-
-				BookPos bp(best , next, value, depth, num);
-				insert(sfen, bp);
+				insert(sfen, BookMove::from_string(line));
 
 				// このinsert()、この関数の40%ぐらいの時間を消費している。
 				// 他の部分をせっかく高速化したのに…。
@@ -938,8 +360,6 @@ namespace Book
 				// (定跡がsfen文字列でソート済みであることが保証されているなら。保証されてないんだけども。)
 
 			}
-			// ファイルが終わるときにも最後の局面に対するcalc_probが必要。
-			calc_prob();
 		}
 
 		// 読み込んだファイル名を保存しておく。二度目のread_book()はskipする。
@@ -954,6 +374,8 @@ namespace Book
 	// 定跡ファイルの書き出し
 	Tools::Result MemoryBook::write_book(const std::string& filename /*, bool sort*/) const
 	{
+		std::lock_guard<std::recursive_mutex> lock(const_cast<MemoryBook*>(this)->mutex_);
+
 		// Position::set()で評価関数の読み込みが必要。
 		//is_ready();
 
@@ -971,7 +393,7 @@ namespace Book
 		// バージョン識別用文字列
 		fs << "#YANEURAOU-DB2016 1.00" << endl;
 
-		vector<pair<string, PosMoveListPtr> > vectored_book;
+		vector<pair<string, BookMovesPtr> > vectored_book;
 		
 		// 重複局面の手数違いを除去するのに用いる。
 		// 手数違いの重複局面はOptions["IgnoreBookPly"]==trueのときに有害であるため、plyが最小のもの以外を削除する必要がある。
@@ -1034,7 +456,7 @@ namespace Book
 			// ここvectored_bookが、sfen文字列でsortされていて欲しいのでsortする。
 			// アルファベットの範囲ではlocaleの影響は受けない…はず…。
 			std::sort(vectored_book.begin(), vectored_book.end(),
-				[](const pair<string, PosMoveListPtr>&lhs, const pair<string, PosMoveListPtr>&rhs) {
+			[](const pair<string, BookMovesPtr>&lhs, const pair<string, BookMovesPtr>&rhs) {
 				return lhs.first < rhs.first;
 			});
 
@@ -1056,12 +478,12 @@ namespace Book
 
 			auto& move_list = *it.second;
 
-			// 採択回数でソートしておく。
-			std::stable_sort(move_list.begin(), move_list.end());
+			// 何らかsortしておく。
+			move_list.sort_moves();
 
 			for (auto& bp : move_list)
-				fs << bp.bestMove << ' ' << bp.nextMove << ' ' << bp.value << " " << bp.depth << " " << bp.num << endl;
-			// 指し手、相手の応手、そのときの評価値、探索深さ、採択回数
+				fs << bp.move << ' ' << bp.ponder << ' ' << bp.value << " " << bp.depth << " " << bp.num << " " << bp.win << " " << bp.lose << endl;
+			// 指し手、相手の応手、そのときの評価値、探索深さ、採択回数、win、lose
 
 			if (fs.fail())
 				return Tools::Result(Tools::ResultCode::FileWriteError);
@@ -1076,54 +498,35 @@ namespace Book
 
 	// book_body.find()のwrapper。book_body.find()ではなく、こちらのfindを呼び出して用いること。
 	// sfen : sfen文字列(末尾にplyまで書かれているものとする)
-	BookType::iterator MemoryBook::find(const std::string& sfen)
+	BookMovesPtr MemoryBook::find(const std::string& sfen) const
 	{
-		return book_body.find(trim(sfen));
+		std::lock_guard<std::recursive_mutex> lock(const_cast<MemoryBook*>(this)->mutex_);
+
+		auto it = book_body.find(trim(sfen));
+		return it == book_body.end() ? BookMovesPtr() : it->second;
 	}
 
-	void MemoryBook::insert(const std::string& sfen, const BookPos& bp , bool overwrite)
+	// [ASYNC] メモリに保持している定跡に局面を一つ追加する。
+	//   book_body[sfen] = ptr;
+	// と等価。
+	void MemoryBook::append(const std::string& sfen, const Book::BookMovesPtr& ptr)
 	{
-		auto it = book_body.find(sfen);
-		if (it == book_body.end())
-		{
-			// 存在しないので要素を作って追加。
-			PosMoveListPtr move_list(new PosMoveList);
-			move_list->push_back(bp);
-			book_body[sfen] = move_list;
-		}
-		else {
-			// この局面での指し手のリスト
-			auto& move_list = *it->second;
-			// すでに格納されているかも知れないので同じ指し手がないかをチェックして、なければ追加
-			for (auto& b : move_list)
-				if (b == bp)
-				{
-					// 上書きモードなのか？
-					if (overwrite)
-					{
-					// すでに存在していたのでエントリーを置換。ただし採択回数はインクリメント
-					auto num = b.num;
-					b = bp;
-					b.num += num;
-					}
-					goto FOUND_THE_SAME_MOVE;
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+		book_body[sfen] = ptr;
 				}
 
-			move_list.push_back(bp);
 
-		FOUND_THE_SAME_MOVE:;
-		}
-	}
-
-	PosMoveListPtr MemoryBook::find(const Position& pos)
+	BookMovesPtr MemoryBook::find(const Position& pos)
 	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+
 		// "no_book"は定跡なしという意味なので定跡の指し手が見つからなかったことにする。
 		if (pure_book_name == "no_book")
-			return PosMoveListPtr();
+			return BookMovesPtr();
 
 		if (pure_book_name == kAperyBookName) {
 
-			PosMoveListPtr pml_entry(new PosMoveList());
+			BookMovesPtr pml_entry(new BookMoves());
 
 			// Apery定跡データベースを用いて指し手を選択する
 			const auto& entries = apery_book->get_entries(pos);
@@ -1137,10 +540,10 @@ namespace Book
 			// この場合、sum_count == 0になるので、採用率を当確率だとみなして、1.0 / entries.size() にしておく。
 
 			for (const auto& entry : entries) {
-				BookPos book_pos(convert_move_from_apery(entry.fromToPro), MOVE_NONE , entry.score, 256, entry.count);
-				book_pos.prob = (sum_count != 0) ? (entry.count / static_cast<float>(sum_count) ) : (1.0f / entries.size());
-				insert_book_pos(pml_entry , book_pos);
+				BookMove book_pos(convert_move_from_apery(entry.fromToPro), MOVE_NONE , entry.score, 256, entry.count);
+				pml_entry->insert(book_pos,true);
 			}
+			pml_entry->sort_moves();
 
 			return 	pml_entry;
 		}
@@ -1149,7 +552,7 @@ namespace Book
 
 			// 定跡がないならこのまま返る。(sfen()を呼び出すコストの節約)
 			if (!on_the_fly && book_body.size() == 0)
-				return PosMoveListPtr();
+				return BookMovesPtr();
 
 			auto sfen = pos.sfen();
 
@@ -1163,7 +566,7 @@ namespace Book
 			if (on_the_fly)
 			{
 				// ディスクから読み込むなら、いずれにせよ、新規エントリーを作成してそれを返す必要がある。
-				PosMoveListPtr pml_entry(new PosMoveList());
+				BookMovesPtr pml_entry(new BookMoves());
 
 				// IgnoreBookPlyのときは末尾の手数は取り除いておく。
 				// read_book()で取り除くと、そのあと書き出すときに手数が消失するのでまずい。(気がする)
@@ -1254,24 +657,13 @@ namespace Book
 							break;
 
 						// 見つからなかった
-						return PosMoveListPtr();
+						return BookMovesPtr();
 					}
 
 				}
 				// 見つけた処理
 
 				// read_bookとほとんど同じ読み込み処理がここに必要。辛い。
-
-				uint64_t num_sum = 0;
-
-				auto calc_prob = [&] {
-					auto& move_list = *pml_entry;
-					std::stable_sort(move_list.begin(), move_list.end());
-					num_sum = std::max(num_sum, UINT64_C(1)); // ゼロ除算対策
-					for (auto& bp : move_list)
-						bp.prob = float(bp.num) / num_sum;
-					num_sum = 0;
-				};
 
 				// sfen文字列が合致したところまでは確定しており、そこまでfileのseekは完了している。
 				// その直後に指し手が書かれているのでそれをgetline()で読み込めば良い。
@@ -1295,44 +687,9 @@ namespace Book
 						break;
 					}
 
-					Move16 best, next;
-
-					string bestMove, nextMove;
-					int value = 0;
-					int depth = 0;
-					uint64_t num = 1;
-
-					//istringstream is(line);
-					// value以降は、元データに欠落してるかもですよ。
-					//is >> bestMove >> nextMove >> value >> depth >> num;
-
-					// → istringstream、げろげろ遅いので、自前でparseする。
-
-					LineScanner scanner(line);
-					bestMove = scanner.get_text();
-					nextMove = scanner.get_text();
-					value = (int)scanner.get_number(value);
-					depth = (int)scanner.get_number(depth);
-					num = (uint64_t)scanner.get_number(num);
-
-					// 起動時なので変換に要するオーバーヘッドは最小化したいので合法かのチェックはしない。
-					if (bestMove == "none" || bestMove == "resign")
-						best = MOVE_NONE;
-					else
-						best = USI::to_move16(bestMove);
-
-					if (nextMove == "none" || nextMove == "resign")
-						next = MOVE_NONE;
-					else
-						next = USI::to_move16(nextMove);
-
-					BookPos bp(best, next, value, depth, num);
-					insert_book_pos(pml_entry , bp);
-					num_sum += num;
+					pml_entry->push_back(BookMove::from_string(line));
 				}
-				// ファイルが終わるときにも最後の局面に対するcalc_probが必要。
-				calc_prob();
-
+				pml_entry->sort_moves();
 				return pml_entry;
 
 			} else {
@@ -1340,11 +697,14 @@ namespace Book
 				// on the flyではない場合
 				it = book_body.find(trim(sfen));
 				if (it != book_body.end())
+				{
 					// メモリ上に丸読みしてあるので参照透明だと思って良い。
-					return PosMoveListPtr(it->second);
+					it->second->sort_moves();
+					return BookMovesPtr(it->second);
+				}
 
 				// 空のentryを返す。
-				return PosMoveListPtr();
+				return BookMovesPtr();
 			}
 		}
 	}
@@ -1352,6 +712,8 @@ namespace Book
 	// Apery用定跡ファイルの読み込み
 	Tools::Result MemoryBook::read_apery_book(const std::string& filename)
 	{
+		std::lock_guard<std::recursive_mutex> lock(mutex_);
+
 		// 読み込み済であるかの判定
 		if (book_name == filename)
 			return Tools::Result::Ok();
@@ -1397,24 +759,21 @@ namespace Book
 
 			for (const auto& entry : entries) {
 				const Move16 move = convert_move_from_apery(entry.fromToPro);
-				BookPos bp(move, MOVE_NONE , entry.score, 1, entry.count);
+				BookMove bp(move, MOVE_NONE , entry.score, 1, entry.count);
 				insert(sfen, bp);
 			}
 
 			auto& move_list = *book_body[sfen];
-			std::stable_sort(move_list.begin(), move_list.end());
-			uint64_t num_sum = 0;
-			for (const auto& bp : move_list) {
-				num_sum += bp.num;
-			}
-			num_sum = std::max(num_sum, UINT64_C(1)); // ゼロ除算対策
+			move_list.sort_moves();
+
 			for (auto& bp : move_list) {
-				bp.prob = float(bp.num) / num_sum;
-				Move move = pos.to_move(bp.bestMove);
+				Move move = pos.to_move(bp.move);
 				pos.do_move(move, st);
 				auto it = find(pos);
-				if (it != nullptr) {
-					bp.nextMove = it->front().bestMove;
+				if (it != nullptr && it->size()) {
+					// Aperyの定跡DBではponderの指し手を持っていないので、
+					// 次の局面での定跡のbestmoveをponderとしてやる。
+					bp.ponder = (*it)[0].move;
 				}
 				pos.undo_move(move);
 			}
@@ -1575,9 +934,14 @@ namespace Book
 
 		auto move_list = *it;
 
+		// 出現回数のトータル(このあと出現頻度を求めるのに使う)
+		u64 num_total = std::accumulate(move_list.begin(), move_list.end(), (u64)0, [](u64 acc, BookMove& b) { return acc + b.num; });
+		num_total = std::max(num_total, (u64)1); // ゼロ除算対策
+
 		if (!silent)
 		{
 			int pv_moves = (int)Options["BookPvMoves"];
+
 			for (size_t i = 0; i < move_list.size() ; ++ i)
 			{
 				// PVを構築する。pv_movesで指定された手数分だけ表示する。
@@ -1586,26 +950,30 @@ namespace Book
 
 				string pv_string;
 				if (pv_moves <= 1)
-					pv_string = it.bestMove.to_usi_string();
+					pv_string = it.move.to_usi_string();
 				else if (pv_moves == 2)
-					pv_string =it.bestMove.to_usi_string() + " " + it.nextMove.to_usi_string();
+					pv_string =it.move.to_usi_string() + " " + it.ponder.to_usi_string();
 				else {
 					// 次の局面で定跡にhitしない場合があって、その場合、この局面のnextMoveを出力してやる必要がある。
-					auto rest = pv_builder(rootPos, it.bestMove, pv_moves - 3);
+					auto rest = pv_builder(rootPos, it.move, pv_moves - 3);
 					pv_string = (rest != "") ?
-						(it.bestMove.to_usi_string() + rest) :
-						(it.bestMove.to_usi_string() + " " + it.nextMove.to_usi_string());
+						(it.move.to_usi_string() + rest) :
+						(it.move.to_usi_string() + " " + it.ponder.to_usi_string());
 				}
 
 				// USIの"info"で読み筋を出力するときは"pv"サブコマンドはサブコマンドの一番最後にしなければならない。
 				// 複数出力するときに"multipv"は連番なのでこれが先頭に来ているほうが見やすいと思うので先頭に"multipv"を出力する。
+
+				// win,loseが記載されている定跡DBなら、それも出力してやる。
+				string win_lose_str = (it.win == 0 && it.lose == 0) ? "" : "," + to_string(it.win) + '-' + to_string(it.draw()) + '-' + to_string(it.lose);
+
 				sync_cout << "info"
 #if !defined(NICONICO)
 					<< " multipv " << (i + 1)
 #endif					
 					<< " score cp " << it.value << " depth " << it.depth
 					<< " pv " << pv_string
-					<< " (" << fixed << std::setprecision(2) << (100 * it.prob) << "%)" // 採択確率
+					<< " (" << fixed << std::setprecision(2) << (100 * it.num / double(num_total)) << "%" << win_lose_str << ")" // 採択確率
 					<< sync_endl;
 
 				// 電王盤はMultiPV非対応なので1番目の読み筋だけを"multipv"をつけずに送信する。
@@ -1628,7 +996,7 @@ namespace Book
 			auto value_limit = move_list[0].value;
 
 			// 評価値がvalue_limitを下回るものを削除
-			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookPos & m) { return m.value < value_limit; });
+			auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return m.value < value_limit; });
 			move_list.erase(it_end, move_list.end());
 
 		} else {
@@ -1642,7 +1010,7 @@ namespace Book
 				auto n = move_list.size();
 
 				// 出現確率10%未満のものを取り除く。
-				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [](Book::BookPos & m) { return m.prob < 0.1; });
+				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return ((double)m.num / num_total) < 0.1; });
 				move_list.erase(it_end, move_list.end());
 
 				// 1手でも取り除いたなら、定跡から取り除いたことをGUIに出力
@@ -1675,7 +1043,7 @@ namespace Book
 				auto n = move_list.size();
 
 				// 評価値がvalue_limitを下回るものを削除
-				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookPos & m) { return m.value < value_limit; });
+				auto it_end = std::remove_if(move_list.begin(), move_list.end(), [&](Book::BookMove & m) { return m.value < value_limit; });
 				move_list.erase(it_end, move_list.end());
 
 				// これを出力するとShogiGUIの棋譜解析で読み筋として表示されてしまう…。
@@ -1695,7 +1063,7 @@ namespace Book
 		{
 			// move_list[0]～move_list[book_move_max-1]までのなかからまずはランダムに選ぶ。
 
-			auto bestPos = move_list[prng.rand(move_list.size())];
+			auto bestBookMove = move_list[prng.rand(move_list.size())];
 
 			// 定跡ファイルの採択率に応じて指し手を選択するか
 			if (forceHit || Options["ConsiderBookMoveCount"])
@@ -1721,12 +1089,31 @@ namespace Book
 					sum_move_counts += move_count;
 					if (sum_move_counts != 0 // 上記 2.
 						&& prng.rand(sum_move_counts) < move_count)
-						bestPos = move;
+						bestBookMove = move;
 				}
 			}
 
-			bestMove = bestPos.bestMove;
-			ponderMove = bestPos.nextMove;
+			bestMove = bestBookMove.move;
+			ponderMove = bestBookMove.ponder;
+
+			// ponderが登録されていなければ、bestMoveで一手進めてそこの局面のbestを拾ってくる。
+			if (!is_ok((Move)ponderMove.to_u16()))
+			{
+				Move best = rootPos.to_move(bestMove);
+				if (rootPos.pseudo_legal_s<true>(best) && rootPos.legal(best))
+				{
+					StateInfo si;
+					rootPos.do_move(best,si);
+
+					auto it = memory_book.find(rootPos);
+					if (it != nullptr && it->size())
+						// 1つ目に登録されている指し手が一番いい指し手であろう。
+						ponderMove = (*it)[0].move;
+
+					rootPos.undo_move(best);
+				}
+			}
+
 			return true;
 		}
 
@@ -1803,26 +1190,5 @@ namespace Book
 		return false;
 	}
 
-	// ----------------------------------
-	//				misc..
-	// ----------------------------------
-
-	void insert_book_pos(PosMoveListPtr ptr, const BookPos& bp)
-	{
-		// この局面での指し手のリスト
-		auto& move_list = *ptr;
-		// すでに格納されているかも知れないので同じ指し手がないかをチェックして、なければ追加
-		for (auto& b : move_list)
-			if (b == bp)
-			{
-				// すでに存在していたのでエントリーを置換。ただし採択回数はインクリメント
-				auto num = b.num;
-				b = bp;
-				b.num += num;
-				goto FOUND_THE_SAME_MOVE;
-			}
-		move_list.push_back(bp);
-	FOUND_THE_SAME_MOVE:;
-	}
 
 }

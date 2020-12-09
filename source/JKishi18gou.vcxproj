@@ -458,6 +458,7 @@
     <ClCompile Include="bitboard.cpp" />
     <ClCompile Include="book\apery_book.cpp" />
     <ClCompile Include="book\book.cpp" />
+    <ClCompile Include="book\makebook.cpp" />
     <ClCompile Include="book\makebook2015.cpp" />
     <ClCompile Include="book\makebook2019.cpp" />
     <ClCompile Include="book\makebook2021.cpp" />
@@ -514,9 +515,14 @@
     <Text Include="..\script\readme.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\.editorconfig" />
+    <None Include="..\.gitattributes" />
+    <None Include="..\.gitignore" />
     <None Include="..\docs\README2017.md" />
+    <None Include="..\README.md" />
     <None Include="..\script\analyze_result_log.py" />
     <None Include="..\script\analyze_yane_log.py" />
+    <None Include="..\script\bench.py" />
     <None Include="..\script\calc_rating.py" />
     <None Include="..\script\engine_invoker1.py" />
     <None Include="..\script\engine_invoker5.py" />

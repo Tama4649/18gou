@@ -313,6 +313,7 @@ void is_ready(bool skipCorruptCheck)
 	// 毎回、load_eval()は呼び出すものとする。
 	// モデルファイル名に変更がなければ、再読み込みされないような作りになっているならばこの実装のほうがシンプル。
 	Eval::load_eval();
+	USI::load_eval_finished = true;
 
 #else
 
@@ -470,6 +471,13 @@ void getoption_cmd(istringstream& is)
 // この関数は、入力文字列から思考時間とその他のパラメーターをセットし、探索を開始する。
 void go_cmd(const Position& pos, istringstream& is , StateListPtr& states) {
 
+	// "isready"コマンド受信前に"go"コマンドが呼び出されている。
+	if (!USI::load_eval_finished)
+	{
+		sync_cout << "Error! go cmd before isready cmd." << sync_endl;
+		return;
+	}
+
 	Search::LimitsType limits;
 	string token;
 	bool ponderMode = false;
@@ -538,6 +546,9 @@ void go_cmd(const Position& pos, istringstream& is , StateListPtr& states) {
 
 		// この探索ノード数で探索を打ち切る
 		else if (token == "nodes")     is >> limits.nodes;
+
+		// 持ち時間固定(将棋だと対応しているGUIが無いかもしれないが..)
+		else if (token == "movetime")  is >> limits.movetime;
 
 		// 詰み探索。"UCI"プロトコルではこのあとには手数が入っており、その手数以内に詰むかどうかを判定するが、
 		// "USI"プロトコルでは、ここは探索のための時間制限に変更となっている。

@@ -19,6 +19,7 @@ namespace dlshogi
 	{
 		search_groups = std::make_unique<UctSearcherGroup[]>(max_gpu);
 		gc = std::make_unique<NodeGarbageCollector>();
+		interruption_checker = std::make_unique<SearchInterruptionChecker>(this);
 	}
 
 	// エンジンオプションの"USI_Ponder"の値をセットする。
@@ -44,9 +45,19 @@ namespace dlshogi
 		for (int i = 0; i < max_gpu; ++i)
 			total_thread_num += new_thread[i];
 
+		// スレッド数の合計が0はさすがにおかしい。
+		if (total_thread_num == 0)
+		{
+			sync_cout << "Error! : total threads = 0 " << sync_endl;
+			return;
+		}
+
 		// まず、数だけ確保
 		// やねうら王のThreadPoolクラスは、前回と異なるスレッド数であれば自動的に再確保される。
-		Threads.set(total_thread_num);
+		// interruption_check_threadの分、+1して確保する。
+		// GC用のスレッドも探索スレッドから割り当てたのだが、それは良くないアイデアだった。
+		// ※　GC処理が終わらなくて、全探索スレッドの終了を待つコードになっているから、bestmoveが返せないことがある。
+		Threads.set(total_thread_num + 1);
 
 		for (int i = 0; i < max_gpu; i++) {
 			if (new_thread[i] > 0) {
@@ -167,34 +178,34 @@ namespace dlshogi
 	}
 
 	// 探索の"go"コマンドの前に呼ばれ、今回の探索の打ち切り条件を設定する。
-	//    limits.nodes        : 探索を打ち切るnode数   　→  search_limit.node_limitに反映する。
-	//    limits.movetime     : 思考時間固定時の指定     →　search_limit.time_limitに反映する。
-	//    limits.max_game_ply : 引き分けになる手数の設定 →  search_limit.draw_plyに反映する。
+	//    limits.nodes        : 探索を打ち切るnode数   　→  search_limits.nodes_limitに反映する。
+	//    limits.movetime     : 思考時間固定時の指定     →　search_limits.movetimeに反映する。
+	//    limits.max_game_ply : 引き分けになる手数の設定 →  search_limits.max_moves_to_drawに反映する。
 	// などなど。
-	// その他、"go"コマンドで渡された残り時間等から、今回の思考時間を算出し、search_limit.time_managerに反映する。
+	// その他、"go"コマンドで渡された残り時間等から、今回の思考時間を算出し、search_limits.time_managerに反映する。
 	void DlshogiSearcher::SetLimits(const Position* pos, const Search::LimitsType& limits)
 	{
-		auto& s = search_limit;
+		auto& s = search_limits;
 		auto& o = search_options;
 
 		// go infiniteされているのか
 		s.infinite = limits.infinite;
 
 		// 探索を打ち切るnode数
-		s.node_limit = (NodeCountType)limits.nodes;
+		s.nodes_limit = (NodeCountType)limits.nodes;
 
 		// 思考時間固定の時の指定
 		s.movetime = limits.movetime;
 
 		// 引き分けになる手数の設定。
-		o.draw_ply = limits.max_game_ply;
+		o.max_moves_to_draw = limits.max_game_ply;
 
 		// dlshogiのコード
 #if 0
 		// ノード数固定ならばそれを設定。
 		// このときタイムマネージメント不要
 		if (limits.nodes) {
-			search_limit.node_limit = (NodeCountType)(u64)limits.nodes;
+			search_limits.node_limit = (NodeCountType)(u64)limits.nodes;
 			return;
 		}
 
@@ -202,23 +213,23 @@ namespace dlshogi
 		const int divisor = 14 + std::max(0, 30 - pos->game_ply());
 
 		// 自分側の残り時間を divisorで割り算して、それを今回の目安時間とする。
-		search_limit.remaining_time[BLACK] = limits.time[BLACK];
-		search_limit.remaining_time[WHITE] = limits.time[WHITE];
+		search_limits.remaining_time[BLACK] = limits.time[BLACK];
+		search_limits.remaining_time[WHITE] = limits.time[WHITE];
 
-		search_limit.time_limit = search_limit.remaining_time[color] / divisor + limits.inc[color];
+		search_limits.time_limit = search_limits.remaining_time[color] / divisor + limits.inc[color];
 
 		// 最小思考時間の設定。(これ以上考える)
-		search_limit.minimum_time = limits.movetime;
+		search_limits.minimum_time = limits.movetime;
 
 		// 無制限に思考するなら、NodeCountTypeの最大値を設定しておく。
-		search_limit.node_limit = limits.infinite ? std::numeric_limits<NodeCountType>::max() : (NodeCountType)(u64)limits.nodes;
+		search_limits.node_limit = limits.infinite ? std::numeric_limits<NodeCountType>::max() : (NodeCountType)(u64)limits.nodes;
 
 		// 思考時間が固定ではなく、ノード数固定でもないなら、探索の状況によっては時間延長してもよい。
-		search_limit.extend_time = limits.movetime == 0 && limits.nodes == 0;
+		search_limits.extend_time = limits.movetime == 0 && limits.nodes == 0;
 #endif
 
 		// 持ち時間制御は、やねうら王の time managerをそのまま用いる。
-		search_limit.time_manager.init(limits,pos->side_to_move(),pos->game_ply());
+		search_limits.time_manager.init(limits,pos->side_to_move(),pos->game_ply());
 
 	}
 
@@ -256,17 +267,17 @@ namespace dlshogi
 		bool ponder,const std::function<void()>& start_threads)
 	{
 		// 探索停止フラグをreset。
-		// →　やねうら王では使わない。Threads.stopかsearch_limit.interruptionを使う。
-		//search_limit.uct_search_stop = false;
+		// →　やねうら王では使わない。Threads.stopかsearch_limits.interruptionを使う。
+		//search_limits.uct_search_stop = false;
 
 		// わからん。あとで。
 		//init_search_begin_time = false;
 
 		// 探索開始時にタイマーをリセットして経過時間を計測する。
-		search_limit.time_manager.reset();
+		search_limits.time_manager.reset();
 
 		// 中断フラグのリセット
-		search_limit.interruption = false;
+		search_limits.interruption = false;
 
 		// ゲーム木を現在の局面にリセット
 		tree->ResetToPosition(gameRootSfen, moves);
@@ -276,13 +287,13 @@ namespace dlshogi
 
 		// 探索開始局面
 		const Node* current_root = tree->GetCurrentHead();
-		search_limit.current_root = tree->GetCurrentHead();
+		search_limits.current_root = tree->GetCurrentHead();
 
 		// "go ponder"で呼び出されているかのフラグの設定
-		search_limit.pondering = ponder;
+		search_limits.pondering = ponder;
 
 		// 探索ノード数のクリア
-		search_limit.node_searched = 0;
+		search_limits.nodes_searched = 0;
 
 		// UCTの初期化。
 		// 探索開始局面の初期化
@@ -322,7 +333,7 @@ namespace dlshogi
 
 		// 探索時間とプレイアウト回数の予測値を出力
 		if (search_options.debug_message)
-			UctPrint::PrintPlayoutLimits(search_limit.time_manager , search_limit.node_limit);
+			UctPrint::PrintPlayoutLimits(search_limits.time_manager , search_limits.nodes_limit);
 
 		// スレッドの開始と終了
 		start_threads();
@@ -341,18 +352,18 @@ namespace dlshogi
 		// Virtual Lossを元に戻す前にbestmoveを選出してしまう。
 
 		// PVの取得と表示
-		auto best = UctPrint::get_best_move_multipv(current_root , search_limit , search_options);
+		auto best = UctPrint::get_best_move_multipv(current_root , search_limits , search_options);
 		ponderMove = best.ponder;
 
 		// 探索にかかった時間を求める
-		const TimePoint finish_time = search_limit.time_manager.elapsed();
-		//search_limit.remaining_time[pos->side_to_move()] -= finish_time;
+		const TimePoint finish_time = search_limits.time_manager.elapsed();
+		//search_limits.remaining_time[pos->side_to_move()] -= finish_time;
 
 		// デバッグ用のメッセージ出力
 		if (search_options.debug_message)
 		{
 			// 探索の情報を出力(探索回数, 勝敗, 思考時間, 勝率, 探索速度)
-			UctPrint::PrintPlayoutInformation(current_root, &search_limit, finish_time, pre_simulated);
+			UctPrint::PrintPlayoutInformation(current_root, &search_limits, finish_time, pre_simulated);
 		}
 
 		return best.move;
@@ -367,56 +378,115 @@ namespace dlshogi
 		}
 	}
 
-	//  探索停止の確認
-	void DlshogiSearcher::InterruptionCheck()
+	// PV表示の確認
+	// SearchInterruptionCheckerから呼び出される。
+	void DlshogiSearcher::OutputPvCheck()
 	{
-		// "go ponder"で呼び出されている場合、あらゆる制限は無視する。
-		// NodesLimitとかは有効であるほうが便利かもしれないが、そういうときにgo ponderで呼び出さないと思う。
-		if (search_limit.pondering)
+		auto& s = search_limits;
+		auto& o = search_options;
+
+		// "PvInterval"が0のときはPVの出力は行わない。
+		if (!o.pv_interval)
 			return;
 
-		auto& s = search_limit;
+		// 前回からの経過時刻。
+		const auto elapsed_time = s.time_manager.elapsed();
+		if (elapsed_time > s.last_pv_print + o.pv_interval) {
+
+			// PV表示
+			//get_and_print_pv();
+			UctPrint::get_best_move_multipv(tree->GetCurrentHead() , search_limits , search_options );
+
+			// 出力が終わった時点から数えて pv_interval後以降に再度表示。
+			// (前回の出力時刻から数えてしまうと、PVの出力がたくさんあるとき出力が間に合わなくなる)
+			s.last_pv_print = elapsed_time;
+		}
+	}
+
+	//  探索停止の確認
+	// SearchInterruptionCheckerから呼び出される。
+	void DlshogiSearcher::InterruptionCheck()
+	{
+		auto& s = search_limits;
 		auto& o = search_options;
 
 		// すでに中断することが確定しているのでここでは何もしない。
-		if (s.interruption || s.time_manager.search_end)
+		if (s.interruption || Threads.stop)
 			return;
 
-		// リミットなしなので"stop"が来るまで停止しない。
-		if (s.infinite)
-			return;
+		// 思考時間は、ponderhitからの時間で考える。
+		const auto elapsed_from_ponderhit = s.time_manager.elapsed_from_ponderhit();
+
+		//if (s.time_manager.search_end)
+		//	sync_cout << "wait = " << elapsed_from_ponderhit << sync_endl;
+
+		// 探索を停止させる関数
+		// (デバッグ表示ありなら、この止めたタイミングを出力する。
+		// これにより、探索を停止させてから何ms 停止するまでに要するかがわかる。
+		auto interrupt = [&]()
+		{
+			if (o.debug_message)
+				sync_cout << "info string search search_end = " << s.time_manager.search_end
+						  << "[ms], interruption time = " << elapsed_from_ponderhit << "[ms]" << sync_endl;
+
+			s.interruption = true;
+		};
 
 		// 探索depth固定
 		// →　PV掘らないとわからないので実装しない。
 
-		if (
 			// 探索ノード固定(NodesLimitで設定する)
 			//   ※　この時、時間制御は行わない
-			(s.node_limit && s.node_searched >= s.node_limit) ||
+		if (s.nodes_limit)
+		{
+			if (s.nodes_searched >= s.nodes_limit)
+				interrupt();
+
+			// 時間制御不要なのでノード数を超えていなくともここでリターンする。
+			return;
+		}
 
 			// hashfull
-			((NodeCountType)s.current_root->move_count >= o.uct_node_limit)
-			)
+		if ((NodeCountType)s.current_root->move_count >= o.uct_node_limit)
 		{
 			// これは、時間制御の対象外。
-			// ただちに中断すべき。
+			// ただちに中断すべき。(メモリ足りなくなって死ぬので)
 
-			s.interruption = true;
+			interrupt();
 			return;
 		}
 			
-		// -- 時間制御
+		// リミットなしなので"stop"が来るまで停止しない。
+		// ただしhashfullの判定は先にやっておかないと、メモリ使い切ってしまう。
+		if (s.infinite)
+			return;
 
-		// 以下の思考時間は、ponderhitからの時間で考える。
-		const auto elapsed = s.time_manager.elapsed_from_ponderhit();
+		// "go ponder"で呼び出されているなら持ち時間制御の対象外。
+		if (search_limits.pondering)
+			return;
+			
+		// -- 時間制御
 
 		// 探索時間固定
 		// "go movetime XXX"のように指定するのでGUI側が対応していないかもしれないが。
-		// 探索時間固定なのにponderしていることはないと思うので、ponder後の時間経過を見て停止させて良いと思う。
-		if (s.movetime && elapsed > s.movetime)
+		// 探索時間固定なのにponderしていることは普通ないと思うので、ponder後の時間経過を見て停止させて良いと思う。
+		if (s.movetime && elapsed_from_ponderhit > s.movetime)
 		{
 			// 時間固定なので、それを超過していたら、ただちに中断すべき。
-			s.interruption = true;
+			interrupt();
+			return;
+		}
+
+		// 終了時刻が確定しているなら、そこ以降の時刻であれば停止させないといけない。
+		if (s.time_manager.search_end)
+			if (elapsed_from_ponderhit >= s.time_manager.search_end)
+			{
+				// 終了予定時刻より時間が超過している。
+				interrupt();
+				return;
+			}
+			else {
+				// 探索終了時刻は設定されているのでこれ以上、探索打ち切りの判定は不要。
 			return;
 		}
 
@@ -430,36 +500,31 @@ namespace dlshogi
 		}
 
 		// 最小思考時間を使っていない。
-		if (elapsed < s.time_manager.minimum())
+		if (elapsed_from_ponderhit < s.time_manager.minimum())
 			return ;
 
 		// 最大思考時間を超過している。
-		if (elapsed > s.time_manager.maximum())
+		if (elapsed_from_ponderhit > s.time_manager.maximum())
 		{
 			// この場合も余計な時間制御は不要。ただちに中断すべき。
-			s.interruption = true;
+			interrupt();
 			return;
 		}
 
 		// 最適時間の1/3は必ず使うべき。
-		if (elapsed < s.time_manager.optimum() * 1/3)
+		if (elapsed_from_ponderhit < s.time_manager.optimum() * 1/3)
 			return ;
 
 		// 最適時間のrate倍を基準時間と考える。
 		// なぜなら、残り時間を使っても1番目の指し手が2番目の指し手を超えないことが判明して探索を打ち切ることがあるから(頻度はそれほど高くない)
 		// 平均的にoptimum()の時間が使えていない。そこでoptimumに係数をかけて、それを基準に考える。
-		const float rate = 1.3f;
+		const float rate = 1.2f;
 		auto optimum = std::min((TimePoint)(s.time_manager.optimum() * rate), s.time_manager.maximum());
 
-		if (elapsed + 300 > optimum)
+		if (elapsed_from_ponderhit >= optimum)
 		{
-			// あと300msほどで超えそうなので、もう中断準備に入る。
-
-			// "ponderhit"しているときは、そこからの経過時間を丸める。
-			// "ponderhit"していないときは開始からの経過時間を丸める。
-			// そのいずれもtime_manager.elapsed_from_ponderhit()から計算して良い。
-
-			s.time_manager.search_end = s.time_manager.round_up(elapsed);
+			// 残り時間くりあげて使って、終了すべき。
+			s.time_manager.search_end = s.time_manager.round_up(elapsed_from_ponderhit);
 			return;
 		}
 
@@ -481,15 +546,23 @@ namespace dlshogi
 			}
 		}
 
-		// e       : ponder前からの経過時間
+		// elapsed : "go" , "go ponder"からの経過時間
 		// rest_po : 残り何回ぐらいplayoutできそうか。
 
-		// nps = node_searched / (e + 1) 
-		// ※　0のとき0除算になるので分母を +1 してある。
+		// nps = 今回探索したノード数 / "go ponder"からの経過時間
+		// 今回探索したノード数 = node_searched
+		// なので、nps = node_searched / (e + 1)
+		// ※　0のとき0除算になるので分母を +1 する。
 		// rest_po = nps × 残り時間
+		// 残り時間 = optimum - elapsed
+		// なので、
+		// rest_po = (node_searched - pre_simulated)*(optimum - elapsed) / (e + 1)
+		
+		auto elapsed = s.time_manager.elapsed();
+		s64 rest_po = (s64)(s.nodes_searched * (optimum - elapsed_from_ponderhit) / (elapsed + 1) );
 
-		auto e = s.time_manager.elapsed();
-		s64 rest_po = (s64)(search_limit.node_searched * (optimum - e) / (e + 1) );
+		// 何か条件をいじっているときに、rest_poがマイナスになりうるようになってしまうことがあるので
+		// マイナスであれば0とみなす。
 		rest_po = std::max(rest_po, (s64)0);
 
 		if (max_searched - second > rest_po) {
@@ -502,7 +575,7 @@ namespace dlshogi
 			// "ponderhit"しているときは、そこからの経過時間を丸める。
 			// "ponderhit"していないときは開始からの経過時間を丸める。
 			// そのいずれもtime_manager.elapsed_from_ponderhit()から計算して良い。
-			s.time_manager.search_end = s.time_manager.round_up(elapsed);
+			s.time_manager.search_end = s.time_manager.round_up(elapsed_from_ponderhit);
 		}
 	}
 
@@ -549,11 +622,63 @@ namespace dlshogi
 	// ※ やねうら王独自拡張
 	void DlshogiSearcher::parallel_search(const Position& rootPos, size_t thread_id)
 	{
-		// このrootPosはスレッドごとに用意されているからコピー可能。
+		// このrootPosはスレッドごとに用意されているから単純なメモリコピー可能。
 
+		// thread_id、割り当てられている末尾の1つは、GC用とSearchInterruptionChecker用なので
+		// このidに応じて、処理を割り当てる。
+
+		// やねうら王側でスレッド生成を一元管理するための、わりとシンプルで面白い実装だと思う。
+
+		// GCもここから割り当てたかったが、そうすると、ガーベジの途中で探索が終了できなくて
+		// bestmoveが返せないことがあるようなので、良くなかった。
+
+		auto s = thread_id_to_uct_searcher.size();
+
+		// 通常の探索スレッドは、並列UCT探索へ。
+		if (thread_id < s)
 		thread_id_to_uct_searcher[thread_id]->ParallelUctSearch(rootPos);
+
+		// 探索終了判定用。
+		else if (thread_id == s)
+			interruption_checker->Worker();
+
+		else
+			ASSERT_LV3(false);
+
 	}
 
+	// --------------------------------------------------------------------
+	//  SearchInterruptionChecker : 探索停止チェックを行うスレッド
+	// --------------------------------------------------------------------
+
+	// ガーベジ用のスレッドが実行するworker
+	// 探索開始時にこの関数を呼び出す。
+	void SearchInterruptionChecker::Worker()
+	{
+		// スレッド停止命令が来るまで、kCheckIntervalMs[ms]ごとにInterruptionCheck()を実行する。
+
+		// 終了判定用の関数
+		auto stop = [&]() {
+			return Threads.stop.load() || ds->search_limits.interruption;
+		};
+
+		// 最後に出力した時刻をリセットしておく。
+		ds->ResetLastPvPrint();
+
+		while (!stop() ) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(kCheckIntervalMs));
+
+			// 探索の終了チェック
+			ds->InterruptionCheck();
+
+			// ここにも終了判定を入れておいたほうが、探索停止確定にPV出力しなくてよろしい。
+			if (stop())
+				break;
+
+			// PVの表示チェック
+			ds->OutputPvCheck();
+		};
+	}
 }
 
 #endif // defined(YANEURAOU_ENGINE_DEEP)

@@ -16,18 +16,19 @@ namespace dlshogi
 	class NodeGarbageCollector;
 	class UctSearcher;
 	class UctSearcherGroup;
+	class SearchInterruptionChecker;
 
 	// 探索したノード数など探索打ち切り条件を保持している。
 	// ※　dlshogiのstruct po_info_t。
 	//     dlshogiではglobalになっていた探索条件に関する変数もこの構造体に含めている。
-	struct SearchLimit
+	struct SearchLimits
 	{
 		// --- ↓今回のgoコマンド後に決定した値
 
 		// 探索を打ち切る探索ノード数
 		// 探索したノード数
 		// 0 なら制限されていない。これが0以外の時は、↓↓の項目が有効。
-		NodeCountType node_limit = 0;
+		NodeCountType nodes_limit = 0;
 		
 		// 探索している時間を計測する用のtimer
 		// 探索開始時にresetされる。
@@ -63,20 +64,24 @@ namespace dlshogi
 		// --- ↓これだけ探索中に書き換える。(増えていく) 
 		
 		// 現在の探索ノード数
-		std::atomic<NodeCountType> node_searched;
+		// これは"go","go ponder"に対してゼロに初期化される。
+		// 前回、rootの局面に対して訪問していた回数は考慮されない。
+		std::atomic<NodeCountType> nodes_searched;
 
 		// 探索停止フラグ。これがtrueになれば探索は強制打ち切り。
-		// →　やねうら王では使わない。Threads.stopかsearch_limit.interruptionを使う。
+		// →　やねうら王では使わない。Threads.stopかsearch_limits.interruptionを使う。
 		//std::atomic<bool> uct_search_stop;
 
 		// 最後にPVを出力した時刻(begin_time相対)
 		TimePoint last_pv_print;
 
-		// ponder modeでsearch()が呼び出されているかのフラグ。
+		// ponder mode("go ponder"コマンド)でsearch()が呼び出されているかのフラグ。
+		// これがtrueのときは探索は"bestmove"を返すのを"stop"が来るまで待機しなければならない。
 		bool pondering;
 
 		// 中断用フラグ
 		// これがtrueになると全スレッドは探索を終了する。
+		// この停止のためのチェックは、SearchInterruptionCheckerが行う。
 		std::atomic<bool> interruption;
 	};
 
@@ -126,7 +131,7 @@ namespace dlshogi
 
 		// 決着つかずで引き分けとなる手数
 		// エンジンオプションの"MaxMovesToDraw"の値。
-		int draw_ply = 512;
+		int max_moves_to_draw = 512;
 
 		// 予測読みの設定
 		// エンジンオプションの"USI_Ponder"の値。
@@ -182,21 +187,21 @@ namespace dlshogi
 
 		// 先手の引き分けのスコアを返す。
 		float draw_value_black() const {
-			return (search_options.draw_value_from_black && search_limit.root_color == WHITE)
+			return (search_options.draw_value_from_black && search_limits.root_color == WHITE)
 				? search_options.draw_value_white // draw_value_from_blackかつ後手番なら、後手の引き分けのスコアを返す
 				: search_options.draw_value_black;
 		}
 
 		// 後手の引き分けのスコアを返す。
 		float draw_value_white() const {
-			return (search_options.draw_value_from_black && search_limit.root_color == WHITE)
+			return (search_options.draw_value_from_black && search_limits.root_color == WHITE)
 				? search_options.draw_value_black
 				: search_options.draw_value_white;
 		}
 
 		// 1手にかける時間取得[ms]
 		//TimePoint GetTimeLimit() const;
-		// →　search_limit.time_limitから取得すればいいか…。
+		// →　search_limits.time_limitから取得すればいいか…。
 
 		//  ノード再利用の設定
 		//    flag : 探索したノードの再利用をするのか
@@ -219,18 +224,18 @@ namespace dlshogi
 		void TerminateUctSearch();
 
 		// 探索の"go"コマンドの前に呼ばれ、今回の探索の打ち切り条件を設定する。
-		//    limits.nodes        : 探索を打ち切るnode数   　→  search_limit.node_limitに反映する。
-		//    limits.movetime     : 思考時間固定時の指定     →　search_limit.time_limitに反映する。
-		//    limits.max_game_ply : 引き分けになる手数の設定 →  search_limit.draw_plyに反映する。
+		//    limits.nodes        : 探索を打ち切るnode数   　→  search_limits.nodes_limitに反映する。
+		//    limits.movetime     : 思考時間固定時の指定     →　search_limits.movetimeに反映する。
+		//    limits.max_game_ply : 引き分けになる手数の設定 →  search_limits.max_moves_to_drawに反映する。
 		// などなど。
-		// その他、"go"コマンドで渡された残り時間等から、今回の思考時間を算出し、search_limit.time_managerに反映する。
+		// その他、"go"コマンドで渡された残り時間等から、今回の思考時間を算出し、search_limits.time_managerに反映する。
 		void SetLimits(const Position* pos, const Search::LimitsType& limits);
 
 		// 終了させるために、search_groupsを開放する。
 		void FinalizeUctSearch();
 
 		// UCT探索を停止させる。
-		// search_limit.uct_search_stop == trueになる。
+		// search_limits.uct_search_stop == trueになる。
 		void StopUctSearch();
 
 		// UCTアルゴリズムによる着手生成
@@ -250,6 +255,9 @@ namespace dlshogi
 		// NNに渡すモデルPathの設定。
 		void SetModelPaths(const std::vector<std::string>& paths);
 
+		// 最後にPVを出力した時刻をリセットする。
+		void ResetLastPvPrint() { search_limits.last_pv_print = 0; }
+
 		// NodeTreeを取得。
 		NodeTree* get_node_tree() const { return tree.get(); }
 
@@ -262,7 +270,7 @@ namespace dlshogi
 
 		// プレイアウト情報。
 		// 探索打ち切り条件などはここに格納されている。
-		SearchLimit search_limit;
+		SearchLimits search_limits;
 
 		// エンジンオプションで設定された値
 		SearchOptions search_options;
@@ -272,7 +280,12 @@ namespace dlshogi
 		std::mutex mutex_expand;
 
 		//  探索停止の確認
+		// SearchInterruptionCheckerから呼び出される。
 		void InterruptionCheck();
+
+		// PV表示の確認
+		// SearchInterruptionCheckerから呼び出される。
+		void OutputPvCheck();
 
 	private:
 
@@ -281,7 +294,7 @@ namespace dlshogi
 
 		//  思考時間延長の確認
 		//    返し値 : 探索を延長したほうが良さそうならtrue
-		bool ExtendTime();
+		//bool ExtendTime();
 
 		// UCT探索を行う、GPUに対応するスレッドグループの集合
 		std::unique_ptr<UctSearcherGroup[]> search_groups;
@@ -291,6 +304,9 @@ namespace dlshogi
 		
 		// ガーベジコレクタ
 		std::unique_ptr<NodeGarbageCollector> gc;
+
+		// 探索停止チェック用
+		std::unique_ptr<SearchInterruptionChecker> interruption_checker;
 
 		// PVの出力と、ベストの指し手の取得
 		std::tuple<Move /*bestMove*/, float /* best_wp */, Move /* ponderMove */> get_and_print_pv();
@@ -303,6 +319,27 @@ namespace dlshogi
 		// スレッドIDから対応するgpu_idへのmapper
 		std::vector<int> thread_id_to_gpu_id;
 		std::vector<UctSearcher*> thread_id_to_uct_searcher;
+	};
+
+	// 探索の終了条件を満たしたかを調べるスレッド
+	// dlshogiにはないが、これがないと正確な時刻で探索を終了させることが困難だと思った。
+	// GCと同じような作りになっている。
+	// スレッドの生成は、やねうら王フレームワーク側で行うものとする。(探索用スレッドを1つ使う)
+	// また、PVの表示チェックと探索終了チェックは、DlshogiSearcher側に実装してあるものとする。
+	class SearchInterruptionChecker
+	{
+	public:
+		SearchInterruptionChecker(DlshogiSearcher* ds) : ds(ds) {}
+
+		// この間隔ごとに探索停止のチェック、PVの出力のチェックを行う。
+		const int kCheckIntervalMs = 10;
+
+		// ガーベジ用のスレッドが実行するworker
+		// 探索開始時にこの関数を呼び出す。
+		void Worker();
+
+	private:
+		DlshogiSearcher* ds;
 	};
 
 

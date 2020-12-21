@@ -48,7 +48,6 @@ void USI::extra_option(USI::OptionsMap& o)
 #endif // !MAKE_BOOK
 
 	o["UCT_NodeLimit"]				 << USI::Option(10000000, 100000, 1000000000); // UCTノードの上限
-
 	// デバッグ用のメッセージ出力の有無
 	o["DebugMessage"]                << USI::Option(false);
 
@@ -147,6 +146,8 @@ void Search::clear()
 #endif
 
 	searcher.SetPvInterval((TimePoint)Options["PV_Interval"]);
+
+	searcher.SetGetnerateAllLegalMoves(Options["GenerateAllLegalMoves"]);
 
 	// ノードを再利用するかの設定。
 	searcher.SetReuseSubtree(Options["ReuseSubtree"]);

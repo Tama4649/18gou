@@ -3338,6 +3338,144 @@ void dump_sfen(Position& pos, istringstream& is)
 
 	cout << "sfen_dump , finished." << endl;
 }
+
+// N手詰みの局面を生成する。
+void gen_mate(Position& pos, istringstream& is)
+{
+	// default 5万回
+	uint64_t loop_max = 50000;
+
+	// この手数で詰む詰みの局面を探す
+	// min_ply以上、max_ply以下の詰みを探す。
+	int min_ply = 3;
+	int max_ply = 5;
+
+	string filename = "mate_sfen.txt";
+
+	string token;
+	while (is >> token)
+	{
+		if (token == "loop")
+			is >> loop_max;
+		else if (token == "min_ply")
+			is >> min_ply;
+		else if (token == "max_ply")
+			is >> max_ply;
+		else if (token == "filename")
+			is >> filename;
+	}
+
+	size_t thread_num = Options["Threads"];
+
+	cout << "gen_mate command" << endl
+		<< "  loop_max     = " << loop_max << endl
+		<< "  min_ply = "      << min_ply << endl
+		<< "  max_ply = "      << max_ply << endl
+		<< "  output filename  = " << filename   << endl
+		<< "  Threads          = " << thread_num << endl
+		;
+
+	ofstream fs(filename);
+
+	// 最小手数と最大手数が逆転している
+	if (min_ply > max_ply)
+	{
+		cout << "Error! min_ply > max_ply" << endl;
+		return;
+	}
+
+	// 偶数手の詰将棋はない
+	if (min_ply % 2 == 0 || max_ply % 2 == 0)
+	{
+		cout << "Error! min_ply , max_ply must be odd." << endl;
+		return;
+	}
+
+	const int MAX_PLY = 256; // 256手までテスト
+
+	// isreadyが呼び出されたものとする。
+	Search::clear();
+
+	// 並列化しないと時間かかる。
+
+	atomic<u64> generated_count = 0;
+
+	auto worker = [&](int thread_id) {
+		WinProcGroup::bindThisThread(thread_id);
+
+		PRNG prng;
+
+	// StateInfoを最大手数分だけ確保
+		auto states = std::make_unique<StateInfo[]>(MAX_PLY + 1);
+
+	//Move moves[MAX_PLY]; // 局面の巻き戻し用に指し手を記憶
+	int ply; // 初期局面からの手数
+
+		Position pos;
+		while (true)
+	{
+			pos.set_hirate(&(states[0]), Threads[thread_id]);
+
+		for (ply = 0; ply < MAX_PLY; ++ply)
+		{
+			MoveList<LEGAL_ALL> mg(pos);
+			if (mg.size() == 0)
+				break;
+
+				auto pv = Learner::search(pos, 3 + (int)prng.rand(3) /* depth 3～5 */, 1);
+			Move m = pv.second[0];
+
+			// mate_min_ply - 2で詰まなくて、
+			// mate_max_plyで詰むことを確認すれば良いはず。
+				if (Mate::mate_odd_ply(pos, min_ply - 2, true) == MOVE_NONE
+					&& Mate::mate_odd_ply(pos, max_ply, true) != MOVE_NONE)
+			{
+				// 発見した。
+
+					// 局面図を出力してみる。
+					//sync_cout << pos << sync_endl;
+
+					// 初手を出力してみる。
+					//cout << Mate::mate_odd_ply(pos, max_ply, true) << endl;
+
+					string sfen = pos.sfen();
+				//sync_cout << "sfen = " << sfen << sync_endl;
+					fs << sfen << endl;
+					fs.flush();
+
+					// 生成した数
+					if (++generated_count >= loop_max)
+						return;
+
+					break; // ここで次の対局へ
+			}
+
+			if (m == MOVE_NONE)
+				break;
+
+				pos.do_move(m, states[ply + 1]);
+
+			//moves[ply] = m;
+		}
+	}
+	};
+
+	auto threads = make_unique<std::thread[]>(thread_num);
+	for (int i = 0; i < thread_num; ++i)
+		threads[i] = std::thread(worker,i);
+
+	while (generated_count < loop_max)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		sync_cout << generated_count << sync_endl;
+	}
+
+	for (int i = 0; i < thread_num; ++i)
+		threads[i].join();
+
+	sync_cout << "..done" << sync_endl;
+}
+
 #endif // EVAL_LEARN
 
 #if defined (USE_KIF_CONVERT_TOOLS)
@@ -3470,11 +3608,12 @@ void test_cmd(Position& pos, istringstream& is)
 	else if (param == "autoplay") auto_play(pos, is);                // 思考ルーチンを呼び出しての連続自己対戦
 	else if (param == "timeman") test_timeman();                     // TimeManagerのテスト
 	else if (param == "exambook") exam_book(pos);                    // 定跡の精査用コマンド
-	else if (param == "bookcheck") book_check_cmd(pos,is);           // 定跡のチェックコマンド
+	else if (param == "bookcheck") book_check_cmd(pos, is);          // 定跡のチェックコマンド
 #if defined (EVAL_LEARN)
 	else if (param == "search") test_search(pos, is);                // 現局面からLearner::search()を呼び出して探索させる
 	else if (param == "dumpsfen") dump_sfen(pos, is);                // gensfenコマンドで生成した教師局面のダンプ
 	else if (param == "evalsave") Eval::save_eval("");               // 現在の評価関数のパラメーターをファイルに保存
+	else if (param == "genmate") gen_mate(pos, is);                  // N手詰みの局面を生成する。
 #endif
 #if defined (EVAL_KPPT) || defined(EVAL_KPP_KKPT)
 	else if (param == "evalmerge") eval_merge(is);                   // 評価関数の合成コマンド

@@ -232,13 +232,14 @@ SOURCES  = \
 	book/makebook2021.cpp                                                      \
 	extra/bitop.cpp                                                            \
 	extra/long_effect.cpp                                                      \
-	extra/mate/mate1ply_with_effect.cpp                                        \
-	extra/mate/mate1ply_without_effect.cpp                                     \
-	extra/mate/mate_n_ply.cpp                                                  \
 	extra/test_cmd.cpp                                                         \
 	extra/sfen_packer.cpp                                                      \
 	extra/kif_converter/kif_convert_tools.cpp                                  \
 	extra/super_sort.cpp                                                       \
+	mate/mate.cpp                                                              \
+	mate/mate1ply_without_effect.cpp                                           \
+	mate/mate1ply_with_effect.cpp                                              \
+	mate/mate_n_ply.cpp                                                        \
 	eval/evaluate_bona_piece.cpp                                               \
 	eval/evaluate.cpp                                                          \
 	eval/evaluate_io.cpp                                                       \
@@ -401,7 +402,7 @@ else ifeq ($(TARGET_CPU),OTHER)
 endif
 
 # YANEURAOU_EDITION , CPUターゲット名 などのシンボルをコンパイル時に定義してやる。
-CPPFLAGS += -DUSE_MAKEFILE -D$(YANEURAOU_EDITION) -DTARGET_CPU=\"$(TARGET_CPU)\" $(EXTRA_CPPFLAGS)
+CPPFLAGS += -D$(YANEURAOU_EDITION) -DTARGET_CPU=\"$(TARGET_CPU)\" $(EXTRA_CPPFLAGS)
 
 OBJECTS  = $(addprefix $(OBJDIR)/, $(SOURCES:.cpp=.o))
 DEPENDS  = $(OBJECTS:.o=.d)

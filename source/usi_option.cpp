@@ -119,6 +119,13 @@ namespace USI {
 		o["EnteringKingRule"] << Option(USI::ekr_rules, USI::ekr_rules[EKR_27_POINT]);
 #endif
 
+#if defined(USE_GENERATE_ALL_LEGAL_MOVES)
+		// 読みの各局面ですべての合法手を生成する
+		// (普通、歩の2段目での不成などは指し手自体を生成しないのですが、これのせいで不成が必要な詰みが絡む問題が解けないことが
+		// あるので、このオプションを用意しました。トーナメントモードではこのオプションは無効化されます。)
+		o["GenerateAllLegalMoves"] << Option(false);
+#endif
+
 		// 評価関数フォルダ。これを変更したとき、評価関数を次のisreadyタイミングで読み直す必要がある。
 		last_eval_dir = "eval";
 		o["EvalDir"] << Option("eval", [](const USI::Option&o) {
@@ -144,13 +151,6 @@ namespace USI {
 		// そこでこの隠しオプションでisready時の評価関数の読み込みを抑制して、
 		// test evalconvertコマンドを叩く。
 		o["SkipLoadingEval"] << Option(false);
-#endif
-
-#if !defined(MATE_ENGINE)
-		// 読みの各局面ですべての合法手を生成する
-		// (普通、歩の2段目での不成などは指し手自体を生成しないのですが、これのせいで不成が必要な詰みが絡む問題が解けないことが
-		// あるので、このオプションを用意しました。トーナメントモードではこのオプションは無効化されます。)
-		o["GenerateAllLegalMoves"] << Option(false);
 #endif
 
 #if defined(_WIN32)

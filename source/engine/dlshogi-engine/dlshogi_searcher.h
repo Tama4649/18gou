@@ -5,6 +5,8 @@
 #if defined(YANEURAOU_ENGINE_DEEP)
 
 #include "../../position.h"
+#include "../../book/book.h"
+#include "../../mate/mate.h"
 #include "dlshogi_types.h"
 
 // dlshogiの探索部で構造体化・クラス化されていないものを集めたもの。
@@ -77,7 +79,8 @@ namespace dlshogi
 
 		// ponder mode("go ponder"コマンド)でsearch()が呼び出されているかのフラグ。
 		// これがtrueのときは探索は"bestmove"を返すのを"stop"が来るまで待機しなければならない。
-		bool pondering;
+		// →　やねうら王では、Threads.main()->ponderを用いるのでこのフラグは使わない。
+		//bool pondering;
 
 		// 中断用フラグ
 		// これがtrueになると全スレッドは探索を終了する。
@@ -153,6 +156,11 @@ namespace dlshogi
 
 		// (歩の不成、敵陣2段目の香の不成など)全合法手を生成するのか。
 		bool generate_all_legal_moves = false;
+
+		// leaf node(探索の末端の局面)での奇数手詰みルーチンを呼び出す時の手数
+		// 0 = 奇数手詰めを呼び出さない。
+		// エンジンオプションの"MateSearchPly"の値。
+		int mate_search_ply;
 
 	};
 
@@ -251,13 +259,11 @@ namespace dlshogi
 		//   gameRootSfen  : 対局開始局面のsfen文字列(探索開始局面ではない)
 		//   moves         : 探索開始局面からの手順
 		//   ponderMove    : ponderの指し手 [Out]
-		//   ponder        : ponder mode("go ponder")で呼び出されているのかのフラグ。
-		//            このフラグがtrueであるなら、この関数はMOVE_NONEしか返さない。
 		//   start_threads : この関数を呼び出すと全スレッドがParallelUctSearch()を呼び出して探索を開始するものとする。
 		// 返し値 : この局面でのbestな指し手
 		// ※　事前にSetLimits()で探索条件を設定しておくこと。
-		Move UctSearchGenmove(Position* pos, const std::string& gameRootSfen, const std::vector<Move>& moves, Move& ponderMove, bool ponder,
-			const std::function<void()>& start_threads);
+		Move UctSearchGenmove(Position* pos, const std::string& gameRootSfen, const std::vector<Move>& moves,
+			Move& ponderMove,const std::function<void()>& start_threads);
 
 		// NNに渡すモデルPathの設定。
 		void SetModelPaths(const std::vector<std::string>& paths);
@@ -285,6 +291,9 @@ namespace dlshogi
 		// RootNodeを展開する時に使うmutex。
 		// UCTSearcher::ParallelUctSearch()で用いる。
 		std::mutex mutex_expand;
+
+		// 定跡の指し手を選択するモジュール
+		Book::BookMoveSelector book;
 
 		//  探索停止の確認
 		// SearchInterruptionCheckerから呼び出される。
@@ -327,6 +336,11 @@ namespace dlshogi
 		// スレッドIDから対応するgpu_idへのmapper
 		std::vector<int> thread_id_to_gpu_id;
 		std::vector<UctSearcher*> thread_id_to_uct_searcher;
+
+		// 探索とは別スレッドでの詰み探索用
+
+		// 奇数手詰め
+		Mate::MateSolver mate_solver;
 	};
 
 	// 探索の終了条件を満たしたかを調べるスレッド

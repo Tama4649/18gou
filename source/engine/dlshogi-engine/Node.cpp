@@ -59,62 +59,60 @@ namespace dlshogi
 
 	// --- class NodeTree
 
-	// 局面(Position)を渡して、node tree内からこの局面を探す。
+	// ゲーム開始局面からの手順を渡して、node tree内からこの局面を探す。
 	// もし見つかれば、node treeの再利用を試みる。
 	// 新しい位置が古い位置と同じゲームであるかどうかを返す。
-	//   sfen  : 今回探索するrootとなる局面のsfen文字列
-	//   moves : 初期局面からposに至る指し手
+	//   game_root_sfen : ゲーム開始局面のsfen文字列
+	//   moves          : game_root_sfenの局面からposに至る指し手
 	// ※　位置が完全に異なる場合、または以前よりも短い指し手がmovesとして与えられている場合は、falseを返す
-	bool NodeTree::ResetToPosition(const std::string& rootSfen, const std::vector<Move>& moves)
+	bool NodeTree::ResetToPosition(const std::string& game_root_sfen , const std::vector<Move>& moves)
 	{
-		if (game_root_sfen != rootSfen)
+		// 前回思考した時とは異なるゲーム開始局面であるなら異なるゲームである。
+		// root nodeがまだ生成されていない
+
+		// DeallocateTree()したかのフラグ
+		bool deallocated = false;
+		if (this->game_root_sfen != game_root_sfen)
 		{
-			// 対局の開始局面のsfen文字列が異なる以上、完全に別のゲームであるから、
-			// 前のゲームツリーを完全に開放する。
+			// Node作り直す必要がある
 			DeallocateTree();
-
-			// 対局開始局面のsfenの設定
-			game_root_sfen = rootSfen;
-		}
-
-		if (!game_root_node)
-		{
-			// 新しい対局であり、一度目のこの関数の呼び出しであるから、現在の局面のために新規のNodeを作成し、
-			// このNodeが対局開始のnodeであり、かつ、探索のroot nodeであると設定しておく。
-			game_root_node = std::make_unique<Node>();
-			current_head = game_root_node.get();
+			this->game_root_sfen = game_root_sfen;
+			deallocated = true;
 		}
 
 		// 前回の探索開始局面
 		Node* old_head = current_head;
 
-		// 前回の探索開始局面の一つ前の局面(これは保持していないので最初はnullptr)
+		// nodeを辿って行った時の一つ前のnode
 		Node* prev_head = nullptr;
 
-		// 対局開始局面から探していき、現在の局面に到達する経路だけを残して他のノードを開放する。
+		// 現在のnode。ゲーム開始局面から辿っていく。
 		current_head = game_root_node.get();
 
-		// 見つかったのかのフラグ
+		// 前回の探索rootの局面が、与えられた手順中に見つかったのかのフラグ
 		bool seen_old_head = (game_root_node.get() == old_head);
 
+		// 対局開始局面から、指し手集合movesで1手ずつ進めていく。
 		for (const auto& move : moves) {
-			// 対局開始局面から、指し手集合movesで1手ずつ進めていく。
+			// 一つ前のnode
 			prev_head = current_head;
-			// 指し手以外の子ノードを開放する
+
+			// 現在の局面に到達する経路だけを残して他のノードを開放する。(なければNodeを作るのでnullptrになることはない)
 			current_head = current_head->ReleaseChildrenExceptOne(gc,move);
 			
 			// 途中でold_headが見つかったならseen_old_headをtrueに。
+			// ここを超えて進んだなら、前回の探索結果が使える。
 			seen_old_head |= old_head == current_head;
 		}
 
-		// TODO : ここの処理、あとでよくかんがえる
-
-		// MakeMoveは兄弟が存在しないことを保証する 
-		// ただし、古いヘッドが現れない場合は、以前に検索された位置の祖先である位置がある可能性があることを意味する
-		// つまり、古い子が以前にトリミングされていても、current_head_は古いデータを保持する可能性がある
-		// その場合、current_head_をリセットする必要がある
-		if (!seen_old_head && current_head != old_head) {
-			if (prev_head) {
+		// 前回の局面が見当たらなかった。
+		// 以前の局面に戻っているのか、新しいゲームであるか。
+		if (!seen_old_head)
+		{
+			// 1手前のNodeがある場合、現局面のNodeは今回のゲームで進行した指し手(1手)以外は
+			// 開放してしまっているので、一つ前のNodeから、現局面のNodeを新しく作り直す必要がある。
+			if (prev_head)
+			{
 				ASSERT_LV3(prev_head->child_num == 1);
 				auto& prev_uct_child_node = prev_head->child_nodes[0];
 				gc->AddToGcQueue(std::move(prev_uct_child_node));
@@ -122,11 +120,12 @@ namespace dlshogi
 				current_head = prev_uct_child_node.get();
 			}
 			else {
-				// 開始局面に戻った場合
-				DeallocateTree();
+				// 1手前の局面が存在しないということは、現在の局面が開始局面なので、
+				// 丸ごとNodeを作り直しておけば良い。
+				if (!deallocated)
+					DeallocateTree();
 			}
 		}
-
 
 		return seen_old_head;
 	}
@@ -134,8 +133,9 @@ namespace dlshogi
 	void NodeTree::DeallocateTree()
 	{
 		// ゲームツリーを保持しているならそれを開放する。
-		// (保持していない時は何もしない)
+		// ※　AddToGcQueue()はnullptrを渡しても良いことになっている。
 		gc->AddToGcQueue(std::move(game_root_node));
+
 		game_root_node = std::make_unique<Node>();
 		current_head = game_root_node.get();
 	}

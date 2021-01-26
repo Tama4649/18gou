@@ -164,8 +164,10 @@ void Search::clear()
 	searcher.book.read_book();
 
 #if 0
-			// オプション設定
-			dfpn_min_search_millisecs = options["DfPn_Min_Search_Millisecs"];
+	// オプション設定
+	dfpn_min_search_millisecs = options["DfPn_Min_Search_Millisecs"];
+
+	// →　ふかうら王では、rootのdf-pnは、node数を指定することにした。
 #endif
 
 	searcher.SetPvInterval((TimePoint)Options["PV_Interval"]);
@@ -210,7 +212,6 @@ void Search::clear()
 
 	// その他、dlshogiにはあるけど、サポートしないもの。
 
-	// UCT_NodeLimit →　dlshogiでは存在するが、やねうら王旧来からあるエンジンオプションの"NodesLimit"を流用して良いと思う。
 	// EvalDir　　　 →　dlshogiではサポートされていないが、やねうら王は、EvalDirにあるモデルファイルを読み込むようにする。
 
 	// 以下も、探索パラメーターだから、いらない。開発側が最適値にチューニングすべきという考え。
@@ -239,6 +240,8 @@ void Search::clear()
 
 	searcher.SetPonderingMode(Options["USI_Ponder"]);
 
+	// UCT_NodeLimit : これはノード制限ではなく、ノード上限を示す。この値を超えたら思考を中断するが、
+	// 　この値を超えていなくとも、持ち時間制御によって思考は中断する。
 	searcher.InitializeUctSearch((NodeCountType)Options["UCT_NodeLimit"]);
 
 #if 0
@@ -277,7 +280,7 @@ void MainThread::search()
 	searcher.search_options.multi_pv = (ChildNumType)Options["MultiPV"];
 
 	Move ponderMove;
-	Move move = searcher.UctSearchGenmove(&rootPos, rootPos.sfen(), {}, ponderMove);
+	Move move = searcher.UctSearchGenmove(&rootPos, game_root_sfen , moves_from_game_root , ponderMove);
 
 	// ponder中であれば、呼び出し元で待機しなければならない。
 	

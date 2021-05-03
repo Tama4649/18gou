@@ -30,7 +30,7 @@ struct MoveIntFloat
 	bool operator < (const MoveIntFloat& rhs) const {
 		return nnrate < rhs.nnrate;
 	}
-
+	
 	std::string to_string()
 	{
 		return to_usi_string(move) + " " + std::to_string(label) + " " + std::to_string(nnrate);
@@ -257,34 +257,23 @@ namespace dlshogi
 	//     ここでそれを用いた設定をするわけにはいかない。
 	void UctSearcher::InitMateSearcher(const SearchOptions& options)
 	{
-	#if defined(USE_DFPN_AT_LEAF_NODE)
-
 		// -- leaf nodeでdf-pn solverを用いる時はメモリの確保が必要
 
 		// 300 nodeと5手詰めがだいたい等価(時間的に)
-		// ※　options.leaf_mate_search_nodes_limit とか用意すべきか？
-		// 300/* nodes */ * 16 /* bytes */ * 10 /* 平均分岐数 */ / (1024 * 1024) = 0.045[MB] お、、おう…。1MBあれば十分だな。
+		// でもマルチスレッドだとメモリアクセスが足を引っ張るようで50nodeぐらいでないと…。
+		// 50 nodeデフォルトでいいや。強さこれで5手詰めとほぼ変わらないし、nps 5%ほど速いので…。
+		// 10000/* nodes */ * 16 /* bytes */ * 10 /* 平均分岐数 */ / (1024 * 1024) = 1.525[MB] お、、おう…。1万nodeぐらいまでは1MBあればいけるか。
 		mate_solver.alloc(1);
-	#endif
 	}
 
 	// "go"に対して探索を開始する時に呼び出す。
 	// "go"に対してしかmax_moves_to_drawは未確定なので、それが確定してから呼び出す。
 	void UctSearcher::SetMateSearcher(const SearchOptions& options)
 	{
-
-	#if !defined(USE_DFPN_AT_LEAF_NODE)
-		// -- leaf nodeで奇数手詰めを用いる時
-
-		// 引き分けの手数の設定
-		mate_solver.set_max_game_ply(options.max_moves_to_draw);
-
-	#else
 		// -- leaf nodeでdf-pn solverを用いる時
 
 		// 引き分けの手数の設定
 		mate_solver.set_max_game_ply(options.max_moves_to_draw);
-	#endif
 
 	}
 
@@ -428,7 +417,7 @@ namespace dlshogi
 	// 返し値 : currentの局面の期待勝率を返すが、以下の特殊な定数を取ることがある。
 	//   QUEUING      : 評価関数を呼び出した。(呼び出しはqueuingされていて、完了はしていない)
 	//   DISCARDED    : 他のスレッドがすでにこのnodeの評価関数の呼び出しをしたあとであったので、何もせずにリターンしたことを示す。
-	//
+	// 
 	float UctSearcher::UctSearch(Position* pos, ChildNode* parent , Node* current, NodeVisitor& visitor)
 	{
 		auto ds = grp->get_dlsearcher();
@@ -538,13 +527,11 @@ namespace dlshogi
 
 					bool isMate =
 						// Mate::mate_odd_ply()は自分に王手がかかっていても詰みを読めるはず…。
-					#if defined(USE_DFPN_AT_LEAF_NODE)
+
 						// df-pn mate solverをleaf nodeで使う。
-						// →　なんか弱くなる。なんでなん…。
-						(is_ok(mate_solver.mate_dfpn(*pos,300)) /* MOVE_NONE(詰み不明) , MOVE_NULL(不詰)ではない 。これらはis_ok(m) == false */ )
-					#else
-						(options.mate_search_ply && mate_solver.mate_odd_ply(*pos,options.mate_search_ply,options.generate_all_legal_moves) != MOVE_NONE) // N手詰め
-					#endif
+						(options.leaf_dfpn_nodes_limit // 0なら詰み探索無効
+							&& is_ok(mate_solver.mate_dfpn(*pos, options.leaf_dfpn_nodes_limit)))
+							// MOVE_NONE(詰み不明) , MOVE_NULL(不詰)ではない 。これらはis_ok(m) == false
 						|| (pos->DeclarationWin() != MOVE_NONE)            // 宣言勝ち
 						;
 #else
@@ -648,6 +635,19 @@ namespace dlshogi
 	//  currentノードがすべて勝ちなら、親ノードは負けなので、parent->SetLose()を呼び出す。
 	ChildNumType UctSearcher::SelectMaxUcbChild(ChildNode* parent, Node* current)
 	{
+		// nodeはlockされているので、atomicは不要なはず。
+
+		// 訪問回数が多いなら、そう簡単に子ノードは変化しないのでしばらくは前回と同じbest_childを返す。
+		if (current->select_interval)
+		{
+			--current->select_interval;
+			return current->last_best_child;
+		}
+
+		// 訪問回数に応じてチェックの回数を減らす。root付近でのnodeのlock時間を減らす考え。
+		// A100×8とかでnpsが少し改善するかも…。(GeForce RTX 3090×1だとやらないほうがマシレベル…)
+		current->select_interval = (u16)std::min(current->move_count / 16384, (NodeCountType)7);
+
 		auto ds = grp->get_dlsearcher();
 		auto& options = ds->search_options;
 
@@ -671,7 +671,6 @@ namespace dlshogi
 		const WinType sum_win = current->win;
 
 		float q, u, max_value;
-		int child_win_count = 0;
 
 		max_value = -FLT_MAX;
 
@@ -685,21 +684,42 @@ namespace dlshogi
 		const float parent_q = sum_win > 0 ? std::max(0.0f, (float)(sum_win / sum) - fpu_reduction) : 0.0f;
 		const float init_u = sum == 0 ? 1.0f : sqrt_sum;
 
+		// すべて指し手をbitwise andして、すべての指し手にIsWin()かIsLose()のフラグが立っていないかを見る。
+		// すべての子ノードがIsWin()なら、このノードは負け確定。
+		// すべての子ノードがIsDraw()なら、このノードは引き分け確定。
+		u32 and_move = 0xffffffff;
+
 		// UCB値最大の手を求める
 		for (ChildNumType i = 0; i < child_num; i++) {
-			if (uct_child[i].IsWin()) {
-				child_win_count++;
-				// 負けが確定しているノードは選択しない
+
+			Move move = uct_child[i].move;
+
+			// 負けが確定しているノードは選択しない
+			if (ChildNode::IsMoveWin(move))
 				continue;
-			}
-			else if (uct_child[i].IsLose()) {
+
+			if (ChildNode::IsMoveLose(move)) {
 				// 子ノードに一つでも負けがあれば、自ノードを勝ちにできる
 				if (parent != nullptr)
 					parent->SetWin();
 
 				// 勝ちが確定しているため、親からは、この子ノードを選択する
+				current->last_best_child = i;
 				return i;
 			}
+
+			// --- 引き分けについて
+
+			//	1. 子ノードすべてが負け
+			//	2. 子ノードすべてが引き分け
+			//	3. 子ノードすべてが引き分け or 負け
+
+			// 引き分け とは、 2. or (3. and (not 1.))である。
+			// 上の2つのifより↓を先に書くと、3.の条件が抜けてしまい、2. になってしまうので誤り。
+
+			and_move &= (u32)move;
+
+			// 引き分けに関しては特にスキップしない。普通に計算する。
 
 			const WinType       win        = uct_child[i].win;
 			const NodeCountType move_count = uct_child[i].move_count;
@@ -720,7 +740,7 @@ namespace dlshogi
 
 			// MCTSとの組み合わせの時には、UCBの代わりにp-UCB値を用いる。
 			//
-			// 親ノードでi番目の指し手を指した局面を子ノードと呼ぶ。
+			// 親ノードでi番目の指し手を指した局面を子ノードと呼ぶ。 
 			// 　子ノードのvalue networkの値           : v(s_i)    ==> 変数 q
 			// 　親ノードの指し手iのpolicy networkの値 :   p_i     ==> 変数 rate
 			// 　親nodeの訪問数                        :   n       ==> 変数 sum
@@ -730,8 +750,8 @@ namespace dlshogi
 			//         p-UCB = v(s_i) + p_i・c・sqrt(n)/(1+n_i)
 			//
 			//   ※　v(s_i)は、初回はvalue networkの値を使うが、そのあとは、win / move_count のほうがより正確な期待勝率なのでそれを用いる。
-			//   ※　sqrt(n) ==> 変数sqrt_sum // 高速化のためループの外で計算している
-			//
+			//   ※　sqrt(n) ==> 変数sqrt_sum // 高速化のためループの外で計算している 
+			//    
 
 			const float ucb_value = q + c * u * rate;
 
@@ -741,16 +761,27 @@ namespace dlshogi
 			}
 		}
 
-		if (child_win_count == child_num) {
+		if (ChildNode::IsMoveWin((Move)and_move)) {
 			// 子ノードがすべて勝ちのため、自ノードを負けにする
+			// このときmax_child == 0(初期値)。
 			if (parent != nullptr)
 				parent->SetLose();
+
+		} else if (ChildNode::IsMoveDraw((Move)and_move)) {
+
+			// 子ノードがすべて引き分けのため、自ノードを引き分けにする
+			// このときmax_childは普通に計算される。
+			if (parent != nullptr)
+				parent->SetDraw();
 
 		} else {
 
 			// for FPU reduction
 			atomic_fetch_add(&current->visited_nnrate, uct_child[max_child].nnrate);
 		}
+
+		// 次に訪問するときのために選択した子のindexを保存しておく。
+		current->last_best_child = max_child;
 
 		return max_child;
 	}

@@ -40,13 +40,18 @@ namespace dlshogi
 
 		// --- public variables
 
+		// 指し手(Move)が、SetWin()されているかの判定
+		static bool IsMoveWin(Move m) { return m & VALUE_WIN; }
+		static bool IsMoveLose(Move m) { return m & VALUE_LOSE; }
+		static bool IsMoveDraw(Move m) { return m & VALUE_DRAW; }
+
 		// メモリ節約のため、moveの最上位バイトでWin/Lose/Drawの状態を表す
 		// (32bit型のMoveでは、ここは使っていないはずなので)
-		bool IsWin()  const { return move & VALUE_WIN; }
+		bool IsWin()  const { return IsMoveWin(move); }
 		void SetWin()  { move = (Move)(move | VALUE_WIN); }
-		bool IsLose() const { return move & VALUE_LOSE; }
+		bool IsLose() const { return IsMoveLose(move); }
 		void SetLose() { move = (Move)(move | VALUE_LOSE); }
-		bool IsDraw() const { return move & VALUE_DRAW; }
+		bool IsDraw() const { return IsMoveDraw(move); }
 		void SetDraw() { move = (Move)(move | VALUE_DRAW); }
 		// →　SetDraw()したときに、win = DRAW_VALUEにしたほうが良くないかな…。
 
@@ -70,7 +75,7 @@ namespace dlshogi
 	struct Node
 	{
 		Node()
-			: move_count(NOT_EXPANDED), win(0), visited_nnrate(0.0f) , child_num(0) {}
+			: move_count(NOT_EXPANDED), win(0), visited_nnrate(0.0f) , child_num(0) , select_interval(0){}
 
 		// 子ノード作成
 		Node* CreateChildNode(int i) {
@@ -158,6 +163,10 @@ namespace dlshogi
 		// 展開した子ノード以外はnullptrのまま。
 		std::unique_ptr<std::unique_ptr<Node>[]> child_nodes;
 
+		// SelectMaxUcbChild()の高速化のために前回選択した子ノードのindexを記憶しておく。
+		// 調べる間隔は、select_intervalにする。
+		u16 last_best_child;
+		u16 select_interval;
 
 	private:
 

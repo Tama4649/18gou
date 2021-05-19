@@ -7,6 +7,7 @@
 #include <fstream>
 #include <mutex>
 #include <atomic>
+#include <sstream>
 
 #include "types.h"
 
@@ -113,6 +114,8 @@ static_assert(sizeof(TimePoint) == sizeof(int64_t), "TimePoint should be 64 bits
 static TimePoint now() {
 	return std::chrono::duration_cast<std::chrono::milliseconds>
 		(std::chrono::steady_clock::now().time_since_epoch()).count();
+		//(std::chrono::steady_clock::now().time_since_epoch()).count() * 10;
+		// 10倍早く時間が経過するようにして、持ち時間制御のテストなどを行う。
 }
 
 // --------------------
@@ -396,6 +399,9 @@ namespace Tools
 		// ファイル書き込み時のエラー。
 		FileWriteError,
 
+		// ファイルClose時のエラー。
+		FileCloseError,
+
 		// フォルダ作成時のエラー。
 		CreateFolderError,
 
@@ -441,12 +447,12 @@ namespace Tools
 //  ファイルの丸読み
 // --------------------
 
-struct FileOperator
+namespace SystemIO
 {
 	// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。末尾の改行は除去される。
 	// 引数で渡されるlinesは空であるを期待しているが、空でない場合は、そこに追加されていく。
 	// 引数で渡されるtrimはtrueを渡すと末尾のスペース、タブがトリムされる。
-	static Tools::Result ReadAllLines(const std::string& filename, std::vector<std::string>& lines, bool trim = false);
+	extern Tools::Result ReadAllLines(const std::string& filename, std::vector<std::string>& lines, bool trim = false);
 
 
 	// msys2、Windows Subsystem for Linuxなどのgcc/clangでコンパイルした場合、
@@ -458,90 +464,128 @@ struct FileOperator
 	// また、callbackされた関数のなかでバッファが確保できなかった場合や、想定していたファイルサイズと異なった場合は、
 	// nullptrを返せば良い。このとき、read_file_to_memory()は、読み込みを中断し、エラーリターンする。
 
-	static Tools::Result ReadFileToMemory(const std::string& filename, std::function<void* (size_t)> callback_func);
-	static Tools::Result WriteMemoryToFile(const std::string& filename, void* ptr, size_t size);
+	extern Tools::Result ReadFileToMemory(const std::string& filename, std::function<void* (size_t)> callback_func);
+	extern Tools::Result WriteMemoryToFile(const std::string& filename, void* ptr, size_t size);
+
+	// C#のTextReaderみたいなもの。
+	// C++のifstreamが遅すぎるので、高速化されたテキストファイル読み込み器
+	// fopen()～fread()で実装されている。
+	struct TextReader
+	{
+		TextReader();
+		~TextReader();
+
+		// ファイルをopenする。
+		Tools::Result Open(const std::string& filename);
+
+		// Open()を呼び出してオープンしたファイルをクローズする。
+		void Close();
+
+		// ファイルの終了判定。
+		// ファイルを最後まで読み込んだのなら、trueを返す。
+
+		// 1行読み込む(改行まで) 引数のlineに代入される。
+		// 改行コードは返さない。
+		// SkipEmptyLine(),SetTrim()の設定を反映する。
+		// Eofに達した場合は、返し値としてTools::ResultCode::Eofを返す。
+		Tools::Result ReadLine(std::string& line);
+
+		// ReadLine()で空行を読み飛ばすかどうかの設定。
+		// (ここで行った設定はOpen()/Close()ではクリアされない。)
+		// デフォルトでfalse
+		void SkipEmptyLine(bool skip = true) { skipEmptyLine = skip; }
+
+		// ReadLine()でtrimするかの設定。
+		// 引数のtrimがtrueの時は、ReadLine()のときに末尾のスペース、タブはトリムする
+		// (ここで行った設定はOpen()/Close()ではクリアされない。)
+		// デフォルトでfalse
+		void SetTrim(bool trim = true) { this->trim = trim; }
+
+	private:
+		// 各種状態変数の初期化
+		void clear();
+
+		// 次のblockのbufferへの読み込み。
+		void read_next_block();
+
+		// オープンしているファイル。
+		// オープンしていなければnullptrが入っている。
+		FILE* fp;
+
+		// バッファから1文字読み込む。eofに達したら、-1を返す。
+		int read_char();
+
+		// ReadLineの下請け。何も考えずに1行読み込む。行のtrim、空行のskipなどなし。
+		// line_bufferに読み込まれた行が代入される。
+		Tools::Result read_line_simple();
+
+		// ファイルの読み込みバッファ 1MB
+		std::vector<u8> buffer;
+
+		// 行バッファ
+		std::vector<u8> line_buffer;
+
+		// バッファに今回読み込まれたサイズ
+		size_t read_size;
+
+		// bufferの解析位置
+		// 次のReadLine()でここから解析して1行返す
+		// 次の文字 c = buffer[cursor]
+		size_t cursor;
+
+		// eofフラグ。
+		// fp.eof()は、bufferにまだ未処理のデータが残っているかも知れないのでそちらを信じるわけにはいかない。
+		bool is_eof;
+
+		// 直前が\r(CR)だったのか？のフラグ
+		bool is_prev_cr;
+
+		// ReadLine()で行の末尾をtrimするかのフラグ。
+		bool trim;
+
+		// ReadLine()で空行をskipするかのフラグ
+		bool skipEmptyLine;
+	};
+
+	// BinaryReader,BinaryWriterの基底クラス
+	class BinaryBase
+	{
+	public:
+		// ファイルを閉じる。デストラクタからclose()は呼び出されるので明示的に閉じなくても良い。
+		Tools::Result close();
+
+		virtual ~BinaryBase() { close(); }
+
+	protected:
+		FILE* fp = nullptr;
+	};
+
+	// binary fileの読み込みお手伝いclass
+	class BinaryReader : public BinaryBase
+	{
+	public:
+		// ファイルのopen
+		Tools::Result open(const std::string& filename);
+
+		// ファイルサイズの取得
+		// ファイルポジションは先頭に移動する。
+		size_t get_size();
+
+		// ptrの指すメモリにsize[byte]だけファイルから読み込む
+		Tools::Result read(void* ptr , size_t size);
+	};
+
+	// binary fileの書き出しお手伝いclass
+	class BinaryWriter : public BinaryBase
+	{
+	public:
+		// ファイルのopen
+		Tools::Result open(const std::string& filename);
+
+		// ptrの指すメモリからsize[byte]だけファイルに書き込む。
+		Tools::Result write(void* ptr, size_t size);
+	};
 };
-
-// C#のTextReaderみたいなもの。
-// C++のifstreamが遅すぎるので、高速化されたテキストファイル読み込み器
-// fopen()～fread()で実装されている。
-struct TextFileReader
-{
-	TextFileReader();
-	~TextFileReader();
-
-	// ファイルをopenする。
-	Tools::Result Open(const std::string& filename);
-
-	// Open()を呼び出してオープンしたファイルをクローズする。
-	void Close();
-
-	// ファイルの終了判定。
-	// ファイルを最後まで読み込んだのなら、trueを返す。
-
-	// 1行読み込む(改行まで) 引数のlineに代入される。
-	// 改行コードは返さない。
-	// SkipEmptyLine(),SetTrim()の設定を反映する。
-	// Eofに達した場合は、返し値としてTools::ResultCode::Eofを返す。
-	Tools::Result ReadLine(std::string& line);
-
-	// ReadLine()で空行を読み飛ばすかどうかの設定。
-	// (ここで行った設定はOpen()/Close()ではクリアされない。)
-	// デフォルトでfalse
-	void SkipEmptyLine(bool skip = true) { skipEmptyLine = skip;  }
-
-	// ReadLine()でtrimするかの設定。
-	// 引数のtrimがtrueの時は、ReadLine()のときに末尾のスペース、タブはトリムする
-	// (ここで行った設定はOpen()/Close()ではクリアされない。)
-	// デフォルトでfalse
-	void SetTrim(bool trim = true) { this->trim = trim; }
-
-private:
-	// 各種状態変数の初期化
-	void clear();
-
-	// 次のblockのbufferへの読み込み。
-	void read_next_block();
-
-	// オープンしているファイル。
-	// オープンしていなければnullptrが入っている。
-	FILE* fp;
-
-	// バッファから1文字読み込む。eofに達したら、-1を返す。
-	int read_char();
-
-	// ReadLineの下請け。何も考えずに1行読み込む。行のtrim、空行のskipなどなし。
-	// line_bufferに読み込まれた行が代入される。
-	Tools::Result read_line_simple();
-
-	// ファイルの読み込みバッファ 1MB
-	std::vector<u8> buffer;
-
-	// 行バッファ
-	std::vector<u8> line_buffer;
-
-	// バッファに今回読み込まれたサイズ
-	size_t read_size;
-
-	// bufferの解析位置
-	// 次のReadLine()でここから解析して1行返す
-	// 次の文字 c = buffer[cursor]
-	size_t cursor;
-
-	// eofフラグ。
-	// fp.eof()は、bufferにまだ未処理のデータが残っているかも知れないのでそちらを信じるわけにはいかない。
-	bool is_eof;
-
-	// 直前が\r(CR)だったのか？のフラグ
-	bool is_prev_cr;
-
-	// ReadLine()で行の末尾をtrimするかのフラグ。
-	bool trim;
-
-	// ReadLine()で空行をskipするかのフラグ
-	bool skipEmptyLine;
-};
-
 
 // --------------------
 //    PRNGのasync版
@@ -581,44 +625,85 @@ static std::ostream& operator<<(std::ostream& os, AsyncPRNG& prng)
 //       Parser
 // --------------------
 
-// スペースで区切られた文字列を解析するためのparser
-struct LineScanner
+namespace Parser
 {
-	// 解析したい文字列を渡す(スペースをセパレータとする)
-	LineScanner(std::string line_) : line(line_), pos(0) {}
+	// スペースで区切られた文字列を解析するためのparser
+	struct LineScanner
+	{
+		// 解析したい文字列を渡す(スペースをセパレータとする)
+		LineScanner(std::string line_) : line(line_), pos(0) {}
 
-	// 次のtokenを先読みして返す。get_token()するまで解析位置は進まない。
-	std::string peek_text();
+		// 次のtokenを先読みして返す。get_token()するまで解析位置は進まない。
+		std::string peek_text();
 
-	// 次のtokenを返す。
-	std::string get_text();
+		// 次のtokenを返す。
+		std::string get_text();
 
-	// 次の文字列を数値化して返す。
-	// 空の文字列である場合は引数の値がそのまま返る。
-	// "ABC"のような文字列で数値化できない場合は0が返る。(あまり良くない仕様だがatoll()を使うので仕方ない)
-	s64 get_number(s64 defaultValue);
-	double get_double(double defaultValue);
+		// 次の文字列を数値化して返す。
+		// 空の文字列である場合は引数の値がそのまま返る。
+		// "ABC"のような文字列で数値化できない場合は0が返る。(あまり良くない仕様だがatoll()を使うので仕方ない)
+		s64 get_number(s64 defaultValue);
+		double get_double(double defaultValue);
 
-	// 解析位置(カーソル)が行の末尾まで進んだのか？
-	// eolとはEnd Of Lineの意味。
-	// get_text()をしてpeek_text()したときに保持していたものがなくなるまではこの関数はfalseを返し続ける。
-	// このクラスの内部からeol()を呼ばないほうが無難。(token.empty() == trueが保証されていないといけないので)
-	// 内部から呼び出すならraw_eol()のほうではないかと。
-	bool eol() const { return token.empty() && raw_eol(); }
+		// 解析位置(カーソル)が行の末尾まで進んだのか？
+		// eolとはEnd Of Lineの意味。
+		// get_text()をしてpeek_text()したときに保持していたものがなくなるまではこの関数はfalseを返し続ける。
+		// このクラスの内部からeol()を呼ばないほうが無難。(token.empty() == trueが保証されていないといけないので)
+		// 内部から呼び出すならraw_eol()のほうではないかと。
+		bool eol() const { return token.empty() && raw_eol(); }
 
-private:
-	// 解析位置(カーソル)が行の末尾まで進んだのか？(内部実装用)
-	bool raw_eol() const { return !(pos < line.length()); }
+	private:
+		// 解析位置(カーソル)が行の末尾まで進んだのか？(内部実装用)
+		bool raw_eol() const { return !(pos < line.length()); }
 
-	// 解析対象の行
-	std::string line;
+		// 解析対象の行
+		std::string line;
 
-	// 解析カーソル(現在の解析位置)
-	unsigned int pos;
+		// 解析カーソル(現在の解析位置)
+		unsigned int pos;
 
-	// peek_text()した文字列。get_text()のときにこれを返す。
-	std::string token;
-};
+		// peek_text()した文字列。get_text()のときにこれを返す。
+		std::string token;
+	};
+
+	// PythonのArgumenetParserみたいなやつ
+	// istringstream isを食わせて、そのうしろを解析させて、所定の変数にその値を格納する。
+	// 使い方)
+	// ArgumentParser parser;
+	// int min=0,max=100;
+	// parser.add_argument("min",min);
+	// parser.add_argument("max",max);
+	// parser.parse_args(is);
+	class ArgumentParser
+	{
+	public:
+		typedef std::pair<std::string /*arg_name*/, std::function<void(std::istringstream&)>> ArgPair;
+
+		// 引数を登録する。
+		template<typename T>
+		void add_argument(const std::string& arg_name, T& v)
+		{
+			auto f = [&](std::istringstream& is) { is >> v; };
+			a.emplace_back(ArgPair(arg_name,f));
+		}
+
+		// 事前にadd_argument()で登録しておいた内容に基づき、isを解釈する。
+		void parse_args(std::istringstream& is)
+		{
+			std::string token;
+			while (is >> token)
+				for (auto p : a)
+					// 合致すれば次に
+					if (p.first == token)
+					{
+						p.second(is);
+						break;
+					}
+		}
+
+		std::vector <ArgPair> a;
+	};
+}
 
 // --------------------
 //       Math

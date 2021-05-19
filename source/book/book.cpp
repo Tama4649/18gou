@@ -101,7 +101,7 @@ namespace Book
 
 		// → istringstream、げろげろ遅いので、自前でparseする。
 
-		LineScanner scanner(line);
+		Parser::LineScanner scanner(line);
 		move_str   = scanner.get_text();
 		ponder_str = scanner.get_text();
 
@@ -263,7 +263,7 @@ namespace Book
 
 			sync_cout << "info string read book file : " << filename << sync_endl;
 
-			TextFileReader reader;
+			SystemIO::TextReader reader;
 			// ReadLine()の時に行の末尾のスペース、タブを自動トリム。空行は自動スキップ。
 			reader.SetTrim(true);
 			reader.SkipEmptyLine(true);

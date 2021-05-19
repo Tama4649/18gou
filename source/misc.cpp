@@ -915,359 +915,433 @@ namespace Tools
 }
 
 // --------------------
-//  ファイルの丸読み
+//  ファイルの読み書き
 // --------------------
 
-// -- FileOperator
-
-// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。末尾の改行は除去される。
-// 引数で渡されるlinesは空であるを期待しているが、空でない場合は、そこに追加されていく。
-Tools::Result FileOperator::ReadAllLines(const std::string& filename, std::vector<std::string>& lines,bool trim)
+namespace SystemIO
 {
-#if 0
-	ifstream fs(filename);
-	if (fs.fail())
-		return 1; // 読み込み失敗
 
-	while (!fs.fail() && !fs.eof())
+	// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。末尾の改行は除去される。
+	// 引数で渡されるlinesは空であるを期待しているが、空でない場合は、そこに追加されていく。
+	Tools::Result ReadAllLines(const std::string& filename, std::vector<std::string>& lines, bool trim)
 	{
-		std::string line;
-		Dependency::getline(fs, line);
-		if (trim)
-			line = StringExtension::trim(line);
-		if (line.length())
-			lines.push_back(line);
-	}
-	fs.close();
+#if 0
+		ifstream fs(filename);
+		if (fs.fail())
+			return 1; // 読み込み失敗
 
-	return 0;
+		while (!fs.fail() && !fs.eof())
+		{
+			std::string line;
+			Dependency::getline(fs, line);
+			if (trim)
+				line = StringExtension::trim(line);
+			if (line.length())
+				lines.push_back(line);
+		}
+		fs.close();
+
+		return 0;
 #endif
 
-	// →　100MB程度のテキストファイルの読み込みにSurface Pro 6(Core i7モデル)で4秒程度かかる。
-	// ifstreamを使わない形で書き直す。これで4倍ぐらい速くなる。
+		// →　100MB程度のテキストファイルの読み込みにSurface Pro 6(Core i7モデル)で4秒程度かかる。
+		// ifstreamを使わない形で書き直す。これで4倍ぐらい速くなる。
 
-	TextFileReader reader;
+		TextReader reader;
 
-	// ReadLine()時のトリムの設定を反映させる。
-	reader.SetTrim(trim);
-	// 空行をスキップするモードにする。
-	reader.SkipEmptyLine(true);
+		// ReadLine()時のトリムの設定を反映させる。
+		reader.SetTrim(trim);
+		// 空行をスキップするモードにする。
+		reader.SkipEmptyLine(true);
 
-	auto result = reader.Open(filename);
-	if (!result.is_ok())
-		return result;
+		auto result = reader.Open(filename);
+		if (!result.is_ok())
+			return result;
 
-	string line;
-	while (reader.ReadLine(line).is_ok())
-		lines.emplace_back(line);
+		string line;
+		while (reader.ReadLine(line).is_ok())
+			lines.emplace_back(line);
 
-	return Tools::Result::Ok();
-}
-
-Tools::Result FileOperator::ReadFileToMemory(const std::string& filename, std::function<void*(size_t)> callback_func)
-{
-	// fstream、遅いので、FILEを用いて書き換える。
-
-	FILE* fp = fopen(filename.c_str(), "rb");
-	if (fp == nullptr)
-		return Tools::Result(Tools::ResultCode::FileOpenError);
-
-	fseek(fp, 0, SEEK_END);
-	size_t endPos = (size_t)ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-	size_t beginPos = (size_t)ftell(fp);
-	size_t file_size = endPos - beginPos;
-
-	// ファイルサイズがわかったのでcallback_funcを呼び出してこの分のバッファを確保してもらい、
-	// そのポインターをもらう。
-	void* ptr = callback_func(file_size);
-
-	// バッファが確保できなかった場合や、想定していたファイルサイズと異なった場合は、
-	// nullptrを返すことになっている。このとき、読み込みを中断し、エラーリターンする。
-	// 原因は不明だが、メモリ割り当ての失敗なのでMemoryAllocationErrorを返しておく。
-	if (ptr == nullptr)
-		return Tools::Result(Tools::ResultCode::MemoryAllocationError);
-
-	// 細切れに読み込む
-
-	const size_t block_size = 1024 * 1024 * 1024; // 1回のreadで読み込む要素の数(1GB)
-	for (size_t pos = 0; pos < file_size; pos += block_size)
-	{
-		// 今回読み込むサイズ
-		size_t read_size = (pos + block_size < file_size) ? block_size : (file_size - pos);
-		fread((u8*)ptr + pos, 1, read_size , fp);
-
-		// ファイルの途中で読み込みエラーに至った。
-		//if (fp.fail())
-		//	return Tools::Result(Tools::ResultCode::FileReadError); // ファイル読み込み時のエラー
-		// →　検出方法わからん
-
-		//cout << ".";
-	}
-	fclose(fp);
-
-	return Tools::Result::Ok();
-}
-
-
-Tools::Result FileOperator::WriteMemoryToFile(const std::string& filename, void* ptr, size_t size)
-{
-	fstream fs(filename, ios::out | ios::binary);
-	if (fs.fail())
-		return Tools::Result(Tools::ResultCode::FileOpenError);
-
-	const u64 block_size = 1024 * 1024 * 1024; // 1回のwriteで書き出す要素の数(1GB)
-	for (u64 pos = 0; pos < size; pos += block_size)
-	{
-		// 今回書き出すメモリサイズ
-		u64 write_size = (pos + block_size < size) ? block_size : (size - pos);
-		fs.write((char*)ptr + pos, write_size);
-		//cout << ".";
-
-		if (fs.fail())
-			return Tools::Result(Tools::ResultCode::FileWriteError); // ファイル書き込み時のエラー
+		return Tools::Result::Ok();
 	}
 
-	// fstreamなので、これ不要だが..念の為にcloseする。
-	fs.close();
+	Tools::Result ReadFileToMemory(const std::string& filename, std::function<void* (size_t)> callback_func)
+	{
+		// fstream、遅いので、FILEを用いて書き換える。
 
-	return Tools::Result::Ok();
-}
+		FILE* fp = fopen(filename.c_str(), "rb");
+		if (fp == nullptr)
+			return Tools::Result(Tools::ResultCode::FileOpenError);
 
-// --- TextFileReader
+		fseek(fp, 0, SEEK_END);
+		size_t endPos = (size_t)ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+		size_t beginPos = (size_t)ftell(fp);
+		size_t file_size = endPos - beginPos;
 
-// C++のifstreamが遅すぎるので、高速化されたテキストファイル読み込み器
-// fopen()～fread()で実装されている。
-TextFileReader::TextFileReader()
-{
-	buffer.resize(1024 * 1024);
-	line_buffer.reserve(2048);
-	clear();
+		// ファイルサイズがわかったのでcallback_funcを呼び出してこの分のバッファを確保してもらい、
+		// そのポインターをもらう。
+		void* ptr = callback_func(file_size);
 
-	// この２つのフラグはOpen()したときに設定がクリアされるべきではないので、
-	// コンストラクタで一度だけ初期化する。
-	trim = false;
-	skipEmptyLine = false;
-}
+		// バッファが確保できなかった場合や、想定していたファイルサイズと異なった場合は、
+		// nullptrを返すことになっている。このとき、読み込みを中断し、エラーリターンする。
+		// 原因は不明だが、メモリ割り当ての失敗なのでMemoryAllocationErrorを返しておく。
+		if (ptr == nullptr)
+			return Tools::Result(Tools::ResultCode::MemoryAllocationError);
 
-TextFileReader::~TextFileReader()
-{
-	Close();
-}
+		// 細切れに読み込む
 
-// 各種状態変数の初期化
-void TextFileReader::clear()
-{
-	fp = nullptr;
-	is_eof = false;
-	cursor = 0;
-	read_size = 0;
-	is_prev_cr = false;
-}
+		const size_t block_size = 1024 * 1024 * 1024; // 1回のreadで読み込む要素の数(1GB)
+		for (size_t pos = 0; pos < file_size; pos += block_size)
+		{
+			// 今回読み込むサイズ
+			size_t read_size = (pos + block_size < file_size) ? block_size : (file_size - pos);
 
-// ファイルをopenする。
-Tools::Result TextFileReader::Open(const std::string& filename)
-{
-	Close();
+			if (fread((u8*)ptr + pos, 1, read_size, fp) != read_size)
+				// 指定サイズだけ読み込めていないということは、読み込み上のエラーである。
+				return Tools::Result(Tools::ResultCode::FileReadError);
 
-	// 高速化のためにbinary open
-	fp = fopen(filename.c_str(), "rb");
-	return (fp == nullptr) ? Tools::Result(Tools::ResultCode::FileOpenError) : Tools::Result::Ok();
-}
-
-// Open()を呼び出してオープンしたファイルをクローズする。
-void TextFileReader::Close()
-{
-	if (fp != nullptr)
+			//cout << ".";
+		}
 		fclose(fp);
 
-	clear();
-}
-
-// バッファから1文字読み込む。eofに達したら、-1を返す。
-int TextFileReader::read_char()
-{
-	// ファイルからバッファの充填はこれ以上できなくて、バッファの末尾までcursorが進んでいるならeofという扱い。
-	while (!(is_eof && cursor >= read_size))
-	{
-		if (cursor < read_size)
-			return (int)buffer[cursor++];
-
-		// カーソル(解析位置)が読み込みバッファを超えていたら次のブロックを読み込む。
-		read_next_block();
-	}
-	return -1;
-}
-
-// ReadLineの下請け。何も考えずに1行読み込む。行のtrim、空行のskipなどなし。
-// line_bufferに読み込まれた行が代入される。
-Tools::Result TextFileReader::read_line_simple()
-{
-	// buffer[cursor]から読み込んでいく。
-	// 改行コードに遭遇するとそこまでの文字列を返す。
-	line_buffer.clear();
-
-	/*
-		改行コード一覧
-			Unix        LF      \n
-			Mac（OSX）  LF      \n
-			Mac（OS9）  CR      \r
-			Windows     CR+LF   \r\n
-
-		ゆえに"\r","\n","\r\n"をすべて1つの改行コードとみなさないといけない。
-		よって"\r"(CR)がきたときに次の"\n"(LF)は無視するという処理になる。
-	*/
-
-	while (true)
-	{
-		int c = read_char();
-		if (c == -1 /* EOF */)
-		{
-			// line_bufferが空のままeofに遭遇したなら、eofとして扱う。
-			// さもなくば、line_bufferを一度返す。(次回呼び出し時にeofとして扱う)
-			if (line_buffer.size() == 0)
-				return Tools::ResultCode::Eof;
-
-			break;
-		}
-
-		if (c == '\r')
-		{
-			// 直前は"\r"だった。
-			is_prev_cr = true;
-			break;
-		}
-
-		// 直前は"\r"ではないことは確定したのでこの段階でis_prev_crフラグをクリアしておく。
-		// ただし、このあと"\n"の判定の時に使うので古いほうの値をコピーして保持しておく。
-		auto prev_cr = is_prev_cr;
-		is_prev_cr = false; 
-
-		if (c == '\n')
-		{
-			if (!prev_cr)
-				break;
-			//else
-			//   "\r\n"の(前回"\r"を処理した残りの)"\n"なので無視する。
-		}
-		else
-		{
-			// 行バッファに積んでいく。
-			line_buffer.push_back(c);
-		}
+		return Tools::Result::Ok();
 	}
 
-	// 行バッファは完成した。
-	// line_bufferに入っているのでこのまま使って問題なし。
 
-	return Tools::ResultCode::Ok;
-}
-
-
-// 1行読み込む(改行まで)
-Tools::Result TextFileReader::ReadLine(std::string& line)
-{
-	while (true)
+	Tools::Result WriteMemoryToFile(const std::string& filename, void* ptr, size_t size)
 	{
-		if (read_line_simple().is_eof())
-			return Tools::ResultCode::Eof;
+		fstream fs(filename, ios::out | ios::binary);
+		if (fs.fail())
+			return Tools::Result(Tools::ResultCode::FileOpenError);
 
-		// trimフラグが立っているなら末尾スペース、タブを除去する。
-		if (trim)
-			while (line_buffer.size() > 0)
+		const u64 block_size = 1024 * 1024 * 1024; // 1回のwriteで書き出す要素の数(1GB)
+		for (u64 pos = 0; pos < size; pos += block_size)
+		{
+			// 今回書き出すメモリサイズ
+			u64 write_size = (pos + block_size < size) ? block_size : (size - pos);
+			fs.write((char*)ptr + pos, write_size);
+			//cout << ".";
+
+			if (fs.fail())
+				return Tools::Result(Tools::ResultCode::FileWriteError); // ファイル書き込み時のエラー
+		}
+
+		// fstreamなので、これ不要だが..念の為にcloseする。
+		fs.close();
+
+		return Tools::Result::Ok();
+	}
+
+	// --- TextFileReader
+
+	// C++のifstreamが遅すぎるので、高速化されたテキストファイル読み込み器
+	// fopen()～fread()で実装されている。
+	TextReader::TextReader()
+	{
+		buffer.resize(1024 * 1024);
+		line_buffer.reserve(2048);
+		clear();
+
+		// この２つのフラグはOpen()したときに設定がクリアされるべきではないので、
+		// コンストラクタで一度だけ初期化する。
+		trim = false;
+		skipEmptyLine = false;
+	}
+
+	TextReader::~TextReader()
+	{
+		Close();
+	}
+
+	// 各種状態変数の初期化
+	void TextReader::clear()
+	{
+		fp = nullptr;
+		is_eof = false;
+		cursor = 0;
+		read_size = 0;
+		is_prev_cr = false;
+	}
+
+	// ファイルをopenする。
+	Tools::Result TextReader::Open(const std::string& filename)
+	{
+		Close();
+
+		// 高速化のためにbinary open
+		fp = fopen(filename.c_str(), "rb");
+		return (fp == nullptr) ? Tools::Result(Tools::ResultCode::FileOpenError) : Tools::Result::Ok();
+	}
+
+	// Open()を呼び出してオープンしたファイルをクローズする。
+	void TextReader::Close()
+	{
+		if (fp != nullptr)
+			fclose(fp);
+
+		clear();
+	}
+
+	// バッファから1文字読み込む。eofに達したら、-1を返す。
+	int TextReader::read_char()
+	{
+		// ファイルからバッファの充填はこれ以上できなくて、バッファの末尾までcursorが進んでいるならeofという扱い。
+		while (!(is_eof && cursor >= read_size))
+		{
+			if (cursor < read_size)
+				return (int)buffer[cursor++];
+
+			// カーソル(解析位置)が読み込みバッファを超えていたら次のブロックを読み込む。
+			read_next_block();
+		}
+		return -1;
+	}
+
+	// ReadLineの下請け。何も考えずに1行読み込む。行のtrim、空行のskipなどなし。
+	// line_bufferに読み込まれた行が代入される。
+	Tools::Result TextReader::read_line_simple()
+	{
+		// buffer[cursor]から読み込んでいく。
+		// 改行コードに遭遇するとそこまでの文字列を返す。
+		line_buffer.clear();
+
+		/*
+			改行コード一覧
+				Unix        LF      \n
+				Mac（OSX）  LF      \n
+				Mac（OS9）  CR      \r
+				Windows     CR+LF   \r\n
+
+			ゆえに"\r","\n","\r\n"をすべて1つの改行コードとみなさないといけない。
+			よって"\r"(CR)がきたときに次の"\n"(LF)は無視するという処理になる。
+		*/
+
+		while (true)
+		{
+			int c = read_char();
+			if (c == -1 /* EOF */)
 			{
-				char c = *line_buffer.rbegin();
-				if (!(c == ' ' || c == '\t'))
-					break;
+				// line_bufferが空のままeofに遭遇したなら、eofとして扱う。
+				// さもなくば、line_bufferを一度返す。(次回呼び出し時にeofとして扱う)
+				if (line_buffer.size() == 0)
+					return Tools::ResultCode::Eof;
 
-				line_buffer.resize(line_buffer.size() - 1);
+				break;
 			}
 
-		// 空行をスキップするモートであるなら、line_bufferが結果的に空になった場合は繰り返すようにする。
-		if (skipEmptyLine && line_buffer.size() == 0)
-			continue;
+			if (c == '\r')
+			{
+				// 直前は"\r"だった。
+				is_prev_cr = true;
+				break;
+			}
 
-		line = std::string((const char*)line_buffer.data(), line_buffer.size());
+			// 直前は"\r"ではないことは確定したのでこの段階でis_prev_crフラグをクリアしておく。
+			// ただし、このあと"\n"の判定の時に使うので古いほうの値をコピーして保持しておく。
+			auto prev_cr = is_prev_cr;
+			is_prev_cr = false;
+
+			if (c == '\n')
+			{
+				if (!prev_cr)
+					break;
+				//else
+				//   "\r\n"の(前回"\r"を処理した残りの)"\n"なので無視する。
+			}
+			else
+			{
+				// 行バッファに積んでいく。
+				line_buffer.push_back(c);
+			}
+		}
+
+		// 行バッファは完成した。
+		// line_bufferに入っているのでこのまま使って問題なし。
+
 		return Tools::ResultCode::Ok;
 	}
+
+
+	// 1行読み込む(改行まで)
+	Tools::Result TextReader::ReadLine(std::string& line)
+	{
+		while (true)
+		{
+			if (read_line_simple().is_eof())
+				return Tools::ResultCode::Eof;
+
+			// trimフラグが立っているなら末尾スペース、タブを除去する。
+			if (trim)
+				while (line_buffer.size() > 0)
+				{
+					char c = *line_buffer.rbegin();
+					if (!(c == ' ' || c == '\t'))
+						break;
+
+					line_buffer.resize(line_buffer.size() - 1);
+				}
+
+			// 空行をスキップするモートであるなら、line_bufferが結果的に空になった場合は繰り返すようにする。
+			if (skipEmptyLine && line_buffer.size() == 0)
+				continue;
+
+			line = std::string((const char*)line_buffer.data(), line_buffer.size());
+			return Tools::ResultCode::Ok;
+		}
+	}
+
+	// 次のblockのbufferへの読み込み。
+	void TextReader::read_next_block()
+	{
+		if (::feof(fp))
+			read_size = 0;
+		else
+			read_size = ::fread(&buffer[0], sizeof(u8), buffer.size(), fp);
+
+		// カーソル(解析位置)のリセット
+		cursor = 0;
+
+		// 読み込まれたサイズが0なら、終端に達したと判定する。
+		is_eof = read_size == 0;
+	}
+
+	// === BinaryBase ===
+
+	// ファイルを閉じる。デストラクタからclose()は呼び出されるので明示的に閉じなくても良い。
+	Tools::Result BinaryBase::close()
+	{
+		Tools::ResultCode result = Tools::ResultCode::Ok;
+		if (fp != nullptr)
+		{
+			if (fclose(fp) != 0)
+				result = Tools::ResultCode::FileCloseError;
+			fp = nullptr;
+		}
+		return Tools::Result(result);
+	}
+
+	// === BinaryReader ===
+
+	// ファイルのopen
+	Tools::Result BinaryReader::open(const std::string& filename)
+	{
+		fp = fopen(filename.c_str(), "rb");
+		if (fp == nullptr)
+			return Tools::Result(Tools::ResultCode::FileOpenError);
+
+		return Tools::Result::Ok();
+	}
+
+	// ファイルサイズの取得
+	// ファイルポジションは先頭に移動する。
+	size_t BinaryReader::get_size()
+	{
+		ASSERT_LV3(fp != nullptr);
+
+		fseek(fp, 0, SEEK_END);
+		size_t endPos = (size_t)ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+		size_t beginPos = (size_t)ftell(fp);
+		size_t file_size = endPos - beginPos;
+
+		return file_size;
+	}
+
+	// ptrの指すメモリにsize[byte]だけファイルから読み込む
+	Tools::Result BinaryReader::read(void* ptr, size_t size)
+	{
+		if (fread((u8*)ptr, 1, size, fp) != size)
+			return Tools::Result(Tools::ResultCode::FileReadError);
+
+		return Tools::Result::Ok();
+	}
+
+	// === BinaryWriter ===
+
+	// ファイルのopen
+	Tools::Result BinaryWriter::open(const std::string& filename)
+	{
+		fp = fopen(filename.c_str(), "wb");
+		if (fp == nullptr)
+			return Tools::Result(Tools::ResultCode::FileOpenError);
+
+		return Tools::Result::Ok();
+	}
+
+	// ptrの指すメモリからsize[byte]だけファイルに書き込む
+	Tools::Result BinaryWriter::write(void* ptr, size_t size)
+	{
+		if (fwrite((u8*)ptr, 1, size, fp) != size)
+			return Tools::Result(Tools::ResultCode::FileWriteError);
+
+		return Tools::Result::Ok();
+	}
 }
-
-// 次のblockのbufferへの読み込み。
-void TextFileReader::read_next_block()
-{
-	if (::feof(fp))
-		read_size = 0;
-	else
-		read_size = ::fread(&buffer[0], sizeof(u8) , buffer.size(), fp);
-
-	// カーソル(解析位置)のリセット
-	cursor = 0;
-
-	// 読み込まれたサイズが0なら、終端に達したと判定する。
-	is_eof = read_size == 0;
-}
-
 
 // --------------------
 //       Parser
 // --------------------
 
-/*
-	LineScanner parser("AAA BBB CCC DDD");
-	auto token = parser.peek_text();
-	cout << token << endl;
-	token = parser.get_text();
-	cout << token << endl;
-	token = parser.get_text();
-	cout << token << endl;
-	token = parser.get_text();
-	cout << token << endl;
-	token = parser.get_text();
-	cout << token << endl;
-*/
-
-// 次のtokenを先読みして返す。get_token()するまで解析位置は進まない。
-std::string LineScanner::peek_text()
+namespace Parser
 {
-	// 二重にpeek_text()を呼び出すのは合法であるものとする。
-	if (!token.empty())
-		return token;
 
-	// assert(token.empty());
+	/*
+		LineScanner parser("AAA BBB CCC DDD");
+		auto token = parser.peek_text();
+		cout << token << endl;
+		token = parser.get_text();
+		cout << token << endl;
+		token = parser.get_text();
+		cout << token << endl;
+		token = parser.get_text();
+		cout << token << endl;
+		token = parser.get_text();
+		cout << token << endl;
+	*/
 
-	while (!raw_eol())
+	// 次のtokenを先読みして返す。get_token()するまで解析位置は進まない。
+	std::string LineScanner::peek_text()
 	{
-		char c = line[pos++];
-		if (c == ' ')
-			break;
-		token += c;
+		// 二重にpeek_text()を呼び出すのは合法であるものとする。
+		if (!token.empty())
+			return token;
+
+		// assert(token.empty());
+
+		while (!raw_eol())
+		{
+			char c = line[pos++];
+			if (c == ' ')
+				break;
+			token += c;
+		}
+		return token;
 	}
-	return token;
+
+	// 次のtokenを返す。
+	std::string LineScanner::get_text()
+	{
+		auto result = (!token.empty() ? token : peek_text());
+		token.clear();
+		return result;
+	}
+
+	// 次の文字列を数値化して返す。数値化できない時は引数の値がそのまま返る。
+	s64 LineScanner::get_number(s64 defaultValue)
+	{
+		std::string token = get_text();
+		return token.empty() ? defaultValue : atoll(token.c_str());
+	}
+
+	// 次の文字列を数値化して返す。数値化できない時は引数の値がそのまま返る。
+	double LineScanner::get_double(double defaultValue)
+	{
+		std::string token = get_text();
+		return token.empty() ? defaultValue : atof(token.c_str());
+	}
+
 }
-
-// 次のtokenを返す。
-std::string LineScanner::get_text()
-{
-	auto result = (!token.empty() ? token : peek_text());
-	token.clear();
-	return result;
-}
-
-// 次の文字列を数値化して返す。数値化できない時は引数の値がそのまま返る。
-s64 LineScanner::get_number(s64 defaultValue)
-{
-	std::string token = get_text();
-	return token.empty() ? defaultValue : atoll(token.c_str());
-}
-
-// 次の文字列を数値化して返す。数値化できない時は引数の値がそのまま返る。
-double LineScanner::get_double(double defaultValue)
-{
-	std::string token = get_text();
-	return token.empty() ? defaultValue : atof(token.c_str());
-}
-
-
 
 // --------------------
 //       Math
@@ -1458,7 +1532,7 @@ namespace StringExtension
 	std::vector<std::string> split(const std::string& input)
 	{
 		auto result = std::vector<string>();
-		LineScanner scanner(input);
+		Parser::LineScanner scanner(input);
 		while (!scanner.eol())
 			result.push_back(scanner.get_text());
 

@@ -106,6 +106,8 @@ namespace dlshogi
 		// ※　GC処理が終わらなくて、全探索スレッドの終了を待つコードになっているから、bestmoveが返せないことがある。
 		Threads.set(total_thread_num + dfpn_thread_num + search_interruption_check_thread_num);
 
+		// モデルの読み込み
+		TimePoint tpmodelloadbegin = now();
 		for (int i = 0; i < max_gpu; i++) {
 			if (new_thread[i] > 0) {
 				int policy_value_batch_maxsize = policy_value_batch_maxsizes[i];
@@ -123,6 +125,8 @@ namespace dlshogi
 				search_groups[i].Initialize(path , new_thread[i],/* gpu_id = */i, policy_value_batch_maxsize);
 			}
 		}
+		TimePoint tpmodelloadend = now();
+		sync_cout << "info string All model files have been loaded. " << tpmodelloadend - tpmodelloadbegin << "ms." << sync_endl;
 
 		// ----------------------
 		// 探索スレッドとUctSearcherの紐付け
@@ -630,6 +634,7 @@ namespace dlshogi
 
 		// 終了時刻が確定しているなら、そこ以降の時刻であれば停止させないといけない。
 		if (s.time_manager.search_end)
+		{
 			if (elapsed_from_ponderhit >= s.time_manager.search_end)
 			{
 				// 終了予定時刻より時間が超過している。
@@ -640,6 +645,7 @@ namespace dlshogi
 				// 探索終了時刻は設定されているのでこれ以上、探索打ち切りの判定は不要。
 				return;
 			}
+		}
 
 		const Node* current_root = tree->GetCurrentHead();
 		const int child_num = current_root->child_num;

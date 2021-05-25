@@ -304,12 +304,15 @@ ifneq (,$(findstring YANEURAOU_ENGINE_DEEP,$(YANEURAOU_EDITION)))
 
 		ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_DEEP_TENSOR_RT)
 			CPPFLAGS += -DTENSOR_RT
-			LDFLAGS += -lnvinfer -lnvparsers -lnvonnxparser -lcuda -lcudnn -lcudart -lcublas
-			CPPFLAGS += -I/usr/local/cuda/include
-			LDFLAGS += -L/usr/local/cuda/lib64
+			LDFLAGS += -lnvinfer -lnvparsers -lnvonnxparser -lcudnn -lcudart -lcublas
+			# CPPFLAGS += -I/usr/local/cuda/include
+			# LDFLAGS += -L/usr/local/cuda/lib64
 
 		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_DEEP_ORT_CPU)
 			CPPFLAGS += -DORT_CPU
+
+		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_DEEP_ORT_CUDA)
+			CPPFLAGS += -DORT_CUDA
 
 		else ifeq ($(YANEURAOU_EDITION),YANEURAOU_ENGINE_DEEP_ORT_DML)
 			CPPFLAGS += -DORT_DML

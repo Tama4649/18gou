@@ -96,9 +96,7 @@ namespace Search {
 			enteringKingRule = EKR_NONE;
 			silent = bench = consideration_mode = outout_fail_lh_pv = false;
 			pv_interval = 0;
-#if defined(USE_GENERATE_ALL_LEGAL_MOVES)
-			generate_all_legal_moves = false;
-#endif
+			generate_all_legal_moves = true;
 		}
 
 		// 時間制御を行うのか。
@@ -180,11 +178,12 @@ namespace Search {
 		// PVの出力間隔(探索のときにMainThread::search()内で初期化する)
 		TimePoint pv_interval;
 
-#if defined (USE_GENERATE_ALL_LEGAL_MOVES)
-		// 全合法手を生成するのか
-		// TANUKI_MATE_ENGINE , YANEURAOU_MATE_ENGINE ではこの設定は無視されている。
+		// 合法手を生成する時に全合法手を生成するのか(歩の不成など)
+		// エンジンオプションのGenerateAllLegalMovesの値がこのフラグに反映される。
+		// 
+		// Position::pseudo_legal()も、このフラグに応じてどこまでをpseudo-legalとみなすかが変わる。
+		// (このフラグがfalseなら歩の不成は非合法手扱い)
 		bool generate_all_legal_moves;
-#endif
 
 #if defined(TANUKI_MATE_ENGINE)
 		std::vector<Move16> pv_check;

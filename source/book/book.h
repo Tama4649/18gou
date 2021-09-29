@@ -5,6 +5,7 @@
 #include "../position.h"
 #include "../misc.h"
 #include "../usi.h"
+#include "../testcmd/unit_test.h"
 
 #include <unordered_map>
 
@@ -171,7 +172,7 @@ namespace Book
 		Tools::Result write_apery_book(const std::string& filename);
 
 		// --------------------------------------------------------------------------
-		//     以下のメンバは、普段は外部から普段は直接アクセスすべきではない
+		//   以下のメンバは、普段は外部から普段は直接アクセスすべきではない。
 		//
 		//   定跡を書き換えてwrite_book()で書き出すような作業を行なうときだけアクセスする。
 		// --------------------------------------------------------------------------
@@ -287,6 +288,10 @@ namespace Book
 
 		// probe()の下請け
 		// forceHit == trueのときは、設定オプションの値を無視して強制的に定跡にhitさせる。(BookPvMovesの実装で用いる)
+		// 注意)
+		// bestMoveが合法手であることは保証される。
+		// GenerateAllLegalMovesがfalseの時、歩の不成の指し手を返さないことも保証する。
+		// 但し、ponderMoveが合法手であることは保証しない。
 		bool probe_impl(Position& rootPos, bool silent, Move16& bestMove, Move16& ponderMove , bool forceHit = false);
 
 		// 定跡のpv文字列を生成して返す。
@@ -297,6 +302,8 @@ namespace Book
 		AsyncPRNG prng;
 	};
 
+	// 定跡部のUnitTest
+	extern void UnitTest(Test::UnitTester& tester);
 }
 
 #endif // #ifndef INCLUDED_

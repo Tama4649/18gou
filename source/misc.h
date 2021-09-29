@@ -35,7 +35,7 @@ void prefetch(void* addr);
 // --------------------
 
 // cin/coutへの入出力をファイルにリダイレクトを開始/終了する。
-void start_logger(bool b);
+void start_logger(const std::string& fname);
 
 // --------------------
 //  Large Page確保
@@ -66,11 +66,10 @@ struct LargeMemory
 	void free();
 
 	// alloc()が呼び出されてメモリが確保されている状態か？
-	bool alloced() const { return mem != nullptr; }
+	bool alloced() const { return ptr != nullptr; }
 
 	// alloc()のstatic関数版。この関数で確保したメモリはstatic_free()で開放する。
-	// 引数のmemには、static_free()に渡すべきポインタが得られる。
-	static void* static_alloc(size_t size, void*& mem, size_t align = 256, bool zero_clear = false);
+	static void* static_alloc(size_t size, size_t align = 256, bool zero_clear = false);
 
 	// static_alloc()で確保したメモリを開放する。
 	static void static_free(void* mem);
@@ -80,7 +79,7 @@ struct LargeMemory
 private:
 	// allocで確保されたメモリの先頭アドレス
 	// (free()で開放するときにこのアドレスを用いる)
-	void* mem = nullptr;
+	void* ptr = nullptr;
 };
 
 // --------------------
@@ -101,6 +100,47 @@ void dbg_mean_of(int v);
 // このとき、以下の関数を呼び出すと、その統計情報をcerrに出力する。
 void dbg_print();
 
+// RunningAverage : a class to calculate a running average of a series of values.
+// For efficiency, all computations are done with integers.
+// 
+// 置換表のhit率などを集計するためのクラス。
+// ttHitAverageとして、Threadクラスが持っている。
+//
+// cf. Detect search explosions : https://github.com/official-stockfish/Stockfish/commit/73018a03375b4b72ee482eb5a4a2152d7e4f0aac
+// →　二重の探索延長によって組合せ爆発が生じてiterationが進みにくくなるのを回避する狙い。
+//
+class RunningAverage {
+public:
+
+	// Constructor
+	RunningAverage() {}
+
+	// Reset the running average to rational value p / q
+	void set(int64_t p, int64_t q)
+	{
+		average = p * PERIOD * RESOLUTION / q;
+	}
+
+	// Update average with value v
+	// 
+	// これは、ttHit(置換表にhitしたかのフラグ)の実行時の平均を近似するために用いられる。
+	// 移動平均を算出している。
+	void update(int64_t v)
+	{
+		average = RESOLUTION * v + (PERIOD - 1) * average / PERIOD;
+	}
+
+	// Test if average is strictly greater than rational a / b
+	bool is_greater(int64_t a, int64_t b)
+	{
+		return b * average > a * PERIOD * RESOLUTION;
+	}
+
+private:
+	static constexpr int64_t PERIOD = 4096;
+	static constexpr int64_t RESOLUTION = 1024;
+	int64_t average;
+};
 
 // --------------------
 //  Time[ms] wrapper
@@ -745,6 +785,10 @@ namespace Path
 {
 	// path名とファイル名を結合して、それを返す。
 	// folder名のほうは空文字列でないときに、末尾に'/'か'\\'がなければそれを付与する。
+	// 与えられたfilenameが絶対Pathである場合、folderを連結せずに単にfilenameをそのまま返す。
+	// 与えられたfilenameが絶対Pathであるかの判定は、内部的にはPath::IsAbsolute()を用いて行う。
+	// 
+	// 実際の連結のされ方については、UnitTestに例があるので、それも参考にすること。
 	extern std::string Combine(const std::string& folder, const std::string& filename);
 
 	// full path表現から、(フォルダ名をすべて除いた)ファイル名の部分を取得する。
@@ -752,6 +796,19 @@ namespace Path
 
 	// full path表現から、(ファイル名だけを除いた)ディレクトリ名の部分を取得する。
 	extern std::string GetDirectoryName(const std::string& path);
+
+	// 絶対Pathであるかの判定。
+	// ※　std::filesystem::absolute() は MSYS2 で Windows の絶対パスの判定に失敗するらしいので自作。
+	//
+	// 絶対Pathの条件 :
+	//   "\\"(WindowsのUNC)で始まるか、"/"で始まるか(Windows / Linuxのroot)、"~"で始まるか、"C:"(ドライブレター + ":")で始まるか。
+	//
+	// 絶対Pathの例)
+	//   C:/YaneuraOu/Eval  ← Windowsのドライブレター付きの絶対Path
+	//   \\MyNet\MyPC\Eval  ← WindowsのUNC
+	//   ~myeval            ← Linuxのhome
+	//   /YaneuraOu/Eval    ← Windows、Linuxのroot
+	extern bool IsAbsolute(const std::string& path);
 };
 
 // --------------------
@@ -832,5 +889,9 @@ namespace CommandLine {
 	extern std::string workingDirectory; // path of the working directory
 }
 
+namespace Misc {
+	// このheaderに書いてある関数のUnitTest。
+	extern void UnitTest(Test::UnitTester& tester);
+}
 
 #endif // #ifndef MISC_H_INCLUDED

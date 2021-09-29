@@ -292,6 +292,10 @@ public:
 	}
 
 	// 定跡DBや置換表から取り出したMove16(16bit型の指し手)を32bit化する。
+	// is_ok(m) == false ならば、mをそのまま返す。
+	// 例 : MOVE_WINやMOVE_NULLに対してはそれがそのまま返ってくる。つまり、この時、上位16bitは0(NO_PIECE)である。
+	// 	  
+	// 注意 : mの移動元の駒が現在の手番の駒であることはこの関数ではチェックしないものとする。
 	Move to_move(Move16 m) const;
 	
 	// 普通の千日手、連続王手の千日手等を判定する。
@@ -453,6 +457,10 @@ public:
 	// また、
 	// Options["GenerateAllLegalMoves"]を反映させる。
 	// ↑これがtrueならば、歩の不成も合法手扱い。
+	// 
+	// 注意)
+	// ↑のオプションに依らず、常に歩の不成の指し手も合法手として扱いたいならば、
+	// この関数ではなく、pseudo_legal_s<true>()を用いること。
 	bool pseudo_legal(const Move m) const;
 
 	// All == false        : 歩や大駒の不成に対してはfalseを返すpseudo_legal()
@@ -572,14 +580,12 @@ public:
 	// 捕獲する指し手であるか。
 	bool capture(Move m) const { return !is_drop(m) && piece_on(to_sq(m)) != NO_PIECE; }
 
-#if defined(USE_ENTERING_KING_WIN)
 	// 入玉時の宣言勝ち
 	// Search::Limits.enteringKingRuleに基いて、宣言勝ちを行なう。
 	// 条件を満たしているとき、MOVE_WINや、玉を移動する指し手(トライルール時)が返る。さもなくば、MOVE_NONEが返る。
 	// mate1ply()から内部的に呼び出す。(そうするとついでに処理出来て良い)
 	// 32bit Moveが返る。
 	Move DeclarationWin() const;
-#endif
 
 	// -- sfen化ヘルパ
 #if defined(USE_SFEN_PACKER)
@@ -639,6 +645,9 @@ public:
 	template <MOVE_GEN_TYPE gen_type, bool gen_all>
 	friend struct MoveGenerator;
 
+	// UnitTest
+	static void UnitTest(Test::UnitTester&);
+
 private:
 	// StateInfoの初期化(初期化するときに内部的に用いる)
 	void set_state(StateInfo* si) const;
@@ -653,6 +662,9 @@ private:
 
 	// undo_move()の先後分けたもの。内部的に呼び出される。
 	template <Color Us> void undo_move_impl(Move m);
+
+	// 現在の盤面から、入玉に必要な駒点を計算し、Search::Limits::enteringKingPointに設定する。
+	void update_entering_point();
 
 	// --- Bitboards
 	// alignas(16)を要求するものを先に宣言。

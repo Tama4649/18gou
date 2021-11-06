@@ -1191,8 +1191,8 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 	// hash key
 
 	// 現在の局面のhash keyはこれで、これを更新していき、次の局面のhash keyを求めてStateInfo::key_に格納。
-	Key64 k = st->board_key_ ^ Zobrist::side;
-	Key64 h = st->hand_key_;
+	HASH_KEY k = st->board_key_ ^ Zobrist::side;
+	HASH_KEY h = st->hand_key_;
 
 	// StateInfoの構造体のメンバーの上からkeyのところまでは前のを丸ごとコピーしておく。
 	// undo_moveで戻すときにこの部分はundo処理が要らないので細かい更新処理が必要なものはここに載せておけばundoが速くなる。
@@ -1550,10 +1550,13 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 	//evalList.is_valid(*this);
 }
 
-#if defined(USE_KEY_AFTER)
-
 // ある指し手を指した後のhash keyを返す。
 Key Position::key_after(Move m) const {
+	return (Key)long_key_after(m);
+}
+
+// ある指し手を指した後のhash keyを返す。
+HASH_KEY Position::long_key_after(Move m) const {
 
 	Color Us = side_to_move();
 	auto k = st->board_key_ ^ Zobrist::side;
@@ -1615,7 +1618,6 @@ Key Position::key_after(Move m) const {
 
 	return k + h;
 }
-#endif
 
 // 指し手で盤面を1手戻す。do_move()の逆変換。
 template <Color Us>

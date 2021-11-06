@@ -505,7 +505,6 @@ constexpr int MAX_PLY_NUM = 246;
 	#define MAX_PLY_NUM 2000
 	#define USE_MATE_1PLY
 	//#define LONG_EFFECT_LIBRARY
-	#define USE_KEY_AFTER
 	#define ENABLE_TEST_CMD
 #endif
 
@@ -792,7 +791,8 @@ constexpr bool pretty_jp = false;
 			#define EVAL_TYPE_NAME "ORT-" << EVAL_DEEP
 		#endif
 	#elif defined(TENSOR_RT)
-		#define EVAL_TYPE_NAME "TensorRT-" << EVAL_DEEP
+		#include "NvInferRuntimeCommon.h"
+		#define EVAL_TYPE_NAME "TensorRT" << NV_TENSORRT_VERSION << "-" << EVAL_DEEP
 	#endif
 
 #else

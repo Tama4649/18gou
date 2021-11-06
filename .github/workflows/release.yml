@@ -16,13 +16,15 @@ jobs:
 
     strategy:
       matrix:
-        target: [normal, tournament, evallearn, gensfen]
+        target:
+          - normal
+          - tournament
+          - evallearn
+          - gensfen
         archcpu:
-          [
-            "ZEN2,ZEN1,AVX512VNNI,AVX512,AVX2,SSE42",
-            "SSE41,SSSE3,SSE2,NO_SSE",
-            "ZEN3,AVXVNNI,OTHER",
-          ]
+          - "ZEN3,ZEN2,ZEN1,AVX512VNNI,AVXVNNI,AVX512,AVX2,SSE42"
+          - "SSE41,SSSE3,SSE2,NO_SSE"
+          - "OTHER"
         edition:
           - "YANEURAOU_ENGINE_NNUE,YANEURAOU_ENGINE_NNUE_HALFKPE9,YANEURAOU_ENGINE_NNUE_KP256"
           - "YANEURAOU_ENGINE_KPPT,YANEURAOU_ENGINE_KPP_KKPT"
@@ -30,7 +32,9 @@ jobs:
           - YANEURAOU_MATE_ENGINE
           - TANUKI_MATE_ENGINE
           - USER_ENGINE
-        compiler: [clang++, g++]
+        compiler:
+          - clang++
+          - g++
         exclude:
           # Release target exclude: edition USER_ENGINE
           - edition: USER_ENGINE
@@ -47,8 +51,8 @@ jobs:
           # Release target exclude: archcpu ZEN3,AVXVNNI,OTHER
           # `-march=cascadelake`: LLVM8, GCC9 support (AVX512VNNI)
           # `-march=alderlake` : LLVM12, GCC11 support (AVX-VNNI)
-          # `-march=znver3`: LLVM12 support
-          - archcpu: "ZEN3,AVXVNNI,OTHER"
+          # `-march=znver3`: LLVM12, GCC11 support
+          - archcpu: "OTHER"
           # Release target exclude: archcpu 'SSE41,SSSE3,SSE2,NO_SSE' and target 'tournament,evallearn'
           - target: tournament
             archcpu: "SSE41,SSSE3,SSE2,NO_SSE"
@@ -86,7 +90,7 @@ jobs:
           $ErrorActionPreference = 'Continue'
           C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu'
           C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu'
-          C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu pactoys-git'
+          C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu pactoys'
           C:\msys64\usr\bin\bash.exe -lc 'pacboy --needed --noconfirm -Sy clang:m openblas:x openmp:x toolchain:m base-devel:'
           $ErrorActionPreference = 'Stop'
 
@@ -108,19 +112,24 @@ jobs:
 
     strategy:
       matrix:
-        target: [normal, tournament, evallearn, gensfen]
+        target:
+          - normal
+          - tournament
+          - evallearn
+          - gensfen
         archcpu:
-          [
-            ZEN2,
-            ZEN1,
-            AVX2,
-            SSE42,
-            SSE2,
-            NO_SSE,
-          ]
+          - ZEN3
+          - ZEN2
+          - ZEN1
+          - AVX2
+          - SSE42
+          - SSE2
+          - NO_SSE
         edition:
           - YANEURAOU_ENGINE_MATERIAL*
-        compiler: [clang++, g++]
+        compiler:
+          - clang++
+          - g++
         exclude:
           # Release target exclude: edition USER_ENGINE
           - edition: USER_ENGINE
@@ -176,7 +185,7 @@ jobs:
           $ErrorActionPreference = 'Continue'
           C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu'
           C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu'
-          C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu pactoys-git'
+          C:\msys64\usr\bin\bash.exe -lc 'pacman --needed --noconfirm -Syuu pactoys'
           C:\msys64\usr\bin\bash.exe -lc 'pacboy --needed --noconfirm -Sy clang:m openblas:x openmp:x toolchain:m base-devel:'
           $ErrorActionPreference = 'Stop'
 
@@ -408,15 +417,15 @@ jobs:
 
             - [${{ steps.version.outputs.filename }}-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-windows.zip) (${{ steps.archive_size.outputs.windows_zip }})
             - [${{ steps.version.outputs.filename }}-windows.7z](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-windows.7z) (${{ steps.archive_size.outputs.windows_7z }})
-              - 1.2.3.5.6.の実行ファイルWindows版 各CPU向け(ZEN2/ZEN1/AVX512VNNI/AVX512/AVX2/SSE4.2/SSE4.1/SSSE3/SSE2/32bit環境用)
-              - 1.2.3.5.6.のトーナメントWindows版 (ZEN2/ZEN1/AVX512VNNI/AVX512/AVX2/SSE4.2)
-              - 1.2.3.の教師生成用実行ファイルWindows版 (ZEN2/ZEN1/AVX512VNNI/AVX512/AVX2/SSE4.2)
-              - 1.2.3.の学習用実行ファイルWindows版 (ZEN2/ZEN1/AVX512VNNI/AVX512/AVX2/SSE4.2)
+              - 1.2.3.5.6.の実行ファイルWindows版 各CPU向け(ZEN3/ZEN2/ZEN1/AVX512VNNI/AVXVNNI/AVX512/AVX2/SSE4.2/SSE4.1/SSSE3/SSE2/32bit環境用)
+              - 1.2.3.5.6.のトーナメントWindows版 (ZEN3/ZEN2/ZEN1/AVX512VNNI/AVXVNNI/AVX512/AVX2/SSE4.2)
+              - 1.2.3.の教師生成用実行ファイルWindows版 (ZEN3/ZEN2/ZEN1/AVX512VNNI/AVXVNNI/AVX512/AVX2/SSE4.2)
+              - 1.2.3.の学習用実行ファイルWindows版 (ZEN3/ZEN2/ZEN1/AVX512VNNI/AVXVNNI/AVX512/AVX2/SSE4.2)
             - [${{ steps.version.outputs.filename }}-material-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-material-windows.zip) (${{ steps.archive_size.outputs.material_windows_zip }})
             - [${{ steps.version.outputs.filename }}-material-windows.7z](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-material-windows.7z) (${{ steps.archive_size.outputs.material_windows_7z }})
-              - 4.の実行ファイルWindows版 各CPU向け(ZEN2/ZEN1/AVX2/SSE4.2/SSE2/32bit環境用)
-              - 4.のトーナメントWindows版 (ZEN2/ZEN1/AVX2/SSE4.2)
-              - 4.の教師生成用実行ファイルWindows版 (ZEN2/ZEN1/AVX2/SSE4.2)
+              - 4.の実行ファイルWindows版 各CPU向け(ZEN3/ZEN2/ZEN1/AVX2/SSE4.2/SSE2/32bit環境用)
+              - 4.のトーナメントWindows版 (ZEN3/ZEN2/ZEN1/AVX2/SSE4.2)
+              - 4.の教師生成用実行ファイルWindows版 (ZEN3/ZEN2/ZEN1/AVX2/SSE4.2)
             - [${{ steps.version.outputs.filename }}-deep-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-deep-windows.zip) (${{ steps.archive_size.outputs.deep_windows_zip }})
             - [${{ steps.version.outputs.filename }}-deep-windows.7z](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/${{ steps.version.outputs.filename }}-deep-windows.7z) (${{ steps.archive_size.outputs.deep_windows_7z }})
               - 7.の実行ファイルWindows版 (AVX2)

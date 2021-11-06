@@ -35,15 +35,16 @@ YANEURAOU_EDITION = YANEURAOU_ENGINE_NNUE
 # 利用できるCPU拡張命令を指定する。
 #
 # AMDのRyzen(Zen/Zen2)はZEN1/ZEN2を選択するとBMI2命令が使わずに速くなる。(10%程度高速化)
-# Ryzen Zen3シリーズはZEN3を選択。こちらはAVX2用とたぶん変わらない。
+# Ryzen Zen3シリーズはZEN3を選択。(clang/llvm 13.0.0以降、gcc 11.2以降)
 #
-# ARM系ならOTHERを指定する。
-# 32bit環境用はNO_SSEを指定する。
+# ARM系はGraviton2ならGRAVITON2、これ以外ならOTHERを指定する。
+# Windows x86(32bit環境)用はNO_SSEを指定する。
 #
 # AVX-512対応(サーバー向けSkylake以降)ならAVX512を指定する。
 # AVX-512対応でさらにVNNI命令対応(Cascade Lake以降)なら、AVX512VNNIを指定する。
 
 
+# --- Intel/AMD系 (x86/x64 Platform)
 #TARGET_CPU = AVX512VNNI
 #TARGET_CPU = AVX512
 TARGET_CPU = AVX2
@@ -52,9 +53,13 @@ TARGET_CPU = AVX2
 #TARGET_CPU = SSSE3
 #TARGET_CPU = SSE2
 #TARGET_CPU = NO_SSE
-#TARGET_CPU = OTHER
+# --- AMD Ryzen
 #TARGET_CPU = ZEN1
 #TARGET_CPU = ZEN2
+#TARGET_CPU = ZEN3
+# -- ARMとか
+#TARGET_CPU = OTHER
+#TARGET_CPU = GRAVITON2
 
 
 # デバッガーを使用するか (debugger)
@@ -478,6 +483,10 @@ else ifeq ($(TARGET_CPU),NO_SSE)
 	# 32bit用。-m32は、MSYS2 MinGW-64だと無視されるので、
 	# MinGW-64の32bit環境用でコンパイルする必要がある。
 	CPPFLAGS += -DNO_SSE -m32 -march=pentium3
+else ifeq ($(TARGET_CPU),GRAVITON2)
+	# for Amazon Web Servece EC2, the Graviton2 CPU [M6g/M6gd, C6g/C6gd/C6gn, R6g/R6gd, T4g, X2gd] instances
+	# https://github.com/aws/aws-graviton-getting-started/blob/main/c-c++.md
+	CPPFLAGS += -DIS_64BIT -DUSE_NEON -march=armv8.2-a+fp16+rcpc+dotprod+crypto
 
 else ifeq ($(TARGET_CPU),OTHER)
 	CPPFLAGS += -DNO_SSE

@@ -58,6 +58,9 @@ void USI::extra_option(USI::OptionsMap& o)
 	// ノードを再利用するか。
     o["ReuseSubtree"]                << USI::Option(true);
 
+	// 勝率を評価値に変換する時の定数。
+	o["Eval_Coef"]                   << USI::Option(756, 1, 10000);
+
 	// 投了値 : 1000分率で
 	o["Resign_Threshold"]            << USI::Option(0, 0, 1000);
 
@@ -65,8 +68,8 @@ void USI::extra_option(USI::OptionsMap& o)
 	// 引き分けの局面では、この値とみなす。
 	// root color(探索開始局面の手番)に応じて、2通り。
 	
-	o["DrawValueBlack"]            << USI::Option(500, 0, 1000);
-	o["DrawValueWhite"]            << USI::Option(500, 0, 1000);
+	o["DrawValueBlack"]              << USI::Option(500, 0, 1000);
+	o["DrawValueWhite"]              << USI::Option(500, 0, 1000);
 
 	// --- PUCTの時の定数
 	// これ、探索パラメーターの一種と考えられるから、最適な値を事前にチューニングして設定するように
@@ -91,7 +94,8 @@ void USI::extra_option(USI::OptionsMap& o)
 	// 各GPU用のDNNモデル名と、そのGPU用のUCT探索のスレッド数と、そのGPUに一度に何個の局面をまとめて評価(推論)を行わせるのか。
 	// GPUは最大で8個まで扱える。
 
-    o["UCT_Threads1"]                << USI::Option(4, 0, 256);
+	// RTX 3090で10bなら4、15bなら2で最適。
+    o["UCT_Threads1"]                << USI::Option(2, 0, 256);
     o["UCT_Threads2"]                << USI::Option(0, 0, 256);
     o["UCT_Threads3"]                << USI::Option(0, 0, 256);
     o["UCT_Threads4"]                << USI::Option(0, 0, 256);
@@ -169,6 +173,9 @@ void Search::clear()
 
 	// ノードを再利用するかの設定。
 	searcher.SetReuseSubtree(Options["ReuseSubtree"]);
+
+	// 勝率を評価値に変換する時の定数を設定。
+	searcher.SetEvalCoef((int)Options["Eval_Coef"]);
 
 	// 投了値
 	searcher.SetResignThreshold((int)Options["Resign_Threshold"]);
@@ -324,5 +331,35 @@ void Thread::search()
 //	searcher.FinalizeUctSearch();
 //}
 
+namespace dlshogi
+{
+	// 探索結果を返す。
+	//   Threads.start_thinking(pos, states , limits);
+	//   Threads.main()->wait_for_search_finished(); // 探索の終了を待つ。
+	// のようにUSIのgoコマンド相当で探索したあと、rootの各候補手とそれに対応する評価値を返す。
+	std::vector < std::pair<Move, float>> GetSearchResult()
+	{
+		// root node
+		Node* root_node = searcher.search_limits.current_root;
+
+		// 子ノードの数
+		int num = root_node->child_num;
+
+		// 返し値として返す用のコンテナ
+		std::vector < std::pair<Move, float>> v(num);
+
+		for (int i = 0; i < num; ++i)
+		{
+			auto& child = root_node->child[i];
+			Move m = child.move;
+			// move_count == 0であって欲しくはないのだが…。
+			float win = child.move_count == 0 ? child.nnrate : (float)child.win / child.move_count;
+//			v.emplace_back(std::pair<Move, float>(m, win));
+			v[i] = std::pair<Move, float>(m, win);
+		}
+
+		return v;
+	}
+}
 
 #endif // defined(YANEURAOU_ENGINE_DEEP)

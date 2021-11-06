@@ -8,6 +8,8 @@
 #include <mutex>
 #include <atomic>
 #include <sstream>
+#include <queue>
+#include <condition_variable>
 
 #include "types.h"
 
@@ -412,6 +414,36 @@ namespace Tools
 	};
 
 	// --------------------
+	//    ProgressBar
+	// --------------------
+
+	// 処理の進捗を0%から100%の間で出力する。
+	class ProgressBar
+	{
+	public:
+		// size_ : 全件でいくらあるかを設定する。
+		ProgressBar(u64 size_);
+
+		// 進捗を出力する。
+		// current : 現在までに完了している件数
+		void check(u64 current);
+
+		// Progress Barの有効/無効を切り替える。
+		// "readyok"までにProgressBarが被るとよろしくないので
+		// learnコマンドとmakebookコマンドの時以外はオフでいいと思う。
+		static void enable(bool b) { enable_ = b; }
+
+	private:
+		// 全件の数。
+		u64 size;
+
+		// 前回までに何個dotを出力したか。
+		size_t dots;
+
+		static bool enable_;
+	};
+
+	// --------------------
 	//  Result
 	// --------------------
 
@@ -484,7 +516,7 @@ namespace Tools
 
 
 // --------------------
-//  ファイルの丸読み
+//  ファイル操作
 // --------------------
 
 namespace SystemIO
@@ -492,6 +524,7 @@ namespace SystemIO
 	// ファイルを丸読みする。ファイルが存在しなくともエラーにはならない。空行はスキップする。末尾の改行は除去される。
 	// 引数で渡されるlinesは空であるを期待しているが、空でない場合は、そこに追加されていく。
 	// 引数で渡されるtrimはtrueを渡すと末尾のスペース、タブがトリムされる。
+	// 先頭のUTF-8のBOM(EF BB BF)は無視する。
 	extern Tools::Result ReadAllLines(const std::string& filename, std::vector<std::string>& lines, bool trim = false);
 
 
@@ -513,7 +546,7 @@ namespace SystemIO
 	struct TextReader
 	{
 		TextReader();
-		~TextReader();
+		virtual ~TextReader();
 
 		// ファイルをopenする。
 		Tools::Result Open(const std::string& filename);
@@ -528,6 +561,7 @@ namespace SystemIO
 		// 改行コードは返さない。
 		// SkipEmptyLine(),SetTrim()の設定を反映する。
 		// Eofに達した場合は、返し値としてTools::ResultCode::Eofを返す。
+		// 先頭のUTF-8のBOM(EF BB BF)は無視する。
 		Tools::Result ReadLine(std::string& line);
 
 		// ReadLine()で空行を読み飛ばすかどうかの設定。
@@ -540,6 +574,18 @@ namespace SystemIO
 		// (ここで行った設定はOpen()/Close()ではクリアされない。)
 		// デフォルトでfalse
 		void SetTrim(bool trim = true) { this->trim = trim; }
+
+		// ファイルサイズの取得
+		// ファイルポジションは先頭に移動する。
+		size_t GetSize();
+
+		// 現在のファイルポジションを取得する。
+		// 先読みしているのでReadLineしている場所よりは先まで進んでいる。
+		size_t GetFilePos() { return ftell(fp); }
+
+		// 現在の行数を返す。(次のReadLine()で返すのがテキストファイルの何行目であるかを返す) 0 origin。
+		// またここで返す数値は空行で読み飛ばした時も、その空行を1行としてカウントしている。
+		size_t GetLineNumber() const { return line_number; }
 
 	private:
 		// 各種状態変数の初期化
@@ -580,6 +626,11 @@ namespace SystemIO
 		// 直前が\r(CR)だったのか？のフラグ
 		bool is_prev_cr;
 
+		// 何行目であるか
+		// エラー表示の時などに用いる
+		// 現在の行。(0 origin)
+		size_t line_number;
+
 		// ReadLine()で行の末尾をtrimするかのフラグ。
 		bool trim;
 
@@ -587,14 +638,53 @@ namespace SystemIO
 		bool skipEmptyLine;
 	};
 
+	// Text書き出すの速いやつ。
+	class TextWriter
+	{
+	public:
+		// 書き出し用のバッファサイズ([byte])
+		const size_t buf_size = 4096;
+
+		Tools::Result Open(const std::string& filename);
+
+		// 文字列を書き出す(改行コードは書き出さない)
+		Tools::Result Write(const std::string& str);
+
+		// 1行を書き出す(改行コードも書き出す) 改行コードは"\r\n"とする。
+		Tools::Result WriteLine(const std::string& line);
+
+		// ptrの指すところからsize [byte]だけ書き出す。
+		Tools::Result Write(const char* ptr, size_t size);
+
+		// 内部バッファにあってまだファイルに書き出していないデータをファイルに書き出す。
+		// ※　Close()する時に呼び出されるので通常この関数を呼び出す必要はない。
+		Tools::Result Flush();
+
+		Tools::Result Close();
+		TextWriter() : buf(buf_size) { clear(); }
+		virtual ~TextWriter() { Close(); }
+
+	private:
+		// 変数を初期化する。
+		void clear() { fp = nullptr; write_cursor = 0; }
+
+		FILE* fp = nullptr;
+
+		// 書き出し用のbuffer。これがいっぱいになるごとにfwriteする。
+		std::vector<char> buf;
+
+		// 書き出し用のcursor。次に書き出す場所は、buf[write_cursor]。
+		size_t write_cursor;
+	};
+
 	// BinaryReader,BinaryWriterの基底クラス
 	class BinaryBase
 	{
 	public:
-		// ファイルを閉じる。デストラクタからclose()は呼び出されるので明示的に閉じなくても良い。
-		Tools::Result close();
+		// ファイルを閉じる。デストラクタからClose()は呼び出されるので明示的に閉じなくても良い。
+		Tools::Result Close();
 
-		virtual ~BinaryBase() { close(); }
+		virtual ~BinaryBase() { Close(); }
 
 	protected:
 		FILE* fp = nullptr;
@@ -605,14 +695,18 @@ namespace SystemIO
 	{
 	public:
 		// ファイルのopen
-		Tools::Result open(const std::string& filename);
+		Tools::Result Open(const std::string& filename);
 
 		// ファイルサイズの取得
 		// ファイルポジションは先頭に移動する。
-		size_t get_size();
+		size_t GetSize();
 
 		// ptrの指すメモリにsize[byte]だけファイルから読み込む
-		Tools::Result read(void* ptr , size_t size);
+		// ファイルの末尾を超えて読み込もうとした場合、Eofが返る。
+		// ファイルの末尾に超えて読み込もうとしなかった場合、Okが返る。
+		// 引数で渡されたバイト数読み込むことができなかった場合、FileReadErrorが返る。
+		// size_of_read_bytesがnullptrでない場合、実際に読み込まれたバイト数が代入される。
+		Tools::Result Read(void* ptr , size_t size, size_t* size_of_read_bytes = nullptr);
 	};
 
 	// binary fileの書き出しお手伝いclass
@@ -620,12 +714,82 @@ namespace SystemIO
 	{
 	public:
 		// ファイルのopen
-		Tools::Result open(const std::string& filename);
+		Tools::Result Open(const std::string& filename);
 
 		// ptrの指すメモリからsize[byte]だけファイルに書き込む。
-		Tools::Result write(void* ptr, size_t size);
+		Tools::Result Write(void* ptr, size_t size);
 	};
 };
+
+
+// --------------------
+//       Path
+// --------------------
+
+// C#にあるPathクラス的なもの。ファイル名の操作。
+// C#のメソッド名に合わせておく。
+namespace Path
+{
+	// path名とファイル名を結合して、それを返す。
+	// folder名のほうは空文字列でないときに、末尾に'/'か'\\'がなければそれを付与する。
+	// 与えられたfilenameが絶対Pathである場合、folderを連結せずに単にfilenameをそのまま返す。
+	// 与えられたfilenameが絶対Pathであるかの判定は、内部的にはPath::IsAbsolute()を用いて行う。
+	// 
+	// 実際の連結のされ方については、UnitTestに例があるので、それも参考にすること。
+	extern std::string Combine(const std::string& folder, const std::string& filename);
+
+	// full path表現から、(フォルダ名をすべて除いた)ファイル名の部分を取得する。
+	extern std::string GetFileName(const std::string& path);
+
+	// full path表現から、(ファイル名だけを除いた)ディレクトリ名の部分を取得する。
+	extern std::string GetDirectoryName(const std::string& path);
+
+	// 絶対Pathであるかの判定。
+	// ※　std::filesystem::absolute() は MSYS2 で Windows の絶対パスの判定に失敗するらしいので自作。
+	//
+	// 絶対Pathの条件 :
+	//   "\\"(WindowsのUNC)で始まるか、"/"で始まるか(Windows / Linuxのroot)、"~"で始まるか、"C:"(ドライブレター + ":")で始まるか。
+	//
+	// 絶対Pathの例)
+	//   C:/YaneuraOu/Eval  ← Windowsのドライブレター付きの絶対Path
+	//   \\MyNet\MyPC\Eval  ← WindowsのUNC
+	//   ~myeval            ← Linuxのhome
+	//   /YaneuraOu/Eval    ← Windows、Linuxのroot
+	extern bool IsAbsolute(const std::string& path);
+};
+
+// --------------------
+//    Directory
+// --------------------
+
+// ディレクトリに存在するファイルの列挙用
+// C#のDirectoryクラスっぽい何か
+namespace Directory
+{
+	// 指定されたフォルダに存在するファイルをすべて列挙する。
+	// 列挙するときに引数extensionで列挙したいファイル名の拡張子を指定できる。(例 : ".bin")
+	// 拡張子として""を指定すればすべて列挙される。
+	extern std::vector<std::string> EnumerateFiles(const std::string& sourceDirectory, const std::string& extension);
+
+	// フォルダを作成する。
+	// working directory相対で指定する。dir_nameに日本語は使っていないものとする。
+	// ※　Windows環境だと、この関数名、WinAPIのCreateDirectoryというマクロがあって…。
+	// 　ゆえに、CreateDirectory()をやめて、CreateFolder()に変更する。
+	extern Tools::Result CreateFolder(const std::string& dir_name);
+
+	// working directoryを返す。
+	// "GetCurrentDirectory"という名前はWindowsAPI(で定義されているマクロ)と競合する。
+	extern std::string GetCurrentFolder();
+}
+
+namespace CommandLine {
+	// 起動時にmain.cppから呼び出される。
+	// CommandLine::binaryDirectory , CommandLine::workingDirectoryを設定する。
+	extern void init(int argc, char* argv[]);
+
+	extern std::string binaryDirectory;  // path of the executable directory
+	extern std::string workingDirectory; // path of the working directory
+}
 
 // --------------------
 //    PRNGのasync版
@@ -709,11 +873,16 @@ namespace Parser
 	// PythonのArgumenetParserみたいなやつ
 	// istringstream isを食わせて、そのうしろを解析させて、所定の変数にその値を格納する。
 	// 使い方)
-	// ArgumentParser parser;
-	// int min=0,max=100;
-	// parser.add_argument("min",min);
-	// parser.add_argument("max",max);
-	// parser.parse_args(is);
+	//  isに"min 10 max 80"のような文字列が入っているとする。
+	// 
+	//   ArgumentParser parser;
+	//   int min=0,max=100;
+	//   parser.add_argument("min",min);
+	//   parser.add_argument("max",max);
+	//   parser.parse_args(is);
+	//
+	// とすると min = 10 , max = 80となる。
+
 	class ArgumentParser
 	{
 	public:
@@ -776,42 +945,6 @@ namespace Math {
 }
 
 // --------------------
-//       Path
-// --------------------
-
-// C#にあるPathクラス的なもの。ファイル名の操作。
-// C#のメソッド名に合わせておく。
-namespace Path
-{
-	// path名とファイル名を結合して、それを返す。
-	// folder名のほうは空文字列でないときに、末尾に'/'か'\\'がなければそれを付与する。
-	// 与えられたfilenameが絶対Pathである場合、folderを連結せずに単にfilenameをそのまま返す。
-	// 与えられたfilenameが絶対Pathであるかの判定は、内部的にはPath::IsAbsolute()を用いて行う。
-	// 
-	// 実際の連結のされ方については、UnitTestに例があるので、それも参考にすること。
-	extern std::string Combine(const std::string& folder, const std::string& filename);
-
-	// full path表現から、(フォルダ名をすべて除いた)ファイル名の部分を取得する。
-	extern std::string GetFileName(const std::string& path);
-
-	// full path表現から、(ファイル名だけを除いた)ディレクトリ名の部分を取得する。
-	extern std::string GetDirectoryName(const std::string& path);
-
-	// 絶対Pathであるかの判定。
-	// ※　std::filesystem::absolute() は MSYS2 で Windows の絶対パスの判定に失敗するらしいので自作。
-	//
-	// 絶対Pathの条件 :
-	//   "\\"(WindowsのUNC)で始まるか、"/"で始まるか(Windows / Linuxのroot)、"~"で始まるか、"C:"(ドライブレター + ":")で始まるか。
-	//
-	// 絶対Pathの例)
-	//   C:/YaneuraOu/Eval  ← Windowsのドライブレター付きの絶対Path
-	//   \\MyNet\MyPC\Eval  ← WindowsのUNC
-	//   ~myeval            ← Linuxのhome
-	//   /YaneuraOu/Eval    ← Windows、Linuxのroot
-	extern bool IsAbsolute(const std::string& path);
-};
-
-// --------------------
 //    文字列 拡張
 // --------------------
 
@@ -846,6 +979,10 @@ namespace StringExtension
 	// スペース、タブなど空白に相当する文字で分割して返す。
 	extern std::vector<std::string> split(const std::string& input);
 
+	// 先頭にゼロサプライした文字列を返す。
+	// 例) n = 123 , digit = 6 なら "000123"という文字列が返る。
+	extern std::string to_string_with_zero(u64 n, int digit);
+
 	// --- 以下、C#のstringクラスにあるやつ。
 
 	// 文字列valueが、文字列endingで終了していればtrueを返す。
@@ -857,37 +994,68 @@ namespace StringExtension
 };
 
 // --------------------
-//  FileSystem
+//    Concurrent
 // --------------------
 
-// ディレクトリに存在するファイルの列挙用
-// C#のDirectoryクラスっぽい何か
-namespace Directory
+// 並列プログラミングでよく使うコンテナ類
+namespace Concurrent
 {
-	// 指定されたフォルダに存在するファイルをすべて列挙する。
-	// 列挙するときに引数extensionで列挙したいファイル名の拡張子を指定できる。(例 : ".bin")
-	// 拡張子として""を指定すればすべて列挙される。
-	extern std::vector<std::string> EnumerateFiles(const std::string& sourceDirectory, const std::string& extension);
+	// マルチスレッドプログラミングでよく出てくるProducer Consumer Queue
+	template <typename T>
+	class ConcurrentQueue
+	{
+	public:
+		// [ASYNC] Queueのpop(一番最後にpushされた要素を取り出す)
+		T pop()
+		{
+			std::unique_lock<std::mutex> lk(mutex_);
 
-	// フォルダを作成する。
-	// working directory相対で指定する。dir_nameに日本語は使っていないものとする。
-	// ※　Windows環境だと、この関数名、WinAPIのCreateDirectoryというマクロがあって…。
-	// 　ゆえに、CreateDirectory()をやめて、CreateFolder()に変更する。
-	extern Tools::Result CreateFolder(const std::string& dir_name);
+			// 要素がないなら待つしかない
+			while (queue_.empty())
+				cond_.wait(lk);
 
-	// working directoryを返す。
-	// "GetCurrentDirectory"という名前はWindowsAPI(で定義されているマクロ)と競合する。
-	extern std::string GetCurrentFolder();
+			auto val = queue_.front();
+			queue_.pop();
+
+			lk.unlock();
+			cond_.notify_one();
+			return val;
+		}
+
+		// [ASYNC] Queueのpush(queueに要素を一つ追加する)
+		void push(const T& item)
+		{
+			std::unique_lock<std::mutex> lk(mutex_);
+			queue_.push(item);
+			lk.unlock();
+			cond_.notify_one();
+		}
+
+		// [ASYNC] Queueの保持している要素数を返す。
+		size_t size()
+		{
+			std::unique_lock<std::mutex> lk(mutex_);
+			return queue_.size();
+		}
+
+		// copyの禁止
+		ConcurrentQueue() = default;
+		ConcurrentQueue(const ConcurrentQueue&) = delete;
+
+		// 代入の禁止
+		ConcurrentQueue& operator=(const ConcurrentQueue&) = delete;
+
+	private:
+		std::queue<T> queue_;
+		std::mutex mutex_;
+		std::condition_variable cond_;
+	};
+
 }
 
-namespace CommandLine {
-	// 起動時にmain.cppから呼び出される。
-	// CommandLine::binaryDirectory , CommandLine::workingDirectoryを設定する。
-	extern void init(int argc, char* argv[]);
-
-	extern std::string binaryDirectory;  // path of the executable directory
-	extern std::string workingDirectory; // path of the working directory
-}
+// --------------------
+//     UnitTest
+// --------------------
 
 namespace Misc {
 	// このheaderに書いてある関数のUnitTest。

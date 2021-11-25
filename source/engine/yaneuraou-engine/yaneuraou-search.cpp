@@ -132,6 +132,11 @@ void USI::extra_option(USI::OptionsMap & o)
 
 	// fail low/highのときにPVを出力するかどうか。
 	o["OutputFailLHPV"] << Option(true);
+
+#if defined(YANEURAOU_ENGINE_NNUE)
+	// NNUEのFV_SCALEの値
+	o["FV_SCALE"] << Option(16, 1, 128);
+#endif
 }
 
 // パラメーターのランダム化のときには、
@@ -142,6 +147,13 @@ void gameover_handler(const std::string& cmd)
 	result_log << cmd << std::endl << std::flush;
 #endif
 }
+
+#if defined(YANEURAOU_ENGINE_NNUE)
+void init_fv_scale() {
+	Eval::NNUE::FV_SCALE = (int)Options["FV_SCALE"];
+}
+#endif
+
 
 // "isready"に対して探索パラメーターを動的にファイルから読み込んだりして初期化するための関数。
 void init_param();
@@ -406,6 +418,15 @@ void Search::clear()
 	TT.clear();
 	Threads.clear();
 	//	Tablebases::init(Options["SyzygyPath"]); // Free up mapped files
+
+	// -----------------------
+	//   評価関数の定数を初期化
+	// -----------------------
+
+#if defined(YANEURAOU_ENGINE_NNUE)
+	init_fv_scale();
+#endif
+
 }
 
 /// MainThread::search() is started when the program receives the UCI 'go'
@@ -2200,10 +2221,8 @@ namespace {
 			// Stockfish12のコード
 			//captureOrPawnPromotion = pos.capture(move);
 
-			// こう変えるほうが強いようだ。
+			// →　こう変えるほうが強いようだ。
 			captureOrPawnPromotion = pos.capture_or_pawn_promotion(move);
-			//captureOrPawnPromotion = pos.capture_or_promotion(move);
-
 
 			// 今回移動させる駒(移動後の駒)
 			movedPiece = pos.moved_piece_after(move);
@@ -2386,16 +2405,23 @@ namespace {
 			// Check extensions
 			// 王手延長
 
-			// 王手となる指し手でSEE >= 0であれば残り探索深さに1手分だけ足す。
-			// また、moveCountPruningでない指し手(置換表の指し手とか)も延長対象。
-			// これはYSSの0.5手延長に似たもの。
-			// ※　将棋においてはこれはやりすぎの可能性も..
+			//  注意 : 王手延長に関して、Stockfishのコード、ここに持ってこないこと!!
+			// →　将棋では王手はわりと続くのでStockfishの現在のコードは明らかにやりすぎ。
 
-			// 静的評価に基づく王手延長。この前提条件、パラメーター調整したほうがいいかも。
-			// →　将棋では王手はわりと続くので明らかにやりすぎ。
+#if 0
+			// 静的評価に基づく王手延長。
 			else if (   givesCheck
 					 && depth > 6
 					 && abs(ss->staticEval) > 100)
+				extension = 1;
+#endif
+
+			// →　王手延長は、開き王手と駒得しながらの王手に限定する。(こっちにした方が、+R20ぐらい強い。)
+			// 　　上の前2つの条件も悪くはないだろうから入れておく。(入れたほうが+R10ぐらい強い)
+			else if (givesCheck
+				&& depth > 6
+				&& abs(ss->staticEval) > 100
+				&& (pos.is_discovery_check_on_king(~us, move) || pos.see_ge(move)))
 				extension = 1;
 
 			// Quiet ttMove extensions
@@ -2437,7 +2463,10 @@ namespace {
 			// Update the current move (this must be done after singular extension search)
 			// 現在このスレッドで探索している指し手を更新しておく。(これは、singular extension探索のあとになされるべき)
 			ss->currentMove = move;
-			ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck][captureOrPawnPromotion][to_sq(move)][movedPiece];
+			ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck           ]
+																	  [captureOrPawnPromotion]
+																	  [to_sq(move)           ]
+																	  [movedPiece            ];
 
 			// -----------------------
 			// Step 15. Make the move
@@ -2595,7 +2624,7 @@ namespace {
 				// If the move passed LMR update its stats
 				if (didLMR && !captureOrPawnPromotion)
 				{
-					int bonus = value > alpha ? stat_bonus(newDepth)
+					int bonus = value > alpha ?  stat_bonus(newDepth)
 											  : -stat_bonus(newDepth);
 
 					update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
@@ -2652,7 +2681,7 @@ namespace {
 			if (rootNode)
 			{
 				RootMove& rm = *std::find(thisThread->rootMoves.begin(),
-					thisThread->rootMoves.end(), move);
+										  thisThread->rootMoves.end(), move);
 
 				// rootの平均スコアを求める。aspiration searchで用いる。
 				rm.averageScore = rm.averageScore != -VALUE_INFINITE ? (2 * value + rm.averageScore) / 3 : value;
@@ -2687,7 +2716,7 @@ namespace {
 					// !thisThread->pvIdx という条件を入れておかないとMultiPVで
 					// time managementがおかしくなる。
 
-					if (   moveCount > 1
+					if (    moveCount > 1
 						&& !thisThread->pvIdx)
 						++thisThread->bestMoveChanges;
 
@@ -2753,6 +2782,9 @@ namespace {
 
 			if (move != bestMove)
 			{
+				 bool captureOrPromotion = captureOrPawnPromotion || is_promote(move);
+				// ↑これを用いて↓ではcaptureOrPromotionを使った方が+R10ぐらい強いみたい？
+
 				// 探索した駒を捕獲する指し手を32手目まで
 				if (captureOrPawnPromotion && captureCount < 32)
 					capturesSearched[captureCount++] = move;
@@ -2817,7 +2849,7 @@ namespace {
 			update_continuation_histories(ss - 1, /*pos.piece_on(prevSq)*/prevPc, prevSq, stat_bonus(depth) * (1 + (PvNode || cutNode)));
 
 		// 将棋ではtable probe使っていないのでmaxValue関係ない。
-		// ゆえにStockfishのここのコードは不要。
+		// ゆえにStockfishのここのコードは不要。(maxValueでcapする必要がない)
 		/*
 		if (PvNode)
 			bestValue = std::min(bestValue, maxValue);
@@ -2990,7 +3022,7 @@ namespace {
 
 		// nonPVでは置換表の指し手で枝刈りする
 		// PVでは置換表の指し手では枝刈りしない(前回evaluateした値は使える)
-		if (!PvNode
+		if (  !PvNode
 			&& ss->ttHit
 			&& tte->depth() >= ttDepth
 			&& ttValue != VALUE_NONE // Only in case of TT access race
@@ -3184,7 +3216,7 @@ namespace {
 			if (    bestValue > VALUE_TB_LOSS_IN_MAX_PLY
 				&& !givesCheck
 				&&  futilityBase > -VALUE_KNOWN_WIN
-			//	&&  type_of(move) != PROMOTION)
+			//	&&  type_of(move) != PROMOTION) // TODO : これ入れたほうがいいのか？
 				)
 			{
 				//assert(type_of(move) != ENPASSANT); // Due to !pos.advanced_pawn_push
@@ -3245,9 +3277,9 @@ namespace {
 			// 現在このスレッドで探索している指し手を保存しておく。
 			ss->currentMove = move;
 
-			ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck]
-																	  [captureOrPawnPromotion]
-																	  [to_sq(move)]
+			ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck                ]
+																	  [captureOrPawnPromotion     ]
+																	  [to_sq(move)                ]
 																	  [pos.moved_piece_after(move)];
 
 
@@ -3887,6 +3919,10 @@ namespace Learner
 			// 探索前に自分(のスレッド用)の置換表の世代カウンターを回してやる。
 			th->tt.new_search();
 		}
+
+#if defined(YANEURAOU_ENGINE_NNUE)
+		init_fv_scale();
+#endif
 	}
 
 	// 読み筋と評価値のペア。Learner::search(),Learner::qsearch()が返す。

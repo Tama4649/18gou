@@ -8,7 +8,7 @@
 
 // 思考エンジンのバージョンとしてUSIプロトコルの"usi"コマンドに応答するときの文字列。
 // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
-#define ENGINE_VERSION "6.50"
+#define ENGINE_VERSION "7.00beta"
 
 // --------------------
 //  思考エンジンの種類
@@ -266,6 +266,7 @@
 
 
 // 探索パラメーターのチューニングを行うモード
+// ※　使い方は、"docs/解説.txt" の 「探索パラメーターのチューニングについて」をご覧ください。
 //
 // 実行時に"param/yaneuraou-param.h" からパラメーターファイルを読み込むので
 // "source/engine/yaneuraou-engine/yaneuraou-param.h"をそこに配置すること。
@@ -357,9 +358,12 @@
 // 通例hash keyは64bitだが、これを128にするとPosition::state()->long_key()から128bit hash keyが
 // 得られるようになる。研究時に局面が厳密に合致しているかどうかを判定したいときなどに用いる。
 // 実験用の機能なので、128bit,256bitのhash keyのサポートはAVX2のみ。
+#if !defined(HASH_KEY_BITS) // Makefileの方から指定されているかも知れない。
 #define HASH_KEY_BITS 64
 //#define HASH_KEY_BITS 128
 //#define HASH_KEY_BITS 256
+// 注意 : ふかうら王で、スーパーテラショック定跡の生成を行う時は、HASH_KEY_BITSを128に設定すること。
+#endif
 
 // 通常探索時の最大探索深さ
 constexpr int MAX_PLY_NUM = 246;
@@ -475,7 +479,7 @@ constexpr int MAX_PLY_NUM = 246;
 #if defined(YANEURAOU_ENGINE_DEEP)
 
 	#define ENGINE_NAME "FukauraOu"
-	#define EVAL_DEEP "dlshogi-denryu2020"
+	#define EVAL_DEEP "dlshogi-denryu2021"
 	#define USE_EVAL
 	#define USE_TIME_MANAGEMENT
 	#define USE_ENTERING_KING_WIN

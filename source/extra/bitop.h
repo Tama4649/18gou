@@ -303,5 +303,4 @@ extern ymm ymm_one;   // all packed bytes are 1.
 template <typename T> FORCE_INLINE int pop_lsb(T& b) {  int index = LSB32(b);  b = T(BLSR(b)); return index; }
 FORCE_INLINE int pop_lsb(u64 & b) { int index = LSB64(b);  b = BLSR(b); return index; }
 
-
 #endif

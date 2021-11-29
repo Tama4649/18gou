@@ -322,6 +322,10 @@ public:
 	// c == WHITE : 後手の駒があるBitboardが返る
 	Bitboard pieces(Color c) const { ASSERT_LV3(is_ok(c)); return byColorBB[c]; }
 
+	// ↑のtemplate版
+	template<Color C>
+	Bitboard pieces() const { ASSERT_LV3(is_ok(C)); return byColorBB[C]; }
+
 	// 駒がない升が1になっているBitboardが返る
 	Bitboard empties() const { return pieces() ^ ALL_BB; }
 
@@ -337,12 +341,19 @@ public:
 	Bitboard pieces(PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4); }
 	Bitboard pieces(PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4, PieceType pr5) const { return pieces(pr1) | pieces(pr2) | pieces(pr3) | pieces(pr4) | pieces(pr5); }
 
+	// ↑のtemplate版
+	template <PieceType PR>
+	Bitboard pieces() const { ASSERT_LV3(PR < PIECE_BB_NB); return byTypeBB[PR]; }
+
 	Bitboard pieces(Color c, PieceType pr) const { return pieces(pr) & pieces(c); }
 	Bitboard pieces(Color c, PieceType pr1, PieceType pr2) const { return pieces(pr1, pr2) & pieces(c); }
 	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3) const { return pieces(pr1, pr2, pr3) & pieces(c); }
 	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4) const { return pieces(pr1, pr2, pr3, pr4) & pieces(c); }
 	Bitboard pieces(Color c, PieceType pr1, PieceType pr2, PieceType pr3, PieceType pr4, PieceType pr5) const { return pieces(pr1, pr2, pr3, pr4, pr5) & pieces(c); }
 
+	// ↑のtemplate版
+	template<Color C,PieceType PR>
+	Bitboard pieces() const { return pieces(PR) & pieces(C); }
 
 	// --- 升
 
@@ -378,9 +389,15 @@ public:
 	// occが指定されていなければ現在の盤面において。occが指定されていればそれをoccupied bitboardとして。
 	// sq == SQ_NBでの呼び出しは合法。ZERO_BBが返る。
 
-	Bitboard attackers_to(Color c, Square sq) const { return attackers_to(c, sq, pieces()); }
-	Bitboard attackers_to(Color c, Square sq, const Bitboard& occ) const;
+	Bitboard attackers_to(Color c, Square sq) const { return c==BLACK ? attackers_to<BLACK>(sq, pieces()): attackers_to<WHITE>(sq, pieces()); }
+	Bitboard attackers_to(Color c, Square sq, const Bitboard& occ) const { return c==BLACK ? attackers_to<BLACK>(sq, occ): attackers_to<WHITE>(sq, occ); }
 	Bitboard attackers_to(Square sq) const { return attackers_to(sq, pieces()); }
+	Bitboard attackers_to(Square sq, const Bitboard& occ) const;
+
+	template <Color C>
+	Bitboard attackers_to(Square sq) const { return attackers_to<C>(sq, pieces()); }
+
+	template <Color C>
 	Bitboard attackers_to(Square sq, const Bitboard& occ) const;
 
 	// 打ち歩詰め判定に使う。王に打ち歩された歩の升をpawn_sqとして、c側(王側)のpawn_sqへ利いている駒を列挙する。香が利いていないことは自明。
@@ -654,8 +671,14 @@ private:
 
 	// 王手になるbitboard等を更新する。set_state()とdo_move()のときに自動的に行われる。
 	// null moveのときは利きの更新を少し端折れるのでフラグを渡すことに。
-	template <bool doNullMove>
+	template <bool doNullMove,Color Us>
 	void set_check_info(StateInfo* si) const;
+
+	template <bool doNullMove>
+	void set_check_info(StateInfo* si) const
+	{
+		sideToMove == BLACK ? set_check_info<doNullMove, BLACK>(si) : set_check_info<doNullMove, WHITE>(si);
+	}
 
 	// do_move()の先後分けたもの。内部的に呼び出される。
 	template <Color Us> void do_move_impl(Move m, StateInfo& st, bool givesCheck);
@@ -764,6 +787,30 @@ private:
 	Eval::EvalList evalList;
 #endif
 };
+
+// sに利きのあるc側の駒を列挙する。
+// (occが指定されていなければ現在の盤面において。occが指定されていればそれをoccupied bitboardとして)
+template <Color C>
+inline Bitboard Position::attackers_to(Square sq, const Bitboard& occ) const
+{
+	ASSERT_LV3(is_ok(C) && sq <= SQ_NB);
+
+	constexpr Color Them = ~C;
+
+	// sの地点に敵駒ptをおいて、その利きに自駒のptがあればsに利いているということだ。
+	// 香の利きを求めるコストが惜しいのでrookEffect()を利用する。
+	return
+		(     (pawnEffect  <Them>(sq)	&  pieces(PAWN)        )
+			| (knightEffect<Them>(sq)	&  pieces(KNIGHT)      )
+			| (silverEffect<Them>(sq)	&  pieces(SILVER_HDK)  )
+			| (goldEffect  <Them>(sq)	&  pieces(GOLDS_HDK)   )
+			| (bishopEffect(sq, occ)	&  pieces(BISHOP_HORSE))
+			| (rookEffect(sq, occ)		& (pieces(ROOK_DRAGON) | (lanceStepEffect<Them>(sq) & pieces(LANCE))))
+			//  | (kingEffect(sq) & pieces(c, HDK));
+			// →　HDKは、銀と金のところに含めることによって、参照するテーブルを一個減らして高速化しようというAperyのアイデア。
+			) & pieces<C>(); // 先後混在しているのでc側の駒だけ最後にマスクする。
+	;
+}
 
 inline void Position::xor_piece(Piece pc, Square sq)
 {

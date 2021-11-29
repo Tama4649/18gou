@@ -5,12 +5,15 @@
 
 // Windows以外の環境は未サポート
 
+#include <sstream>
+#include "../../position.h"
+
 namespace YaneuraouTheCluster
 {
 	// cluster時のUSIメッセージの処理ループ
 	void cluster_usi_loop(Position& pos, std::istringstream& is)
 	{
-		cout << "YaneuraouTheCluster does not work on non-Windows systems now." << endl;
+		std::cout << "YaneuraouTheCluster does not work on non-Windows systems now." << std::endl;
 	}
 }
 
@@ -57,7 +60,7 @@ namespace YaneuraouTheCluster
 //   yane-cluster.bat cluster
 // とすればいいと思う。
 
-#include <istream>
+#include <sstream>
 #include <thread>
 #include <variant>
 #include "../../position.h"

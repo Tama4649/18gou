@@ -32,7 +32,7 @@ namespace Zobrist {
 // ----------------------------------
 
 // 王手情報の初期化
-template <bool doNullMove>
+template <bool doNullMove , Color Us>
 void Position::set_check_info(StateInfo* si) const {
 
 	//: si->blockersForKing[WHITE] = slider_blockers(pieces(BLACK), square<KING>(WHITE),si->pinners[WHITE]);
@@ -56,18 +56,18 @@ void Position::set_check_info(StateInfo* si) const {
 	// そういう意味で(ksq,them)となっている。
 
 	Bitboard occ = pieces();
-	Color them = ~sideToMove;
+	constexpr Color Them = ~Us;
 
 	// この指し手が二歩でないかは、この時点でテストしない。指し手生成で除外する。なるべくこの手のチェックは遅延させる。
-	si->checkSquares[PAWN]   = pawnEffect(them, ksq);
-	si->checkSquares[KNIGHT] = knightEffect(them, ksq);
-	si->checkSquares[SILVER] = silverEffect(them, ksq);
-	si->checkSquares[BISHOP] = bishopEffect(ksq, occ);
-	si->checkSquares[ROOK]   = rookEffect(ksq, occ);
-	si->checkSquares[GOLD]   = goldEffect(them, ksq);
+	si->checkSquares[PAWN]   = pawnEffect<Them>  (ksq);
+	si->checkSquares[KNIGHT] = knightEffect<Them>(ksq);
+	si->checkSquares[SILVER] = silverEffect<Them>(ksq);
+	si->checkSquares[BISHOP] = bishopEffect      (ksq, occ);
+	si->checkSquares[ROOK]   = rookEffect        (ksq, occ);
+	si->checkSquares[GOLD]   = goldEffect<Them>  (ksq);
 
 	// 香で王手になる升は利きを求め直さずに飛車で王手になる升を香のstep effectでマスクしたものを使う。
-	si->checkSquares[LANCE]  = si->checkSquares[ROOK] & lanceStepEffect(them,ksq);
+	si->checkSquares[LANCE]  = si->checkSquares[ROOK] & lanceStepEffect<Them>(ksq);
 
 	// 王を移動させて直接王手になることはない。それは自殺手である。
 	si->checkSquares[KING]   = ZERO_BB;
@@ -646,33 +646,6 @@ Bitboard Position::slider_blockers(Color c, Square s , Bitboard& pinners) const 
 }
 
 
-// sに利きのあるc側の駒を列挙する。
-// (occが指定されていなければ現在の盤面において。occが指定されていればそれをoccupied bitboardとして)
-Bitboard Position::attackers_to(Color c, Square sq, const Bitboard& occ) const
-{
-	ASSERT_LV3(is_ok(c) && sq <= SQ_NB);
-
-	Color them = ~c;
-
-	// sの地点に敵駒ptをおいて、その利きに自駒のptがあればsに利いているということだ。
-	// 香の利きを求めるコストが惜しいのでrookEffect()を利用する。
-	return
-		(     (pawnEffect(them, sq)		&  pieces(PAWN)        )
-			| (knightEffect(them, sq)	&  pieces(KNIGHT)      )
-			| (silverEffect(them, sq)	&  pieces(SILVER_HDK)  )
-			| (goldEffect(them, sq)		&  pieces(GOLDS_HDK)   )
-			| (bishopEffect(sq, occ)	&  pieces(BISHOP_HORSE))
-			| (rookEffect(sq, occ)		& (
-					pieces(ROOK_DRAGON)
-				|  (lanceStepEffect(them,sq) & pieces(LANCE))
-			  ))
-		//  | (kingEffect(sq) & pieces(c, HDK));
-		// →　HDKは、銀と金のところに含めることによって、参照するテーブルを一個減らして高速化しようというAperyのアイデア。
-			) & pieces(c); // 先後混在しているのでc側の駒だけ最後にマスクする。
-		;
-
-}
-
 // sに利きのあるc側の駒を列挙する。先後両方。
 // (occが指定されていなければ現在の盤面において。occが指定されていればそれをoccupied bitboardとして)
 // sq == SQ_NBでの呼び出しは合法。ZERO_BBが返る。
@@ -683,26 +656,26 @@ Bitboard Position::attackers_to(Square sq, const Bitboard& occ) const
 	// sqの地点に敵駒ptをおいて、その利きに自駒のptがあればsqに利いているということだ。
 	return
 		// 先手の歩・桂・銀・金・HDK
-		((    (pawnEffect(WHITE, sq)   & pieces(PAWN)        )
-			| (knightEffect(WHITE, sq) & pieces(KNIGHT)      )
-			| (silverEffect(WHITE, sq) & pieces(SILVER_HDK)  )
-			| (goldEffect(WHITE, sq)   & pieces(GOLDS_HDK)   )
-			) & pieces(BLACK))
+		((    (pawnEffect  <WHITE>(sq) & pieces(PAWN)        )
+			| (knightEffect<WHITE>(sq) & pieces(KNIGHT)      )
+			| (silverEffect<WHITE>(sq) & pieces(SILVER_HDK)  )
+			| (goldEffect  <WHITE>(sq) & pieces(GOLDS_HDK)   )
+			) & pieces<BLACK>())
 		|
 
 		// 後手の歩・桂・銀・金・HDK
-		((    (pawnEffect(BLACK, sq)   & pieces(PAWN)        )
-			| (knightEffect(BLACK, sq) & pieces(KNIGHT)      )
-			| (silverEffect(BLACK, sq) & pieces(SILVER_HDK)  )
-			| (goldEffect(BLACK, sq)   & pieces(GOLDS_HDK)   )
-			) & pieces(WHITE))
+		((    (pawnEffect  <BLACK>(sq) & pieces(PAWN)        )
+			| (knightEffect<BLACK>(sq) & pieces(KNIGHT)      )
+			| (silverEffect<BLACK>(sq) & pieces(SILVER_HDK)  )
+			| (goldEffect  <BLACK>(sq) & pieces(GOLDS_HDK)   )
+			) & pieces<WHITE>())
 
 		// 先後の角・飛・香
 		| (bishopEffect(sq, occ) & pieces(BISHOP_HORSE) )
 		| (rookEffect(sq, occ) & (
 			   pieces(ROOK_DRAGON)
-			| (pieces(BLACK , LANCE) & lanceStepEffect(WHITE , sq))
-			| (pieces(WHITE , LANCE) & lanceStepEffect(BLACK , sq))
+			| (pieces(BLACK , LANCE) & lanceStepEffect<WHITE>(sq))
+			| (pieces(WHITE , LANCE) & lanceStepEffect<BLACK>(sq))
 			// 香も、StepEffectでマスクしたあと飛車の利きを使ったほうが香の利きを求めなくて済んで速い。
 			));
 }
@@ -2477,6 +2450,30 @@ bool Position::pos_is_ok() const
 //			UnitTest
 // ----------------------------------
 
+namespace {
+	// performance test
+	// ある局面から、全合法手を生成して depth深さまで辿り、局面数がいくらあったかを返す。
+	u64 perft(Position& pos, Depth depth)
+	{
+		StateInfo st;
+		u64 cnt, nodes = 0;
+
+		auto ml = MoveList<LEGAL_ALL>(pos);
+		if (depth == 1)
+			return ml.size();
+
+		const bool leaf = (depth == 2);
+		for (const auto& m : ml)
+		{
+			pos.do_move(m, st);
+			cnt = leaf ? MoveList<LEGAL_ALL>(pos).size() : perft(pos, depth - 1);
+			nodes += cnt;
+			pos.undo_move(m);
+		}
+		return nodes;
+	};
+}
+
 void Position::UnitTest(Test::UnitTester& tester)
 {
 	auto section1 = tester.section("Position");
@@ -2496,6 +2493,10 @@ void Position::UnitTest(Test::UnitTester& tester)
 	// 4枚落ち初期化
 	auto handi4_sfen = "1nsgkgsn1/9/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL w - 1";
 	auto handi4_init = [&] { pos.set(handi4_sfen, &si, Threads.main()); };
+
+	// 指し手生成祭りの局面
+	auto matsuri_sfen = "l6nl/5+P1gk/2np1S3/p1p4Pp/3P2Sp1/1PPb2P1P/P5GS1/R8/LN4bKL w GR5pnsg 1";
+	auto matsuri_init = [&] { pos.set(matsuri_sfen, &si, Threads.main()); };
 
 	Move16 m16;
 	Move m;
@@ -2621,8 +2622,39 @@ void Position::UnitTest(Test::UnitTester& tester)
 			handi4_init();
 			tester.test("handi4", limits.enteringKingPoint[BLACK] == 31 && limits.enteringKingPoint[WHITE] == 19);
 		}
-
 	}
+
+	{
+		auto section2 = tester.section("Perft");
+
+		{
+			auto section3 = tester.section("hirate");
+			hirate_init();
+			const s64 p_nodes[] = { 0 , 30 , 900, 25470, 719731, 19861490, 547581517 };
+
+			for (Depth d = 1; d <= 6; ++d)
+			{
+				u64 nodes = perft(pos, d);
+				u64 pn = p_nodes[d];
+				tester.test("depth " + to_string(d) + " = " + to_string(pn), nodes == pn);
+			}
+		}
+
+		{
+			auto section3 = tester.section("matsuri");
+			matsuri_init();
+
+			const s64 p_nodes[] = { 0 , 207 , 28684, 4810133, 517050879};
+
+			for (Depth d = 1; d <= 4; ++d)
+			{
+				u64 nodes = perft(pos, d);
+				u64 pn = p_nodes[d];
+				tester.test("depth " + to_string(d) + " = " + to_string(nodes), nodes == pn);
+			}
+		}
+	}
+
 
 #if 0
 	// ランダムプレイヤーでの対局

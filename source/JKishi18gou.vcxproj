@@ -1,17 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-CPU' Or '$(Configuration)'=='Release-Deep-ORT-CPU') And Exists('..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.props')" />
-  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-DML' Or '$(Configuration)'=='Release-Deep-ORT-DML') And Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props')" />
-  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-CUDA' Or '$(Configuration)'=='Release-Deep-ORT-CUDA') And Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.props')" />
+  <Import Project="..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-DML' Or '$(Configuration)'=='Release-Deep-ORT-DML') And Exists('..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.props')" />
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-CPU' Or '$(Configuration)'=='Release-Deep-ORT-CPU') And Exists('..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.props')" />
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-DML' Or '$(Configuration)'=='Release-Deep-ORT-DML') And Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props')" />
+  <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-TRT' Or '$(Configuration)'=='Release-Deep-ORT-TRT') And Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.props')" />
   <Import Project="..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-MKL' Or '$(Configuration)'=='Release-Deep-ORT-MKL') And Exists('..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.props')" />
-  <Import Project="..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.props" Condition="('$(Configuration)'=='Debug-Deep-ORT-DML' Or '$(Configuration)'=='Release-Deep-ORT-DML') And Exists('..\packages\Microsoft.AI.DirectML.1.4.0\build\Microsoft.AI.DirectML.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug-Deep-ORT-CPU|x64">
       <Configuration>Debug-Deep-ORT-CPU</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug-Deep-ORT-CUDA|x64">
-      <Configuration>Debug-Deep-ORT-CUDA</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug-Deep-ORT-DML|x64">
@@ -20,6 +16,14 @@
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug-Deep-ORT-MKL|x64">
       <Configuration>Debug-Deep-ORT-MKL</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-Deep-ORT-TRT|x64">
+      <Configuration>Debug-Deep-ORT-TRT</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-Deep-TensorRT|x64">
+      <Configuration>Debug-Deep-TensorRT</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug-Material|x64">
@@ -50,16 +54,16 @@
       <Configuration>Release-Deep-ORT-CPU</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release-Deep-ORT-CUDA|x64">
-      <Configuration>Release-Deep-ORT-CUDA</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release-Deep-ORT-DML|x64">
       <Configuration>Release-Deep-ORT-DML</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release-Deep-ORT-MKL|x64">
       <Configuration>Release-Deep-ORT-MKL</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release-Deep-ORT-TRT|x64">
+      <Configuration>Release-Deep-ORT-TRT</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release-Deep-TensorRT|x64">
@@ -215,13 +219,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-CPU|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-CUDA|x64'" Label="Configuration">
-    <PlatformToolset>v142</PlatformToolset>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-DML|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-MKL|x64'" Label="Configuration">
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-TRT|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-TensorRT|x64'" Label="Configuration">
@@ -230,13 +234,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-CPU|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-CUDA|x64'" Label="Configuration">
-    <PlatformToolset>v142</PlatformToolset>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-DML|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-MKL|x64'" Label="Configuration">
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-TRT|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-TensorRT|x64'" Label="Configuration">
@@ -255,186 +259,193 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-tanuki-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-tanuki-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuEdition-tanuki-mate.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-JKishi18gou-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuEdition-mate.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuEdition-user.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPPT.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-KPPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-KPP_KKPT|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-KPP_KKPT.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-KPP_KKPT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-sse42.props" />
+    <Import Project="props\YaneuraOuEdition-NNUE.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-tanuki-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-tanuki-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuEdition-tanuki-mate.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-JKishi18gou-mate|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-mate.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuEdition-mate.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Material|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-Material.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuEdition-Material.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Material|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouEdition-Material.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuEdition-Material.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuEdition-user.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-user-sse42|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouEdition-user.props" />
-    <Import Project="props\JKishi18gouCpu-x64-sse42.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuEdition-user.props" />
+    <Import Project="props\YaneuraOuCpu-x64-sse42.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-TensorRT|x64'">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-TensorRT.props" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-TensorRT|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-TensorRT.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-TensorRT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-CPU|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-CPU.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets')" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-CUDA|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-CUDA.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" />
+    <Import Project="props\JKishi18o\gou-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-CPU.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-DML|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-DML.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" />
-    <Import Project="..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets" Condition="Exists('..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets')" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\JKishii18gouEdition-Deep-ORT-DML.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" />
+    <Import Project="..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets" Condition="Exists('..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets')" />
+>>>>>>> refs/remotes/origin/master:source/YaneuraOu.vcxproj
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-MKL|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-MKL.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-MKL.props" />
     <Import Project="..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets')" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-ORT-TRT|x64'" Label="PropertySheets">
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-TRT.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-Deep-TensorRT|x64'" Label="PropertySheets">
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-TensorRT.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-CPU|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-CPU.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets')" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-CUDA|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-CUDA.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-CPU.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-DML|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-DML.props" />
-    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" />
-    <Import Project="..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets" Condition="Exists('..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets')" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-DML.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" />
+    <Import Project="..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets" Condition="Exists('..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-MKL|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gouEdition-Deep-ORT-MKL.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-MKL.props" />
     <Import Project="..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets')" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-ORT-TRT|x64'" Label="PropertySheets">
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-ORT-TRT.props" />
+    <Import Project="..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets" Condition="Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-Deep-TensorRT|x64'" Label="PropertySheets">
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOuEdition-Deep-TensorRT.props" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release-NNUE-LEARN|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-release-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gou-EvalLearn.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-release-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-EvalLearn.props" />
+    <Import Project="props\YaneuraOuEdition-NNUE.props" />
     <Import Project="..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets" Condition="Exists('..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets')" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-NNUE-LEARN|x64'" Label="PropertySheets">
-    <Import Project="props\JKishi18gou-common.props" />
-    <Import Project="props\JKishi18gouSolution-debug-x64.props" />
-    <Import Project="props\JKishi18gouCpu-x64-avx2.props" />
-    <Import Project="props\JKishi18gou-EvalLearn.props" />
-    <Import Project="props\JKishi18gouEdition-NNUE.props" />
+    <Import Project="props\YaneuraOu-common.props" />
+    <Import Project="props\YaneuraOuSolution-debug-x64.props" />
+    <Import Project="props\YaneuraOuCpu-x64-avx2.props" />
+    <Import Project="props\YaneuraOu-EvalLearn.props" />
+    <Import Project="props\YaneuraOuEdition-NNUE.props" />
     <Import Project="..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets" Condition="Exists('..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets')" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -599,6 +610,11 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-NNUE-LEARN|x64'">
     <ClCompile>
       <PreprocessorDefinitions>_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions);USE_BLAS</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -782,14 +798,14 @@
     <PropertyGroup>
       <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.AI.DirectML.1.5.1\build\Microsoft.AI.DirectML.targets'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.7.0\build\native\Microsoft.ML.OnnxRuntime.targets'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.7.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.props'))" />
-    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.7.1\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.AI.DirectML.1.7.0\build\Microsoft.AI.DirectML.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.1.9.0\build\native\Microsoft.ML.OnnxRuntime.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.DirectML.1.9.0\build\native\Microsoft.ML.OnnxRuntime.DirectML.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.Gpu.1.9.0\build\native\Microsoft.ML.OnnxRuntime.Gpu.targets'))" />
     <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.ML.OnnxRuntime.MKLML.1.6.0\build\native\Microsoft.ML.OnnxRuntime.MKLML.targets'))" />
     <Error Condition="!Exists('..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\OpenBLAS.0.2.14.1\build\native\openblas.targets'))" />

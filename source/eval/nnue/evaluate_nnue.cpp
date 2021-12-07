@@ -239,10 +239,6 @@ namespace Eval {
                     const std::string file_name = Path::Combine(dir_name, NNUE::kFileName);
                     std::ifstream stream(file_name, std::ios::binary);
                     sync_cout << "info string loading eval file : " << file_name << sync_endl;
-
-<<<<<<< HEAD
-		//	sync_cout << "info string loading eval file : " << file_name << sync_endl;
-=======
                     return NNUE::ReadParameters(stream);
                 }
                 else {
@@ -263,7 +259,6 @@ namespace Eval {
                     return NNUE::ReadParameters(stream);
                 }
             }();
->>>>>>> refs/remotes/origin/master
 
             //      ASSERT(result);
 

@@ -258,6 +258,9 @@ public:
 	Hand hand_of() const { ASSERT_LV3(is_ok(C));  return hand[C]; }
 
 	// c側の玉の位置を返す。
+	// Stockfishには
+	//   template<PieceType Pt> Square square(Color c) const
+	// というmethodがあるが、PtにはKINGしか渡せないので要らないと思う。
 	FORCE_INLINE Square king_square(Color c) const { ASSERT_LV3(is_ok(c)); return kingSquare[c]; }
 
 	// ↑のtemplate版
@@ -314,13 +317,6 @@ public:
 	// rep_ply         : 遡る手数。デフォルトでは16手。あまり大きくすると速度低下を招く。
 	RepetitionState is_repetition(int rep_ply = 16) const;
 
-#if defined(CUCKOO)
-	// この局面から以前と同一局面に到達する指し手があるか。
-	// plies_from_root : rootからの手数。ss->plyを渡すこと。
-	// rep_ply         : 遡る手数。デフォルトでは16手。あまり大きくすると速度低下を招く。
-	bool has_game_cycle(int plies_from_root , int rep_ply = 16) const;
-#endif
-
 	// --- Bitboard
 
 	// 先手か後手か、いずれかの駒がある場所が1であるBitboardが返る。
@@ -364,17 +360,6 @@ public:
 	Bitboard pieces(PieceType pr) const { return pieces(pr) & pieces(C); }
 	template<Color C,PieceType PR>
 	Bitboard pieces() const { return pieces(PR) & pieces(C); }
-
-	// --- 升
-
-	// ある駒の存在する升を返す
-	// 現状、Pt==KINGしか渡せない。Stockfishとの互換用。
-	template<PieceType Pt> Square square(Color c) const
-	{
-		static_assert(Pt == KING,"Pt must be a KING in Position::square().");
-		ASSERT_LV3(is_ok(c));
-		return king_square(c);
-	}
 
 	// --- 王手
 
@@ -842,7 +827,7 @@ inline Bitboard Position::attackers_to(Square sq, const Bitboard& occ) const
 template <Color C>
 Bitboard Position::pinned_pieces(Square avoid) const
 {
-	Bitboard b, pinners, result = ZERO_BB;
+	Bitboard b, pinners, result = Bitboard(ZERO);
 	Square ksq = king_square(C);
 
 	// avoidを除外して考える。
@@ -867,7 +852,7 @@ Bitboard Position::pinned_pieces(Square avoid) const
 // fromからtoに駒が移動したものと仮定して、pinを得る
 template <Color C>
 Bitboard Position::pinned_pieces(Square from, Square to) const {
-	Bitboard b, pinners, result = ZERO_BB;
+	Bitboard b, pinners, result = Bitboard(ZERO);
 	Square ksq = king_square(C);
 
 	// avoidを除外して考える。

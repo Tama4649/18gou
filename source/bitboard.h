@@ -8,7 +8,11 @@
 // --------------------
 
 // Bitboard関連のテーブル初期化のための関数
-namespace Bitboards { void init(); }
+namespace Bitboards { extern void init(); }
+
+// Bitboardをゼロクリアするコンストラクタに指定する引数
+// 例) Bitboard(ZERO) のように指定するとゼロクリアされたBitboardが出来上がる。
+enum BitboardZero{ ZERO };
 
 // Bitboardクラスは、コンストラクタでの初期化が保証できないので(オーバーヘッドがあるのでやりたくないので)
 // GCC 7.1.0以降で警告が出るのを回避できない。ゆえに、このクラスではこの警告を抑制する。
@@ -21,10 +25,12 @@ namespace Bitboards { void init(); }
 struct alignas(16) Bitboard
 {
 #if defined (USE_SSE2)
-/*
+
 	union
 	{
 		// 64bitずつとして扱うとき用
+		// SSE4.1以上なら、このメンバを用いずに 変数m の方を用いて、一貫して128bitレジスタとして扱ったほうが良いと思う。
+
 		u64 p[2];
 
 		// SSEで取り扱い時用
@@ -33,13 +39,11 @@ struct alignas(16) Bitboard
 		//
 		// ただしbit63は未使用。これは、ここを余らせることで香の利きや歩の打てる場所を求めやすくする。
 		// Aperyを始めとするmagic bitboard派によって考案された。
+
+		// ここから上位/下位64bitを取り出すのは、メンバのextract()を使うべし。
+
 		__m128i m;
 	};
-*/
-	// unionにすると最適化を阻害されてしまうことがある。
-	// 128bitレジスタとして扱い続けたほうが良い。
-	// ここから上位/下位64bitを取り出すのはメンバのextract()を使うべし。
-	__m128i m;
 
 #else // no SSE
 	u64 p[2];
@@ -57,6 +61,20 @@ struct alignas(16) Bitboard
 
 	// 初期化しない。このとき中身は不定。
 	Bitboard() {}
+
+	// ゼロクリアされたBitboard
+	// 引数は、ダミーの型。
+	//   Bitboard x(ZERO);
+	// のように使う。
+	Bitboard(BitboardZero)
+	{
+#if defined (USE_SSE2)
+		// xorでclearするのがメモリ参照がなくて速いはず。
+		m = _mm_xor_si128(m, m);
+#else
+		p[0] = p[1] = 0;
+#endif
+	}
 
 	// p[0],p[1]の値を直接指定しての初期化。(Bitboard定数の初期化のときのみ用いる)
 	Bitboard(u64 p0, u64 p1);
@@ -82,6 +100,7 @@ struct alignas(16) Bitboard
 	// p[n]を取り出す。SSE4の命令が使えるときはそれを使う。
 	template <int n> u64 extract64() const;
 
+	// p[n]を取り出す。nがtemplate引数でないバージョン。
 	u64 extract64(int n) const { return n == 0 ? extract64<0>() : extract64<1>(); }
 
 	// p[n]に値を設定する。SSE4の命令が使えるときはそれを使う。
@@ -323,6 +342,8 @@ inline Bitboard::Bitboard(Square sq) { *this = SquareBB[sq]; }
 extern Bitboard ALL_BB;
 
 // 全升が0であるBitboard
+// →　Bitboard(ZERO)を用いた方が、メモリ参照がなくて速い。
+//     ZERO_BBはテーブル初期化以外では使わないように。
 extern Bitboard ZERO_BB;
 
 // Square型との演算子
@@ -336,7 +357,7 @@ inline Bitboard operator ~ (const Bitboard& a) { return a ^ ALL_BB; }
 
 // range-forで回せるようにするためのhack(少し遅いので速度が要求されるところでは使わないこと)
 inline const Bitboard begin(const Bitboard& b) { return b; }
-inline const Bitboard end(const Bitboard&) { return ZERO_BB; }
+inline const Bitboard end(const Bitboard&) { return Bitboard(ZERO); }
 
 // Bitboardの1の升を'*'、0の升を'.'として表示する。デバッグ用。
 std::ostream& operator<<(std::ostream& os, const Bitboard& board);
@@ -674,7 +695,7 @@ inline Bitboard pawnBbEffect(const Bitboard& bb)
 	return
 		C == BLACK ? (bb >> 1) :
 		C == WHITE ? (bb << 1) :
-		ZERO_BB;
+		Bitboard(ZERO);
 }
 
 // ↑の非template版

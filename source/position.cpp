@@ -44,11 +44,13 @@ void Position::set_check_info(StateInfo* si) const {
 	if (!doNullMove)
 	{
 		// null moveのときは前の局面でこの情報は設定されているので更新する必要がない。
-		si->blockersForKing[WHITE] = slider_blockers(BLACK, square<KING>(WHITE), si->pinners[WHITE]);
-		si->blockersForKing[BLACK] = slider_blockers(WHITE, square<KING>(BLACK), si->pinners[BLACK]);
+		si->blockersForKing[WHITE] = slider_blockers(BLACK, king_square(WHITE), si->pinners[WHITE]);
+		si->blockersForKing[BLACK] = slider_blockers(WHITE, king_square(BLACK), si->pinners[BLACK]);
 	}
 
-	Square ksq = square<KING>(~sideToMove);
+	constexpr Color Them = ~Us;
+
+	Square ksq = king_square(Them);
 
 	// 駒種Xによって敵玉に王手となる升のbitboard
 
@@ -56,7 +58,6 @@ void Position::set_check_info(StateInfo* si) const {
 	// そういう意味で(ksq,them)となっている。
 
 	Bitboard occ = pieces();
-	constexpr Color Them = ~Us;
 
 	// この指し手が二歩でないかは、この時点でテストしない。指し手生成で除外する。なるべくこの手のチェックは遅延させる。
 	si->checkSquares[PAWN]   = pawnEffect<Them>  (ksq);
@@ -70,7 +71,7 @@ void Position::set_check_info(StateInfo* si) const {
 	si->checkSquares[LANCE]  = si->checkSquares[ROOK] & lanceStepEffect<Them>(ksq);
 
 	// 王を移動させて直接王手になることはない。それは自殺手である。
-	si->checkSquares[KING]   = ZERO_BB;
+	si->checkSquares[KING]   = Bitboard(ZERO);
 
 	// 成り駒。この初期化は馬鹿らしいようだが、gives_check()は指し手ごとに呼び出されるので、その処理を軽くしたいので
 	// ここでの初期化は許容できる。(このコードはdo_move()に対して1回呼び出されるだけなので)
@@ -85,26 +86,6 @@ void Position::set_check_info(StateInfo* si) const {
 // ----------------------------------
 //       Zorbrist keyの初期化
 // ----------------------------------
-
-#if defined(CUCKOO)
-// Marcel van Kervinck's cuckoo algorithm for fast detection of "upcoming repetition"
-// situations. Description of the algorithm in the following paper:
-// https://marcelk.net/2013-04-06/paper/upcoming-rep-v2.pdf
-
-// Stockfishの2倍の配列を確保
-
-// First and second hash functions for indexing the cuckoo tables
-inline int H1(Key h) { return h & 0x3fff; }
-inline int H2(Key h) { return (h >> 16) & 0x3fff; }
-
-// Cuckoo tables with Zobrist hashes of valid reversible moves, and the moves themselves
-Key cuckoo[8192*2];
-Move cuckooMove[8192*2];
-
-//  →　cuckooアルゴリズムとやらで、千日手局面に到達する指し手の検出が高速化できるらしい。
-// (数手前の局面と現在の局面の差が、ある駒の移動(+捕獲)だけであることが高速に判定できれば、
-// 　早期枝刈りとしてdraw_valueを返すことができる。)
-#endif
 
 void Position::init() {
 	PRNG rng(20151225); // 開発開始日 == 電王トーナメント2015,最終日
@@ -130,60 +111,6 @@ void Position::init() {
 
 	for (int i = 0; i < MAX_PLY; ++i)
 		SET_HASH(Zobrist::depth[i], rng.rand<Key>() & ~1ULL, rng.rand<Key>(), rng.rand<Key>(), rng.rand<Key>());
-
-#if defined(CUCKOO)
-	// Prepare the cuckoo tables
-	std::memset(cuckoo, 0, sizeof(cuckoo));
-	std::memset(cuckooMove, 0, sizeof(cuckooMove));
-	int count = 0;
-	// 重複カウント用
-	int count2 = 0;
-	for (auto pc : Piece())
-	{
-		auto pt = type_of(pc);
-		if (!(pt == PAWN || pt == LANCE || pt == KNIGHT || pt == SILVER || pt == GOLD || pt == BISHOP || pt == ROOK || pt == KING
-			|| pt == PRO_PAWN || pt == PRO_LANCE || pt == PRO_KNIGHT || pt == PRO_SILVER || pt == HORSE || pt == DRAGON))
-			continue;
-
-		// 将棋だとチェスと異なり、from →　toに動かせるからと言ってto→fromに動かせるとは限らないので
-		// ここのコード、ずいぶん違ってくる。
-		for (auto s1 : SQ)
-			for (Square s2 : SQ)
-				if (effects_from(pc, s1, ZERO_BB) & s2)
-				{
-					Move move = (Move)(make_move(s1, s2) + (pc << 16));
-					// 手番のところ使わない。無視するために潰す。
-					Key key = (Zobrist::psq[s2][pc] - Zobrist::psq[s1][pc]) >> 1/* Zobrist::side*/;
-					int i = H1(key);
-					while (true)
-					{
-						std::swap(cuckoo[i], key);
-						std::swap(cuckooMove[i], move);
-						if (move == MOVE_NONE) // Arrived at empty slot?
-							break;
-
-						//i = (i == H1(key)) ? H2(key) : H1(key); // Push victim to alternative slot
-						// →　これ、テーブル小さいので衝突しつづける…(´ω｀)　H1になかったらH2でええで..
-
-						i = H2(key);
-						std::swap(cuckoo[i], key);
-						std::swap(cuckooMove[i], move);
-
-						if (move != MOVE_NONE)
-							count2++;
-
-						break;
-					}
-					count++;
-				}
-	}
-	//assert(count == 3668); // chessの場合
-
-	// cout << "count = " << count << " , count2 = " << count2 << endl;
-	// chessの2倍の配列時 : count = 16456 , count2 = 4499 
-	// chessの4倍の配列時 : count = 16456 , count2 = 1623
-	ASSERT_LV3(count == 16456);
-#endif
 }
 
 // depthに応じたZobrist Hashを得る。depthを含めてhash keyを求めたいときに用いる。
@@ -605,11 +532,11 @@ std::string Position::moves_from_start(bool is_pretty) const
 
 Bitboard Position::slider_blockers(Color c, Square s , Bitboard& pinners) const {
 
-	Bitboard blockers = ZERO_BB;
+	Bitboard blockers(ZERO);
 
 	// pinnersは返し値。
-	pinners = ZERO_BB;
-
+	pinners = Bitboard(ZERO);
+	
 	// cが与えられていないと香の利きの方向を確定させることが出来ない。
 	// ゆえに将棋では、この関数は手番を引数に取るべき。(チェスとはこの点において異なる。)
 
@@ -727,9 +654,9 @@ bool Position::gives_check(Move m) const
 
 	// 開き王手になる駒の候補があるとして、fromにあるのがその駒で、fromからtoは玉と直線上にないなら
 	// 前提条件より、fromにあるのが自駒であることは確定しているので、pieces(sideToMove)は不要。
-	return !is_drop(m)
+	return  !is_drop(m)
 		&& (((blockers_for_king(~sideToMove) /*& pieces(sideToMove)*/) & from)
-		&& !aligned(from, to, square<KING>(~sideToMove)));
+		&&  !aligned(from, to, king_square(~sideToMove)));
 }
 
 // 現局面で指し手がないかをテストする。指し手生成ルーチンを用いるので速くない。探索中には使わないこと。
@@ -1044,7 +971,7 @@ bool Position::legal(Move m) const
 		Square from = from_sq(m);
 
 		ASSERT_LV5(color_of(piece_on(from_sq(m))) == us);
-		ASSERT_LV5(piece_on(square<KING>(us)) == make_piece(us, KING));
+		ASSERT_LV5(piece_on(king_square(us)) == make_piece(us, KING));
 
 		// もし移動させる駒が玉であるなら、行き先の升に相手側の利きがないかをチェックする。
 		if (type_of(piece_on(from)) == KING)
@@ -1052,8 +979,8 @@ bool Position::legal(Move m) const
 
 		// blockers_for_king()は、pinされている駒(自駒・敵駒)を表現するが、fromにある駒は自駒であることは
 		// わかっているのでこれで良い。
-		return   !(blockers_for_king(us) & from)
-			|| aligned(from, to_sq(m), square<KING>(us));
+		return !(blockers_for_king(us) & from)
+			 || aligned(from, to_sq(m), king_square(us));
 	}
 }
 
@@ -1105,6 +1032,8 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 	ASSERT_LV3(is_ok(m));
 
 	ASSERT_LV3(&new_st != st);
+
+	constexpr Color Them = ~Us;
 
 	// 探索ノード数 ≒do_move()の呼び出し回数のインクリメント。
 	thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
@@ -1158,7 +1087,7 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 
 	// 直前の指し手を保存するならばここで行なう。
 
-#if defined (KEEP_LAST_MOVE)
+#if defined(KEEP_LAST_MOVE)
 	st->lastMove = m;
 	st->lastMovedPieceType = is_drop(m) ? (PieceType)from_sq(m) : type_of(piece_on(from_sq(m)));
 #endif
@@ -1233,7 +1162,7 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 			// 前ノードの値に対して、" + 2 "しないといけない。
 
 		} else {
-			st->checkersBB = ZERO_BB;
+			st->checkersBB = Bitboard(ZERO);
 			st->continuousCheck[Us] = 0;
 		}
 
@@ -1375,20 +1304,21 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 		// 王手している駒のbitboardを更新する。
 		if (givesCheck)
 		{
-			// 高速化のためにごにょごにょ。
 #if 1
+			// 高速化のために差分更新する時用
+
 			const StateInfo* prevSt = st->previous;
 
 			// 1) 直接王手であるかどうかは、移動によって王手になる駒別のBitboardを調べればわかる。
 			st->checkersBB = prevSt->checkSquares[type_of(moved_after_pc)] & to;
 
 			// 2) 開き王手になるのか
-			const Square ksq = king_square(~Us);
+			const Square ksq = king_square(Them);
 			// pos->discovered_check_candidates()で取得したいが、もうstを更新してしまっているので出来ないので
 			// prevSt->blockersForKing[~Us] & pieces(Us)と愚直に書く。
 			// また、pieces(Us)のうち今回移動させる駒は、実はすでに移動させてしまっているので、fromと書く。
 
-			if (discovered(from, to, ksq, prevSt->blockersForKing[~Us] & from))
+			if (discovered(from, to, ksq, prevSt->blockersForKing[Them] & from))
 			{
 				auto directions = directions_of(from, ksq);
 				switch (pop_directions(directions)) {
@@ -1398,28 +1328,27 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 					// 敵玉はpieces(Us)なので含まれないはずであり、結果として自分の開き王手している駒だけが足される。
 
 					// rookEffect()を用いると、香での王手に対応するのが難しくなるので、
-					// 縦と横を場合分けするほうが簡単
+					// 利きの方向ごとに場合分けするほうが簡単
 
-				case DIRECT_U: case DIRECT_D:
-					st->checkersBB |= rookFileEffect(from, pieces()) & pieces(Us); break;
+					//   玉
+					//   □
+					//   駒 ← 今回動かした駒のfrom
+					//   □
+					//   香
+					// のようになっているとして、駒のfromから見て玉が上(DIRECT_U)にあるということは、
+					// 駒のfromの下に王手している駒があって、それによって開き王手になったということ。
+					// だから、DIRECT_Uならその反対方向である下方向に駒を探さないといけない。
+
+				case DIRECT_U:
+					st->checkersBB |= lanceEffect<WHITE>(from, pieces()) & pieces<Us>(); break;
+				case DIRECT_D:
+					st->checkersBB |= lanceEffect<BLACK>(from, pieces()) & pieces<Us>(); break;
 
 					// 横に利く遠方駒は飛車(+龍)しかないので、玉の位置から飛車の利きを求めてその利きのなかにいる飛車を足す。
 					// →　飛車の横だけの利きを求める関数を用意したので、それを用いると上と同様の手法で求まる。
 
 				case DIRECT_R: case DIRECT_L:
-					st->checkersBB |= rookRankEffect(from, pieces()) & pieces(Us); break;
-
-
-#if defined(USE_OLD_YANEURAOU_EFFECT)
-					// 斜めに利く遠方駒は角(+馬)しかないので、玉の位置から角の利きを求めてその利きのなかにいる角を足す。
-					// →　上と同様の方法が使える。discovered()により開き王手になることは確定している。
-
-				case DIRECT_RU: case DIRECT_LD:
-					st->checkersBB |= bishopEffect0(from, pieces()) & pieces(Us); break;
-
-				case DIRECT_RD: case DIRECT_LU:
-					st->checkersBB |= bishopEffect1(from, pieces()) & pieces(Us); break;
-#else
+					st->checkersBB |= rookRankEffect(from, pieces()) & pieces<Us>(); break;
 
 				// magic bitboardを用いる場合の処理
 
@@ -1430,29 +1359,28 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 
 				case DIRECT_RU: case DIRECT_LD:
 				case DIRECT_RD: case DIRECT_LU:
-					st->checkersBB |= bishopEffect(ksq, pieces()) & pieces(Us, BISHOP_HORSE); break;
+					st->checkersBB |= bishopEffect(ksq, pieces()) & pieces<Us,BISHOP_HORSE>(); break;
 					
-#endif
 				default: UNREACHABLE;
 				}
 			}
 
 			// 差分更新したcheckersBBが正しく更新されているかをテストするためのassert
-			ASSERT_LV3(st->checkersBB == attackers_to(Us, king_square(~Us)));
+			ASSERT_LV3(st->checkersBB == attackers_to<Us>(king_square(Them)));
 #else
-			// 差分更新しないとき用。
-			st->checkersBB = attackers_to(Us, king_square(~Us));
+			// 差分更新しないとき用。(デバッグ等の目的で用いる)
+			st->checkersBB = attackers_to<Us>(king_square(Them));
 #endif
 			st->continuousCheck[Us] = prev->continuousCheck[Us] + 2;
 
 		} else {
 
-			st->checkersBB = ZERO_BB;
+			st->checkersBB = Bitboard(ZERO);
 			st->continuousCheck[Us] = 0;
 		}
 	}
 	// 相手番のほうは関係ないので前ノードの値をそのまま受け継ぐ。
-	st->continuousCheck[~Us] = prev->continuousCheck[~Us];
+	st->continuousCheck[Them] = prev->continuousCheck[Them];
 
 #if defined (USE_PIECE_VALUE)
 	st->materialValue = (Value)(st->previous->materialValue + (Us == BLACK ? materialDiff : -materialDiff));
@@ -1460,13 +1388,13 @@ void Position::do_move_impl(Move m, StateInfo& new_st, bool givesCheck)
 #endif
 
 	// 相手番に変更する。
-	sideToMove = ~Us;
+	sideToMove = Them;
 
 	// 更新されたhash keyをStateInfoに書き戻す。
 	st->board_key_ = k;
 	st->hand_key_ = h;
 
-	st->hand = hand[sideToMove];
+	st->hand = hand[Them];
 
 	// このタイミングで王手関係の情報を更新しておいてやる。
 	set_check_info<false>(st);
@@ -2082,72 +2010,6 @@ RepetitionState Position::is_repetition(int repPly /* = 16 */) const
 	// 同じhash keyの局面が見つからなかったので…。
 	return REPETITION_NONE;
 }
-
-#if defined(CUCKOO)
-// この局面から以前の局面に到達する指し手があるか。
-// ply : 遡る手数
-bool Position::has_game_cycle(int plies_from_root, int rep_ply /*= 16*/) const
-{
-	int j;
-
-	int end = std::min(/* st->rule50*/ rep_ply , st->pliesFromNull);
-
-	if (end < 3)
-		return false;
-
-	Key originalKey = st->key();
-	StateInfo* stp = st->previous;
-
-	for (int i = 3; i <= end; i += 2)
-	{
-		stp = stp->previous->previous;
-
-		// やねうら王ではZobrist Hashに足し算を使っているので、差を取る必要がある。
-		// bit 0はside(手番)なので、ここは削る。
-		Key moveKey = (stp->key() - originalKey) >> 1;
-		if ((j = H1(moveKey), cuckoo[j] == moveKey)
-			|| (j = H2(moveKey), cuckoo[j] == moveKey))
-		{
-			Move move = cuckooMove[j];
-			Square s1 = from_sq(move);
-			Square s2 = to_sq(move);
-			Piece pc = (Piece)(move >> 16);
-			if (piece_on(s1) != pc)
-				continue;
-
-			// 間に駒がないのでたぶんいける。開き王手とか知らん。
-			// ざっくりした枝刈りにしか使わないのでこのへんの判定甘くても問題ない。
-
-			// あと、連続王手による千日手到達に関してはdraw_value返すのはやめたほうが…。
-			// これは、rating下がりうる。王手の指し手ではないことを条件に含めないと。
-
-			if (!(between_bb(s1, s2) & pieces()))
-			{
-				if (plies_from_root > i)
-					return true;
-
-				// For repetitions before or at the root, require one more
-				// rootまでに指し手が見つかった場合、もう一度同じ局面に遭遇する必要がある。
-
-				// Stockfish10のコード
-				//if (stp->repetition)
-				//	return true;
-
-				// Stockfish9の時のコード。(StateInfo->repetitionを持っていないのでこんなコードになる)
-				StateInfo* next_stp = stp;
-				for (int k = i + 2; k <= end; k += 2)
-				{
-					next_stp = next_stp->previous->previous;
-					if (next_stp->key() == stp->key())
-						return true;
-				}
-
-			}
-		}
-	}
-	return false;
-}
-#endif
 
 // ----------------------------------
 //      入玉判定

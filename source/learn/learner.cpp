@@ -2272,8 +2272,8 @@ void shuffle_write(const string& output_file_name , PRNG& prng , vector<fstream>
 	u64 write_sfen_count = 0;
 
 	// 進捗をこの局面数ごとに画面に出力する。
-	// 1000万じゃデカすぎるので、1万にする。
-	const u64 buffer_size = 10000;
+	// 1000万じゃデカすぎるので、10万にする。
+	const u64 buffer_size = 100000;
 
 	auto print_status = [&]()
 	{

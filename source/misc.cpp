@@ -1142,7 +1142,7 @@ namespace SystemIO
 	{
 #if defined(_MSC_VER)
 		return _ftelli64(f);
-#elif defined(__GNUC__) && defined(IS_64BIT) && !(defined(__ANDROID__) && defined(__ANDROID_API__) && __ANDROID_API__ < 24)
+#elif defined(__GNUC__) && defined(IS_64BIT) && !(defined(__ANDROID__) && defined(__ANDROID_API__) && __ANDROID_API__ < 24) && !defined(__MACH__)
 		return ftello64(f);
 #else
 		return ftell(f);
@@ -1153,7 +1153,7 @@ namespace SystemIO
 	{
 #if defined(_MSC_VER)
 		return _fseeki64(f, offset, origin);
-#elif defined(__GNUC__) && defined(IS_64BIT) && !(defined(__ANDROID__) && defined(__ANDROID_API__) && __ANDROID_API__ < 24)
+#elif defined(__GNUC__) && defined(IS_64BIT) && !(defined(__ANDROID__) && defined(__ANDROID_API__) && __ANDROID_API__ < 24) && !defined(__MACH__)
 		return fseeko64(f, offset, origin);
 #else
 		return fseek(f, offset, origin);

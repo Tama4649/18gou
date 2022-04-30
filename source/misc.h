@@ -24,6 +24,9 @@ const std::string engine_info();
 // 使用したコンパイラについての文字列を返す。
 const std::string compiler_info();
 
+// config.hで設定した値などについて出力する。
+const std::string config_info();
+
 // --------------------
 //    prefetch命令
 // --------------------
@@ -115,9 +118,6 @@ void dbg_print();
 class RunningAverage {
 public:
 
-	// Constructor
-	RunningAverage() {}
-
 	// Reset the running average to rational value p / q
 	void set(int64_t p, int64_t q)
 	{
@@ -136,7 +136,12 @@ public:
 	// Test if average is strictly greater than rational a / b
 	bool is_greater(int64_t a, int64_t b)
 	{
-		return b * average > a * PERIOD * RESOLUTION;
+		return b * average > a * (PERIOD * RESOLUTION);
+	}
+
+	int64_t value() const
+	{
+		return average / (PERIOD * RESOLUTION);
 	}
 
 private:
@@ -144,6 +149,36 @@ private:
 	static constexpr int64_t RESOLUTION = 1024;
 	int64_t average;
 };
+
+//
+// 探索でtrendと楽観値の計算で用いるsigmoid関数。
+// →　やねうら王では使っていない。
+//
+/// sigmoid(t, x0, y0, C, P, Q) implements a sigmoid-like function using only integers,
+/// with the following properties:
+///
+///  -  sigmoid is centered in (x0, y0)
+///  -  sigmoid has amplitude [-P/Q , P/Q] instead of [-1 , +1]
+///  -  limit is (y0 - P/Q) when t tends to -infinity
+///  -  limit is (y0 + P/Q) when t tends to +infinity
+///  -  the slope can be adjusted using C > 0, smaller C giving a steeper sigmoid
+///  -  the slope of the sigmoid when t = x0 is P/(Q*C)
+///  -  sigmoid is increasing with t when P > 0 and Q > 0
+///  -  to get a decreasing sigmoid, change sign of P
+///  -  mean value of the sigmoid is y0
+///
+/// Use <https://www.desmos.com/calculator/jhh83sqq92> to draw the sigmoid
+
+inline int64_t sigmoid(int64_t t, int64_t x0,
+	int64_t y0,
+	int64_t  C,
+	int64_t  P,
+	int64_t  Q)
+{
+	ASSERT_LV3(C > 0);
+	ASSERT_LV3(Q != 0);
+	return y0 + P * (t - x0) / (Q * (std::abs(t - x0) + C));
+}
 
 // --------------------
 //  Time[ms] wrapper
@@ -310,8 +345,13 @@ struct Timer
 	// このシンボルが定義されていると、今回の思考時間を計算する機能が有効になる。
 #if defined(USE_TIME_MANAGEMENT)
 
-  // 今回の思考時間を計算して、optimum(),maximum()が値をきちんと返せるようにする。
+	// 今回の思考時間を計算して、optimum(),maximum()が値をきちんと返せるようにする。
+	// ※　ここで渡しているlimitsは、今回の探索の終わりまでなくならないものとする。
+	//    "ponderhit"でreinit()でこの変数を参照することがあるため。
 	void init(const Search::LimitsType& limits, Color us, int ply);
+
+	// ponderhitの時に残り時間が付与されている時(USI拡張)、再度思考時間を調整するために↑のinit()相当のことを行う。
+	void reinit() { init_(*lastcall_Limits, lastcall_Us, lastcall_Ply);}
 
 	TimePoint minimum() const { return minimumTime; }
 	TimePoint optimum() const { return optimumTime; }
@@ -336,6 +376,14 @@ private:
 
 	// 今回の残り時間 - Options["NetworkDelay2"]
 	TimePoint remain_time;
+
+	// init()の内部実装用。
+	void init_(const Search::LimitsType& limits, Color us, int ply);
+
+	// init()が最後に呼び出された時に各引数。これを保存しておき、reinit()の時にはこれを渡す。
+	Search::LimitsType* lastcall_Limits; // どこかに確保しっぱなしにするだろうからポインタでいいや…
+	Color lastcall_Us;
+	int lastcall_Ply;
 
 #endif
 
@@ -1000,6 +1048,9 @@ namespace StringExtension
 	// 文字列valueが、文字列endingで終了していればtrueを返す。
 	extern bool EndsWith(std::string const& value, std::string const& ending);
 
+	// 文字列sのなかに文字列tが含まれるかを判定する。含まれていればtrueを返す。
+	extern bool Contains(const std::string& s, const std::string& t);
+
 	// 文字列valueに対して文字xを文字yに置換した新しい文字列を返す。
 	extern std::string Replace(std::string const& value, char x, char y);
 
@@ -1137,6 +1188,33 @@ namespace Concurrent
 		std::mutex mutex_;
 	};
 }
+
+// --------------------
+// StandardInputWrapper
+// --------------------
+
+// 標準入力のwrapper
+// 事前にコマンドを積んだりできる。
+class StandardInput
+{
+public:
+	// 標準入力から1行もらう。Ctrl+Zが来れば"quit"が来たものとする。
+	// また先行入力でqueueに積んでおくことができる。(次のinput()で取り出される)
+	std::string input();
+
+	// 先行入力としてqueueに積む。(次のinput()で取り出される)
+	void push(const std::string& s);
+
+	// main()に引数として渡されたパラメーターを解釈してqueueに積む。
+	void parse_args(int argc, char* argv[]);
+
+private:
+	// 先行入力されたものを積んでおくqueue。
+	// これが尽きれば標準入力から入力する。
+	std::queue<std::string> cmds;
+};
+
+extern StandardInput std_input;
 
 // --------------------
 //     UnitTest

@@ -84,33 +84,11 @@
 #include "../book/book.h"
 #include "../learn/learn.h"
 #include "../mate/mate.h"
+#include "../engine/dlshogi-engine/dlshogi_min.h"
 
 using namespace std;
 using namespace Book;
 using namespace Concurrent; // concurrent library from misc.h
-
-// positionコマンドのparserを呼び出したい。
-extern void position_cmd(Position& pos, istringstream& is, StateListPtr& states);
-
-namespace dlshogi {
-	// 探索結果を返す。
-	//   Threads.start_thinking(pos, states , limits);
-	//   Threads.main()->wait_for_search_finished(); // 探索の終了を待つ。
-	// のようにUSIのgoコマンド相当で探索したあと、rootの各候補手とそれに対応する評価値を返す。
-	extern std::vector < std::pair<Move, float>> GetSearchResult();
-}
-
-namespace Eval::dlshogi {
-	// 価値(勝率)を評価値[cp]に変換。
-	// USIではcp(centi-pawn)でやりとりするので、そのための変換に必要。
-	// 	 eval_coef : 勝率を評価値に変換する時の定数。default = 756
-	// 
-	// 返し値 :
-	//   +29900は、評価値の最大値
-	//   -29900は、評価値の最小値
-	//   +30000,-30000は、(おそらく)詰みのスコア
-	Value value_to_cp(const float score, float eval_coef);
-}
 
 namespace MakeBook2021
 {
@@ -296,7 +274,7 @@ namespace MakeBook2021
 		// Nodeを新規に生成して、そのNode*を返す。
 		Node* create_node(Position& pos)
 		{
-			auto key = pos.long_key();
+			auto key = pos.hash_key();
 			auto r = hashkey_to_node.emplace(key, Node());
 			auto& node = r.first->second;
 			return &node;
@@ -305,7 +283,7 @@ namespace MakeBook2021
 		// Nodeを削除する。
 		void remove_node(Position& pos)
 		{
-			auto key = pos.long_key();
+			auto key = pos.hash_key();
 			hashkey_to_node.erase(key);
 		}
 
@@ -325,7 +303,7 @@ namespace MakeBook2021
 		// 指定された局面の情報を表示させてみる。(デバッグ用)
 		void dump(Position& pos)
 		{
-			auto key = pos.long_key();
+			auto key = pos.hash_key();
 
 			auto* node = probe(key);
 			if (node == nullptr)
@@ -353,7 +331,7 @@ namespace MakeBook2021
 			if (ply >= MAX_PLY)
 				return;
 
-			auto key = pos.long_key();
+			auto key = pos.hash_key();
 
 			auto* node = probe(key);
 			if (node == nullptr)
@@ -449,7 +427,7 @@ namespace MakeBook2021
 					// このnodeから1手進めて、次の局面のbestを広い、ponderを確定させる。
 					StateInfo si;
 					pos.set(sfen, &si, Threads.main());
-					HASH_KEY next_key = pos.long_key_after(pos.to_move(move));
+					HASH_KEY next_key = pos.hash_key_after(pos.to_move(move));
 					auto it = hashkey_to_node.find(next_key);
 					if (it != hashkey_to_node.end())
 						ponder = it->second.best_move;
@@ -655,14 +633,16 @@ namespace MakeBook2021 {
 			
 			// ↓の局面数を思考するごとにsaveする。
 			// 15分に1回ぐらいで良いような？
+			// 定跡ファイルが大きくなってきたら数時間に1回でいいと思う。
 			u64 book_save_interval = 30000/*nps*/ / nodes_limit * 30*60 /* 30分 */;
 
 			// 探索局面数
 			u64 think_limit = 10000000;
 
 			// 1つのroot局面に対して、何回ranged alpha searchを連続して行うのか。
-			// これ、同じ局面にhitし続けるようなら加算していくほうが健全だと思う。
-			u64 ranged_alpha_beta_loop = 5;
+			// このloop回数分は、Nodeの値を信じるかどうかを判定するためのgenerationが
+			// 変わらないので探索効率が良い。
+			u64 ranged_alpha_beta_loop = 100;
 
 			// ranged alpha beta searchの時に棋譜上に出現したleaf nodeに加点するスコア。
 			// そのleaf nodeが選ばれやすくなる。
@@ -841,7 +821,7 @@ namespace MakeBook2021 {
 				BookTools::feed_position_string(pos, root_sfen, si);
 
 				// Node is not found in Book DB , skipped.
-				if (pm.probe(pos.long_key()) == nullptr)
+				if (pm.probe(pos.hash_key()) == nullptr)
 					continue;
 
 				sync_cout << "[Step 1] set root , root sfen = " << root_sfen << sync_endl;
@@ -878,7 +858,7 @@ namespace MakeBook2021 {
 			auto append_to_kif_hash = [&](Position& pos) {
 				if (append_to_kif)
 				{
-					HASH_KEY key = pos.long_key();
+					HASH_KEY key = pos.hash_key();
 					if (kif_hash.find(key) == kif_hash.end())
 						kif_hash.emplace(key);
 				}
@@ -936,12 +916,12 @@ namespace MakeBook2021 {
 						if (search_pv.size() == 0)
 						{
 							// 空の指し手を積んでおく。
-							// こうしないとpopする回数と数が合わなくてdead lockになる。る
+							// こうしないとpopする回数と数が合わなくてdead lockになる。
 							search_nodes.push(SearchNode(nullptr,MOVE_NONE,HASH_KEY()));
 							continue;
 						}
 
-						const auto next = search_pv.back();
+						const auto& next = search_pv.back();
 
 						sync_cout << "leaf node , sfen = " << next.node->sfen << " , move = " << next.move << sync_endl;
 
@@ -960,9 +940,10 @@ namespace MakeBook2021 {
 			{
 				// 思考するための局面queueから取り出す。
 				auto s_node = search_nodes.pop();
-				// 空の局面(該当がなかった)
+				// 空の指し手(該当がなかった)
 				if (s_node.move == MOVE_NONE)
 					continue;
+
 				time.reset();
 				bool already_exists,banned_node=false;
 				think(pos,&s_node,already_exists);
@@ -997,7 +978,7 @@ namespace MakeBook2021 {
 			pos.set(rootSfen, &si, Threads.main());
 
 			// RootNode
-			Node* node = pm.probe(pos.long_key());
+			Node* node = pm.probe(pos.hash_key());
 			if (node == nullptr)
 			{
 				// これが存在しない時は、生成しなくてはならない。
@@ -1011,7 +992,7 @@ namespace MakeBook2021 {
 		ValueDepth search_start(Position& pos, Value alpha, Value beta)
 		{
 			// RootNode
-			Node* node = pm.probe(pos.long_key());
+			Node* node = pm.probe(pos.hash_key());
 
 			// →　存在は保証されている。
 			ASSERT_LV3(node != nullptr);
@@ -1176,7 +1157,7 @@ namespace MakeBook2021 {
 				size_t search_pv_index2 = search_pv.size();
 
 				// 指し手mで進めた時のhash key。
-				const HASH_KEY key_next = pos.long_key_after(m);
+				const HASH_KEY key_next = pos.hash_key_after(m);
 
 				Node* next_node = pm.probe(key_next);
 
@@ -1386,7 +1367,7 @@ namespace MakeBook2021 {
 			position_cmd(pos, is, states);
 
 			// すでにあるのでskip
-			Node* n = pm.probe(pos.long_key());
+			Node* n = pm.probe(pos.hash_key());
 
 			// すでに思考したあとの局面であった。
 			already_exists = (n != nullptr);
@@ -1401,7 +1382,8 @@ namespace MakeBook2021 {
 			//        探索結果の取得
 			// ================================
 
-			auto search_result = dlshogi::GetSearchResult();
+			std::vector<std::pair<Move, float>> search_result;
+			dlshogi::GetSearchResult(search_result);
 			Node* node_;
 
 			// 新規にNodeを作成してそこに書き出す

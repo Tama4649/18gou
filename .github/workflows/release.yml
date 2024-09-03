@@ -753,7 +753,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-windows
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-windows_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -791,7 +791,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-windows-material
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-windows-material_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -829,7 +829,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-windows-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-windows-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -869,7 +869,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-deep-windows
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-deep-windows_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -907,7 +907,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-android
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-android_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -945,7 +945,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-android-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-android-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -985,7 +985,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-macos
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-macos_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -1024,7 +1024,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-macos-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-macos-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -1065,7 +1065,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-wasm
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-wasm_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -1103,7 +1103,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-wasm-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-wasm-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -1143,7 +1143,7 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-wasm-suishopetite
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: build-wasm-suishopetite_${{ github.run_number }}_${{ github.sha }}
           path: release
@@ -1198,57 +1198,57 @@ jobs:
         with:
           path: main
       - name: Download artifact to get build-windows
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-windows_${{ github.run_number }}_${{ github.sha }}
           path: release-windows
       - name: Download artifact to get build-windows-material
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-windows-material_${{ github.run_number }}_${{ github.sha }}
           path: release-windows-material
       - name: Download artifact to get build-windows-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-windows-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release-windows-suisho
       - name: Download artifact to get build-deep-windows
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-deep-windows_${{ github.run_number }}_${{ github.sha }}
           path: release-deep-windows
       - name: Download artifact to get build-android
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-android_${{ github.run_number }}_${{ github.sha }}
           path: release-android
       - name: Download artifact to get build-android-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-android-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release-android-suisho
       - name: Download artifact to get build-macos
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-macos_${{ github.run_number }}_${{ github.sha }}
           path: release-macos
       - name: Download artifact to get build-macos-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-macos-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release-macos-suisho
       - name: Download artifact to get build-wasm
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-wasm_${{ github.run_number }}_${{ github.sha }}
           path: release-wasm
       - name: Download artifact to get build-wasm-suisho
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-wasm-suisho_${{ github.run_number }}_${{ github.sha }}
           path: release-wasm-suisho
       - name: Download artifact to get build-wasm-suishopetite
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: archive-wasm-suishopetite_${{ github.run_number }}_${{ github.sha }}
           path: release-wasm-suishopetite
